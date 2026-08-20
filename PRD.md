@@ -2,9 +2,10 @@
 
 **A sheet-music reader for classical musicians.** Universal app, iPad-first.
 
-Status: pre-build
+Status: **in build** — M0 and M1 shipped; M2/M3 partial; a P0 block sits ahead
+of M4 (see §6.0 and `docs/ROADMAP.md`).
 Design reference: `Virtu.dc.html` + `README.md` (Claude Design handoff)
-Last revised: 2026-08
+Last revised: 2026-08-20
 
 ---
 
@@ -25,6 +26,12 @@ Not "forScore with more features." Not an AI music platform. The user's complain
 The incumbent ships this as a buried setting because fifteen years of users draw with their fingers and changing the default would break them. We have no installed base. We just do the right thing.
 
 A "let me draw with my finger" escape hatch may exist in Settings for Pencil-less users, but it is never the default when a Pencil is present, and it is never auto-enabled.
+
+> **Status: kept, and then some — except for the Pencil-less case.** Fingers
+> never ink, and the surrounding gestures are hardened past the rule (§7.2).
+> But the policy is hardcoded rather than conditional on `pencilEverPaired`, so
+> a Pencil-less iPad cannot draw at all and gives no reason why. The rule is
+> intact; the escape hatch is missing. Open P0.
 
 ### 0.3 A stroke is never lost
 
@@ -133,13 +140,17 @@ Do not build these. Do not propose building these.
 
 Five surfaces, fully specified for appearance in the design handoff. Scope per release is in §6.
 
-| Surface | Purpose | Handoff § |
-|---|---|---|
-| **Library** | Choose what to play. Works addressed by composer / title / catalogue / edition / part — never by filename. | Screens § 1 |
-| **Reading** | Play from the score. Two-page spread, edge taps to turn, centre tap to hide all chrome. | Screens § 2 |
-| **Annotation** | Non-modal tool rail: pencil, pen, highlighter, text, erase; four inks. No "done" button; page turns keep working while marking. | Screens § 2 |
-| **Find** | One field over the shelf. (Public-archive and in-score search are later — §6.) | Screens § 3 |
-| **Tools** | Metronome, tuning reference, page-turn preferences. | Screens § 4 |
+| Surface | Purpose | Handoff § | Status |
+|---|---|---|---|
+| **Library** | Choose what to play. Works addressed by composer / title / catalogue / edition / part — never by filename. | Screens § 1 | **DONE** — plus the personal shelf, sorts, and programmes. No way to delete or rename a work, though (open P0). |
+| **Reading** | Play from the score. Two-page spread, edge taps to turn, centre tap to hide all chrome. | Screens § 2 | **DONE** — plus the Perform/Study wall, Corner Peek, Stage, pedals, scrubber. |
+| **Annotation** | Non-modal tool rail: pencil, pen, highlighter, text, erase; four inks. No "done" button; page turns keep working while marking. | Screens § 2 | **PARTIAL** — everything but **text**. Layers, nib widths, line styles and free colour go past the spec. |
+| **Find** | One field over the shelf. (Public-archive and in-score search are later — §6.) | Screens § 3 | **NOT BUILT** — the rail destination is a stub reading "Coming in M1". |
+| **Tools** | Metronome, tuning reference, page-turn preferences. | Screens § 4 | **NOT BUILT** — stub. Two of its three contents are now refused (§6.0(3)), so this surface needs rethinking or removing. |
+
+Two of five rail destinations currently lead nowhere. Either build them or take
+them out of the rail — a dead end at the stand costs more than a missing
+feature.
 
 ---
 
@@ -147,55 +158,80 @@ Five surfaces, fully specified for appearance in the design handoff. Scope per r
 
 The design describes the destination. v1 is a subset. Several designed features quietly depend on score recognition and are staged accordingly. Each milestone has a gate; do not begin the next milestone until the current gate is met.
 
-### M0 — Skeleton · ~1 week · Simulator only
+### §6.0 — Build status, 2026-08-20
+
+Marked per item below. Four things are true across the whole document and are
+easier to state once:
+
+1. **"Done" here means implemented and passing the automated suite** (32 tests,
+   `Tests/VirtuInkTests.swift`). Where hardware is the only possible proof, the
+   item says so — `docs/TESTPLAN.md` half 2 is the gate, and it has been
+   exercised on an iPad mini but not signed off end to end.
+2. **The rendering architecture deviates from §7.1**, deliberately and under
+   duress: PencilKit's renderer draws nothing for programmatically-set drawings
+   on iPadOS 26.x, so pages render through a bitmap `PageRenderer` and all
+   committed ink through our own `InkRenderer`, on both display and export.
+   `PDFView` is not used. This was the M0 spike's real finding.
+3. **Three M2 items are now explicitly refused**, not merely unbuilt: the
+   metronome, the tuning reference, and iCloud sync. `docs/ROADMAP.md` lists
+   them under "Still refusing to build" — the first two as commodity clutter,
+   sync because a merge bug that eats annotations ends the product (§0.3).
+   **This contradicts §6 M2 as written and needs an explicit decision**, since
+   §8.2 still specifies sync behaviour in detail.
+4. **The seam (§9) was not built.** M2 shipped **Corner Peek** in its place —
+   hold the forward tap zone to preview the next page, release to commit. The
+   substitution is recorded in `docs/2026-08-15-m2-reading-experience-design.md`.
+   The seam remains unbuilt and unretired.
+
+### M0 — Skeleton · ~1 week · Simulator only — **DONE**
 
 The minimum app that builds, runs on the iPad Simulator, and proves the critical integration spike.
 
-- Xcode project: universal app (iPad + iPhone), SwiftUI lifecycle, deployment target iPadOS/iOS 17
-- **PencilKit-over-PDFKit spike**: a single hardcoded PDF rendered in a `PDFView`, one `PKCanvasView` overlaid, `.pencilOnly` drawing policy. Confirm ink quality and coordinate-space lockstep at multiple zoom levels. This is the §7.1 hazard check.
-- Single-screen app: opens straight to the reading view with the bundled PDF. No library, no navigation, no chrome beyond the PencilKit tool picker.
-- Stroke round-trip: draw, quit, relaunch — strokes reappear. Minimal file-based persistence (not the full journal yet).
-- Builds and runs on iPhone Simulator too (default layout, no iPhone-specific design).
+- **DONE** — Xcode project: universal app (iPad + iPhone), SwiftUI lifecycle, deployment target iPadOS/iOS 17. Generated from `project.yml` (XcodeGen).
+- **DONE, with the deviation in §6.0(2)** — the spike ran and returned a finding rather than a clean pass. Ink quality and coordinate lockstep are sound, but PencilKit will not display a drawing it did not just receive from a live pencil, so the display path is ours. `PDFView` is not used.
+- **SUPERSEDED** — replaced by the M1 library and navigation.
+- **DONE** — stroke round-trip, now through the full journal (§8.1) rather than the minimal placeholder.
+- **DONE** — builds for the iPhone device family; no iPhone-specific layout, per §0.9.
 
-**Gate:** PencilKit over PDFKit delivers Notability-grade ink with no coordinate drift through zoom and page scroll. If it does not, this is a kill finding (§14). Do not proceed to M1.
+**Gate: MET**, with the §6.0(2) deviation on record. Ink is Notability-grade and does not drift through zoom or page turns — but it is our renderer that draws it, not PencilKit's.
 
-### M1 — "Does she stop using forScore?" · ~5 weeks · TestFlight, N=1
+### M1 — "Does she stop using forScore?" · ~5 weeks · TestFlight, N=1 — **MOSTLY DONE**
 
 The minimum that tests the actual hypothesis.
 
-- PDF import (share sheet, Files, drag-and-drop)
-- Library grid — real PDF first-page thumbnails, work metadata entered by hand on import
-- Reading view: two-page spread, edge tap zones, centre tap to hide chrome, thumbnail strip
-- **Annotation via PencilKit, `.pencilOnly` default** — pencil, highlighter, erase, undo/redo, three inks
-- Stroke journaling and crash recovery (§8)
-- Export annotated PDF
-- No sync. No metronome. No settings screen beyond a debug panel.
+- **PARTIAL** — PDF import is the Files picker only. There is no share-sheet target, no `CFBundleDocumentTypes`, and no drag-and-drop: Virtu cannot currently receive a PDF from another app. For a product whose adoption story is "one piece at a time out of forScore" (§0.5, §3), this is the narrowest possible door.
+- **DONE** — library grid, real first-page thumbnails, metadata entered on import.
+- **DONE** — two-page spread, edge tap zones, centre tap to hide chrome, thumbnail strip.
+- **DONE, and past scope** — pencil, highlighter, lasso, erase, undo/redo; four preset inks plus free colour choice; four nib widths and four line styles; annotation layers (§6.0 and the P0 spec).
+- **DONE** — journal, compaction, silent replay on launch. Crash *recovery* is implemented; crash recovery is not yet *tested* — see §8.4.
+- **DONE** — export flattens visible layers into a copy.
+- **HOLDS** — no sync, no metronome; no settings screen (the Tools destination is still a stub).
 
-**Gate:** Hannah uses Virtu for her current piece, unprompted, for two consecutive weeks. If she drifts back to forScore, stop and find out why before writing more code.
+**Gate: NOT EVALUATED.** No TestFlight build has gone out, so the one question this milestone exists to answer is still unanswered.
 
 ### M2 — Conservatory build · ~6 weeks · TestFlight, N≈20
 
-- **The seam** (§9), behind a feature flag, default on
-- Metronome (sample-accurate audio clock, background-safe)
-- Tuning reference (A 442 / 440 / 432 / 415 — a sine generator, *not* a microphone tuner)
-- Stage mode incl. PDF inversion
-- Bluetooth pedal (AirTurn, PageFlip) for page turns
-- iCloud sync of works and annotation layers
-- Full tool rail: fountain pen, text, four inks; lasso select and move
-- Tools screen with real preferences
+- **NOT BUILT** — the seam. Corner Peek shipped instead; see §6.0(4) and §9.
+- **REFUSED** — metronome. See §6.0(3); contradicts this line.
+- **REFUSED** — tuning reference. See §6.0(3); contradicts this line.
+- **DONE** — Stage mode. Not an inversion: a luminance remap (paper to #0A0908, notation to warm white), and the default graphite ink flips to chalk so it cannot vanish on the dark page.
+- **DONE, UNVERIFIED ON HARDWARE** — pedals arrive as keyboards and the key-command path handles them. Never tested against an actual AirTurn or PageFlip.
+- **REFUSED** — iCloud sync. See §6.0(3); contradicts this line *and* §8.2.
+- **PARTIAL** — fountain pen (as the calligraphic line style), four inks, lasso select and move: all done. **Text annotation is not built**, which also means §M4's "handwriting search over text annotations" has nothing to search.
+- **NOT BUILT** — Tools screen. The rail destination is a stub reading "Debug panel — M1".
 
-**Gate:** ≥6 of 20 testers still opening it weekly at week 4, without prompting.
+**Gate: NOT EVALUATED** — no cohort.
 
 ### M3 — App Store · ~8 weeks
 
-- Onboarding (three screens maximum; the first thing it does is offer to import a PDF)
-- Programmes / setlists — the "Next performance" panel in the design
-- Purchase flow (§13)
-- Empty, error, and failed-import states
-- Full accessibility pass: VoiceOver, Dynamic Type in chrome, contrast
-- Crash-free session rate ≥99.8% before submission
+- **NOT BUILT** — onboarding. A one-time hint line in the reading view is the whole of it.
+- **DONE** — programmes, the "Next performance" panel, the set editor, and cross-piece paging on gig day.
+- **NOT BUILT** — purchase flow.
+- **PARTIAL** — the empty library state is designed and built. A failed import prints to the console and tells the musician nothing.
+- **NOT BUILT** — accessibility pass. Controls carry labels; no VoiceOver walkthrough, no Dynamic Type in chrome, no contrast audit.
+- **NOT MEASURED** — no crash reporting is wired up, so the ≥99.8% gate cannot currently be evaluated at all.
 
-### M4
+### M4 — **NOT STARTED** (one item arrived early: portrait layout is built — single page in portrait, spread in landscape)
 
 Half-page turns · part switcher for multi-part works · iPhone layout · portrait layout · IMSLP search and import · handwriting search over text annotations
 
@@ -222,6 +258,21 @@ This is the highest-risk integration in the project. Known hazards, to be spiked
 
 If PencilKit-over-PDFKit proves unworkable at acceptable quality, that is a v0.1 kill finding and must be surfaced immediately, not worked around.
 
+> **OUTCOME (2026-08-20).** It proved *half* workable, and the half that failed
+> was surfaced rather than papered over. PencilKit accepts pencil input
+> correctly and records geometry faithfully, but on iPadOS 26.x it renders
+> nothing for any drawing set programmatically — verified on simulator and on
+> device. Committed ink therefore displays and exports through `InkRenderer`,
+> ours; `PDFView` is not used and pages render through a bitmap `PageRenderer`.
+> The recycling and zoom hazards listed above are handled; rotation and
+> page-size changes do not resample, because strokes live in PDF-point space
+> and are transformed only for display.
+>
+> The cost of that split is a two-renderer display-ownership problem — both
+> PencilKit's layer and ours can draw the same stroke — which is now the single
+> largest source of bugs in the app and the reason the ink regression suite
+> exists. See `Virtu/Reading/ReadingPageView.swift`.
+
 ### 7.2 Input policy
 
 ```
@@ -232,9 +283,17 @@ if pencilEverPaired {
 }
 ```
 
-- Finger contact when `.pencilOnly`: routed to navigation (tap zones, swipe, pinch-zoom). Never ink, never a stray dot.
-- Pencil double-tap (Pencil 2) → toggle eraser, per system convention.
-- Squeeze / hover (Pencil Pro) → out of scope for v1, do not block on it.
+**Status:**
+
+- **PARTIAL** — the policy is hardcoded to `.pencilOnly`; the `pencilEverPaired`
+  branch does not exist. On an iPad that has never seen a Pencil, Study mode is
+  silently inert and reads as broken. Open P0.
+- **DONE, and hardened past the spec** — finger contact is navigation only.
+  Beyond that: the scroll view's pan and pinch are finger-only, so a stray
+  pencil touch cannot move the page out from under a mark, and in Perform the
+  canvas takes no touches at all.
+- **NOT BUILT** — pencil double-tap to toggle the eraser.
+- **HOLDS** — squeeze / hover remain out of scope.
 
 ### 7.3 Stroke storage
 
@@ -253,17 +312,32 @@ Storing `pageSize` alongside the drawing is what lets a future version re-projec
 
 Layers are separate from the PDF file. The source PDF is never modified. Export flattens on demand into a copy.
 
+**Status: MOSTLY DONE.** Ink lives in `StrokeJournal` as files, not in SwiftData.
+Journal format v2 (2026-08-20) is keyed per **(part, layer, page)** — the
+`AnnotationLayer` concept above is now a real, user-facing feature, numbered
+1–10 with per-layer visibility.
+
+| field | status |
+|---|---|
+| `drawingData` | **DONE** — PDF-point space, never screen space |
+| `pageSize` | **DONE** — added in v2; nothing reads it yet, exactly as instructed |
+| `schemaVersion` | **DONE** |
+| `pageIndex`, layer | **DONE** — both in the storage key |
+| `updatedAt`, `deviceID` | **NOT STORED** — file mtime is the only timestamp. The SwiftData `AnnotationLayer` model that declares them is orphaned: nothing reads or writes it. Either wire it up or delete it. |
+
+Source PDF never modified, export flattens into a copy: **DONE**.
+
 ### 7.4 Required editing behaviours
 
 These are the "Notability-level" bar. All are PencilKit-native except where noted.
 
-- Pressure- and tilt-responsive ink
-- **Lasso select, then move / scale / delete a group of strokes**
-- Erase by whole stroke *and* by pixel, user-selectable
-- Multi-level undo/redo, ≥50 steps, surviving page turns within a session
-- Zoom in and write small without ink coarsening
-- Highlighter composites *under* ink, not over it
-- Tool and colour selection persist across launches
+- **PARTIAL** — pressure-responsive: `InkRenderer` strokes each segment at its own recorded width, which is what makes handwriting look handwritten. **Tilt is recorded but not rendered.**
+- **DONE** — lasso select, move and delete. Scale is PencilKit's own and unverified.
+- **PARTIAL** — erase by whole stroke (vector) only. **The pixel eraser and the user-selectable choice between them are not built.**
+- **UNVERIFIED** — undo/redo work, including two- and three-finger taps and toolbar buttons. Neither the ≥50 depth nor survival across page turns has been tested, and the canvas is destroyed and rebuilt on every normalization, which is exactly where such a guarantee would quietly break.
+- **NOT DONE** — ink and engraving are rasterized at zoom-1 resolution and scaled up, so writing small while zoomed in is soft. Now more pressing: as of 2026-08-20 a zoomed page can be panned, so musicians can reach the corners they could not reach before, and will write there.
+- **DONE** — highlighter composites under ink, within a layer.
+- **DONE** (2026-08-20) — tool, colour, nib and line style all persist across launches.
 
 ---
 
@@ -278,11 +352,34 @@ These are the "Notability-level" bar. All are PencilKit-native except where note
 - On launch, any journal newer than its compacted blob is replayed silently. **No dialog. No "recovered document" banner.** The user sees their marks and nothing else.
 - No Save button anywhere in the product.
 
+**Status: BUILT, UNPROVEN.** Append-only journal per (part, layer, page),
+`FileHandle.synchronize()` before the compacted write, atomic writes, silent
+replay on launch, and no Save button anywhere: all **DONE**. Journals written
+before the v2 format are replayed to the v1 path and read forward, so the
+format change cost nothing.
+
+What is **not** done is the evidence. The 250 ms budget has never been measured
+— persistence fires from `canvasViewDrawingDidChange`, which is plausible but
+unmeasured — and the kill-mid-stroke test in §8.4 does not exist. §0.3 says
+this is the product; right now it is the part of the product with the least
+proof behind it.
+
 ### 8.2 Sync
 
 - CloudKit private database. Annotation layers and work metadata sync; PDF binaries sync only if the user opts in per work (they can be large and are often licensed material).
 - **Conflict resolution is union of strokes, never last-writer-wins.** If the same page is edited on two devices, the user gets both sets. Losing a bowing to a merge is unacceptable; a duplicate is merely annoying.
 - Sync state is never surfaced as a blocking UI. At most, a quiet indicator in Settings.
+
+**Status: NOT BUILT, AND NOW REFUSED.** `docs/ROADMAP.md` lists cloud sync under
+"Still refusing to build" — the reasoning being §0.3 itself: a merge bug eats
+annotations, and eaten annotations end the product. AirDrop plus annotated-PDF
+export is the sharing story instead.
+
+That is a defensible call, but it is a **contradiction with this section as
+written and with §6 M2**, and it costs the union-merge design above, which is
+the good answer to the hard part. Resolve deliberately: either strike sync from
+M2 and §8.2, or un-refuse it. Leaving both statements standing is how a
+requirement gets quietly lost.
 
 ### 8.3 Budgets
 
@@ -295,17 +392,43 @@ These are the "Notability-level" bar. All are PencilKit-native except where note
 | Ink latency | Match PencilKit's native floor; no added frame |
 | Import, 60-page PDF | <8 s to a usable library entry |
 
+**Status: NOT MEASURED — none of them.** No crash reporting is wired up, no
+launch or turn timing is instrumented, and no import has been timed. Page turns
+are architected for the budget (pre-rendered ±1 spread, so a turn is pure
+compositing) but that is a design intention, not a number. "Strokes lost, ever:
+0" is the one that matters most and the one §8.4 was supposed to prove.
+
 ### 8.4 Testing
 
-- Automated: kill the app mid-stroke, at 50 randomized points; assert zero stroke loss on relaunch.
-- Automated: two-device concurrent edit of one page; assert union.
-- Manual, before each TestFlight: write a full page of bowings with hand resting flat on the glass. Zero stray marks. This is the acceptance test for the entire product.
+- **NOT BUILT** — kill the app mid-stroke, at 50 randomized points; assert zero stroke loss on relaunch. The single most important missing test in the project.
+- **NOT APPLICABLE while sync is refused** — two-device concurrent edit, assert union.
+- **PARTIAL** — the hand-on-glass test now lives in `docs/TESTPLAN.md` half 2, an 11-step protocol run on a physical iPad with a real Pencil. It has been exercised during development and has caught real defects, but it has never been run end to end as a release gate, and there has been no TestFlight to gate.
+
+**What does exist:** 32 automated tests in `Tests/VirtuInkTests.swift`, covering
+geometry round-trips, ink rendering and position, canvas input space, the
+display-ownership state machine, layer isolation, journal v2, line-style
+carriers and the nib ladder. That suite is the reason several regressions in
+this document's own features were caught before reaching hardware — but it
+tests the ink pipeline, not durability under crash, which is what §0.3
+actually promises.
 
 ---
 
 ## §9 — The seam (carried-over system)
 
 The design calls this "the single most important novel behaviour." It is also the only v1 feature that needs geometry from the page, so it needs a technical note.
+
+> **Status: NOT BUILT.** M2 shipped **Corner Peek** instead — hold the forward
+> tap zone past 150 ms to slide in a preview of the *next* page, release past
+> 400 ms to commit the turn, release earlier to cancel free. Note that this
+> solves the opposite problem: Corner Peek looks *forward* before you turn, the
+> seam carries the last system *backward* after you have turned. A player who
+> needs the final bars of the page they just left is still unserved.
+>
+> The seam is the only v1 feature needing page geometry, and it is described in
+> the design handoff as the single most important novel behaviour. It is
+> neither built nor retired. `Tokens.swift` still carries a `seamStrip` radius
+> and nothing uses it.
 
 **Behaviour** (appearance fully specified in the handoff): on a **forward** turn only, a strip pins to the top of the new spread showing the **final system of the page just left**, for a user-configurable hold (default 4 s, range 0–10, 0 disables). Never on a backward turn. Cleared immediately on a deliberate thumbnail jump.
 
@@ -400,7 +523,26 @@ Preferences
   fingerDrawing: Bool = false   // §0.2 — only settable when no Pencil paired
 ```
 
+**Status.** `Work`, `Part`, `Programme` (built as `Program`/`ProgramItem`) and
+the annotation layers are **DONE**, in SwiftData. Divergences worth knowing:
+
+- **`PageGeometry` does not exist** — it was for the seam (§9), which was not
+  built. Nothing computes system rects at import.
+- **`Preferences` does not exist as a type.** What persists, persists ad hoc in
+  `UserDefaults`: shelf name, tool, colour, nib, line style, and the one-time
+  hint flag. `seamHoldSeconds`, `halfPageTurns`, `tuningPreset` and
+  `fingerDrawing` have nothing to configure yet; `stageMode` is live but resets
+  each launch, and `bluetoothPedal` is always-on with no switch.
+- **Layer state lives on `Part`** (`layerCount`, `activeLayerIndex`,
+  `hiddenLayerIndices`), so a score reopens exactly as it was left.
+
 Metadata on import: attempt to parse composer / title / catalogue from the PDF's title page and embedded metadata, then **always show a confirmation sheet**. Per the design copy — *"You confirm; nothing is filed silently."* That promise is load-bearing; a wrongly-filed score is a lost score.
+
+> **DONE** — the confirmation sheet always appears and cannot be skipped.
+> Note the unkept half of the same promise: nothing is filed silently, but once
+> filed it cannot be corrected or removed. A wrongly-filed score is currently
+> permanent, which is a worse version of the failure this paragraph guards
+> against. Open P0.
 
 ---
 
@@ -435,6 +577,16 @@ Revenue here is a signal, not income. The bar is set accordingly and honestly.
 
 | Stage | Success | Kill |
 |---|---|---|
+| Stage | Status |
+|---|---|
+| M0 | **PASSED**, with the §6.0(2) deviation — ink is at parity, but our renderer draws it |
+| M1 | **NOT EVALUATED** — no TestFlight build has gone out |
+| M2 | **NOT EVALUATED** — no cohort |
+| M3 | **NOT REACHED** |
+| M5 | **NOT REACHED** |
+
+| Stage | Success | Kill |
+|---|---|---|
 | M0 | PencilKit over PDFKit delivers Notability-grade ink; no coordinate drift through zoom | Ink quality or integration is unworkable → kill the project |
 | M1 | Hannah uses Virtu for her current piece two weeks unprompted | She drifts back to forScore → stop, diagnose, do not build M2 |
 | M2 | ≥6 of 20 conservatory testers weekly at week 4 | <3 → the wedge is thinner than believed; reassess before App Store work |
@@ -442,6 +594,17 @@ Revenue here is a signal, not income. The bar is set accordingly and honestly.
 | M5 gate | Users asking, unprompted, for cross-edition mark transfer | Nobody asks → the score layer stays unbuilt |
 
 **The technical kill is now M0, not a side note.** If PencilKit-over-PDFKit cannot deliver ink quality at parity with Notability, the entire premise fails and no amount of design saves it. M0 exists to answer this before anything else is built.
+
+> **The M0 kill did not fire, but it did not pass cleanly either.** Ink quality
+> and coordinate fidelity are there. What failed was PencilKit's *renderer*, and
+> the workaround — owning display and export ourselves — is now the app's main
+> source of bugs. Worth watching as a slow version of the same risk.
+>
+> The more pressing observation: **M1's gate has never been evaluated.** The
+> project is building M2, M3 and P0 features on top of a hypothesis that was
+> supposed to be tested at M1 and was not. §6 says do not begin the next
+> milestone until the current gate is met. That instruction is being disregarded
+> — deliberately or by drift, but it should be one and not the other.
 
 ---
 
