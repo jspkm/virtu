@@ -74,6 +74,7 @@ struct ToolRailView: View {
             ForEach(inks, id: \.0) { hex, label in
                 inkSwatch(hex: hex, label: label)
             }
+            customInkSwatch
 
             divider
 
@@ -166,6 +167,34 @@ struct ToolRailView: View {
             }
     }
 
+    /// The fifth colour: whatever the musician wants. Sits with the presets
+    /// rather than inside the pencil options, because a colour is a colour —
+    /// there is no reason four of them live in one place and the rest in
+    /// another.
+    private var customInkSwatch: some View {
+        let current = state.toolColors[state.tool] ?? AppState.graphiteHex
+        let isCustom = state.tool != .eraser && !inks.contains { $0.0 == current }
+        return ColorPicker(
+            "Choose colour",
+            selection: Binding(
+                get: { Color(hex: current) },
+                set: { newValue in
+                    guard state.tool != .eraser else { return }
+                    state.toolColors[state.tool] = newValue.hexValue
+                }
+            ),
+            supportsOpacity: false
+        )
+        .labelsHidden()
+        .frame(width: 26, height: 26)
+        .overlay(
+            Circle()
+                .stroke(theme.accent, lineWidth: isCustom ? 2 : 0)
+                .padding(-4)
+        )
+        .accessibilityLabel("Choose colour")
+    }
+
     private var divider: some View {
         Rectangle()
             .fill(theme.line2)
@@ -197,69 +226,40 @@ struct ToolRailView: View {
 
 // MARK: - Pencil options
 
-/// Slides out beside the pencil: thickness, line style, and colour.
-/// Everything here rides inside the stroke itself, so a mark keeps the settings
-/// it was made with even after the tool moves on.
+/// Slides out to the left of the toolbar: nibs above, line styles below.
+/// No headings — each control is a picture of the mark it makes, and a word
+/// on top of that only takes up room the rail does not have.
 private struct PencilOptionsPanel: View {
     let dismiss: () -> Void
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
-    @State private var showColorPicker = false
-
-    private var customColor: Binding<Color> {
-        Binding(
-            get: { Color(hex: state.toolColors[.pencil] ?? AppState.graphiteHex) },
-            set: { state.toolColors[.pencil] = $0.hexValue }
-        )
-    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            section("Thickness") {
-                HStack(spacing: 10) {
-                    ForEach(Array(state.nibWidths.enumerated()), id: \.offset) { index, width in
-                        thicknessDot(index: index, width: width)
-                    }
-                }
+        VStack(spacing: 8) {
+            ForEach(Array(AppState.nibWidths.enumerated()), id: \.offset) { index, width in
+                thicknessDot(index: index, width: width)
             }
 
-            section("Line") {
-                HStack(spacing: 8) {
-                    ForEach(AppState.StrokeStyle.allCases, id: \.rawValue) { style in
-                        styleSwatch(style)
-                    }
-                }
-            }
+            Rectangle()
+                .fill(theme.line2)
+                .frame(width: 22, height: 1)
+                .padding(.vertical, 2)
 
-            section("Colour") {
-                ColorPicker("Pencil colour", selection: customColor, supportsOpacity: false)
-                    .labelsHidden()
-                    .frame(width: 32, height: 32)
+            ForEach(AppState.StrokeStyle.allCases, id: \.rawValue) { style in
+                styleSwatch(style)
             }
         }
-        .padding(16)
+        .padding(.vertical, 12)
+        .frame(width: 44)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(theme.accent.opacity(0.15), lineWidth: 1)
         )
     }
 
-    private func section<Content: View>(
-        _ title: String, @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(VFont.eyebrow)
-                .foregroundStyle(theme.muted)
-                .textCase(.uppercase)
-                .tracking(1.1)
-            content()
-        }
-    }
-
-    /// Each option is drawn as a dot at its true relative size — the control
+    /// Each nib is drawn as a dot at its true relative size — the control
     /// shows you the mark, not a number describing it.
     private func thicknessDot(index: Int, width: CGFloat) -> some View {
         let isSelected = state.nibIndex == index
@@ -267,17 +267,16 @@ private struct PencilOptionsPanel: View {
             Haptics.selection()
             state.nibIndex = index
         } label: {
-            ZStack {
-                Circle()
-                    .fill(theme.ink)
-                    .frame(width: width * 2.2, height: width * 2.2)
-            }
-            .frame(width: 32, height: 32)
-            .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
-            .clipShape(Circle())
-            .overlay(
-                Circle().stroke(theme.accent, lineWidth: isSelected ? 1.5 : 0)
-            )
+            Circle()
+                .fill(theme.ink)
+                .frame(width: width * 2.2, height: width * 2.2)
+                .frame(width: 30, height: 30)
+                .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(theme.accent, lineWidth: isSelected ? 1.5 : 0)
+                )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Self.nibLabel(width))
@@ -297,7 +296,7 @@ private struct PencilOptionsPanel: View {
             state.strokeStyle = style
         } label: {
             StyleSampleLine(style: style, color: theme.ink)
-                .frame(width: 34, height: 32)
+                .frame(width: 30, height: 26)
                 .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 7))
                 .overlay(

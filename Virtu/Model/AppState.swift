@@ -37,8 +37,14 @@ final class AppState {
             switch self {
             case .solid: .pencil
             case .calligraphic: .fountainPen
-            case .dotted: .monoline
-            case .fineDotted: .crayon
+            // Carriers are chosen for the width range they allow, measured
+            // rather than assumed: .monoline stops at 4pt and .crayon STARTS
+            // at 10pt, so using them for the two dotted styles capped the nib
+            // ladder and made "fine" the fattest option of the four. .pen is
+            // wide (0.9-25.7) and otherwise unused; .monoline's low ceiling
+            // is exactly right for the finest style.
+            case .dotted: .pen
+            case .fineDotted: .monoline
             }
         }
 
@@ -122,34 +128,17 @@ final class AppState {
         didSet { persistToolSettings() }
     }
 
-    /// The four nib widths offered in the flyout, for a given line style.
-    ///
-    /// Not a fixed ladder: PencilKit clamps a width outside its ink type's
-    /// valid range *silently*, so a hard-coded 1.5pt "thinner" nib draws an
-    /// identical mark to the 3pt default and nothing anywhere says so. The
-    /// thin end is therefore whatever that style can actually reach, and the
-    /// rest are forced strictly upward from it.
-    static func nibWidths(for style: StrokeStyle) -> [CGFloat] {
-        let range = style.inkType.validWidthRange
-        let low = range.lowerBound, high = range.upperBound
-        let widths = [low, 3.0, 5.0, 8.0].map { min(max($0, low), high) }
-
-        // Some ink types have a narrow range (dotted tops out around 4pt), so
-        // the preferred ladder collapses into duplicates. Where it does, spread
-        // the four evenly across whatever room the ink actually has: four nibs
-        // that differ is worth more than a 3pt default that cannot.
-        let distinct = zip(widths, widths.dropFirst()).allSatisfy { $1 > $0 }
-        guard !distinct else { return widths }
-        return (0..<4).map { low + (high - low) * CGFloat($0) / 3 }
-    }
-
-    var nibWidths: [CGFloat] { AppState.nibWidths(for: strokeStyle) }
+    /// The four nibs. Fixed, and deliberately not per-style: deriving the
+    /// ladder from each ink type's own range made the thickness shift under
+    /// you when you changed line style, which is not something a nib does.
+    /// Where an ink type cannot reach a width, PencilKit clamps it — but the
+    /// selection stays put and returns intact when the style changes back.
+    static let nibWidths: [CGFloat] = [1.5, 3.0, 5.0, 8.0]
 
     /// The width the pencil will actually draw at — the flyout previews this
     /// value, never the one that was asked for.
     var pencilWidth: CGFloat {
-        let widths = nibWidths
-        return widths[min(max(nibIndex, 0), widths.count - 1)]
+        AppState.nibWidths[min(max(nibIndex, 0), AppState.nibWidths.count - 1)]
     }
     var strokeStyle: StrokeStyle = .solid {
         didSet { persistToolSettings() }

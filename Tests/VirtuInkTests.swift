@@ -12,7 +12,7 @@ final class VirtuInkTests: XCTestCase {
     private func makeStroke(
         from: CGPoint, to: CGPoint,
         width: CGFloat = 3, color: UIColor = .black,
-        ink: PKInkingTool.InkType = .pen
+        ink: PKInkingTool.InkType = .pencil
     ) -> PKStroke {
         let points = stride(from: 0.0, through: 1.0, by: 0.1).map { t in
             PKStrokePoint(
@@ -519,7 +519,7 @@ final class VirtuInkTests: XCTestCase {
 
         let expected: [(AppState.StrokeStyle, PKInkingTool.InkType)] = [
             (.solid, .pencil), (.calligraphic, .fountainPen),
-            (.dotted, .monoline), (.fineDotted, .crayon),
+            (.dotted, .pen), (.fineDotted, .monoline),
         ]
         for (style, inkType) in expected {
             state.strokeStyle = style
@@ -528,29 +528,40 @@ final class VirtuInkTests: XCTestCase {
         }
     }
 
-    func testEveryNibIsADistinctWidthTheEngineWillHonour() throws {
+    func testNibLadderDoesNotMoveWhenTheLineStyleChanges() throws {
         let state = AppState(defaults: Self.scratchDefaults())
         state.tool = .pencil
 
+        for index in AppState.nibWidths.indices {
+            state.nibIndex = index
+            let expected = AppState.nibWidths[index]
+            for style in AppState.StrokeStyle.allCases {
+                state.strokeStyle = style
+                XCTAssertEqual(
+                    state.pencilWidth, expected,
+                    "changing line style to \(style.label) moved the nib — a nib is not something a line style gets to resize"
+                )
+            }
+        }
+
+        for index in AppState.nibWidths.indices.dropFirst() {
+            XCTAssertGreaterThan(AppState.nibWidths[index], AppState.nibWidths[index - 1])
+        }
+    }
+
+    func testDefaultNibIsHonouredByEveryStyle() throws {
+        // 3pt must land exactly whatever the style: it is the width every
+        // existing mark was made at, and the one nobody chose.
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.tool = .pencil
+        state.nibIndex = 1
+
         for style in AppState.StrokeStyle.allCases {
             state.strokeStyle = style
-            let widths = state.nibWidths
-            XCTAssertEqual(widths.count, 4)
-
-            for index in widths.indices {
-                state.nibIndex = index
-                let tool = try XCTUnwrap(state.currentPKTool() as? PKInkingTool)
-                // PencilKit clamps silently: a nib the engine will not honour
-                // is a control that lies about what it does.
-                XCTAssertEqual(
-                    tool.width, widths[index], accuracy: 0.01,
-                    "\(style.label) nib \(index) was clamped away from its advertised width")
-                if index > 0 {
-                    XCTAssertGreaterThan(
-                        widths[index], widths[index - 1],
-                        "\(style.label) nib \(index) is not thicker than the one before it")
-                }
-            }
+            let tool = try XCTUnwrap(state.currentPKTool() as? PKInkingTool)
+            XCTAssertEqual(
+                tool.width, 3.0, accuracy: 0.01,
+                "\(style.label) clamped the default nib — its ink type cannot carry 3pt")
         }
     }
 
@@ -566,8 +577,8 @@ final class VirtuInkTests: XCTestCase {
         }
 
         let solid = try inked(.pencil)
-        let dotted = try inked(.monoline)
-        let fine = try inked(.crayon)
+        let dotted = try inked(.pen)
+        let fine = try inked(.monoline)
 
         XCTAssertGreaterThan(solid, 0)
         XCTAssertLessThan(dotted, solid, "dotted rendered as a solid line")
@@ -578,7 +589,7 @@ final class VirtuInkTests: XCTestCase {
         // Sorting by ink type is what keeps a marker under a pencil; the style
         // carriers added four more ink types it must not be confused by.
         let drawing = makeDrawing([
-            makeStroke(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 90, y: 20), ink: .monoline),
+            makeStroke(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 90, y: 20), ink: .pen),
             makeStroke(from: CGPoint(x: 10, y: 20), to: CGPoint(x: 90, y: 20), width: 14, ink: .marker),
         ])
         let image = InkRenderer.image(for: drawing, pdfSize: CGSize(width: 100, height: 40), displayScale: 1)

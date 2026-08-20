@@ -77,7 +77,10 @@ out. Four thicknesses, each drawn as a **dot at its true relative size**:
 | 3 | 5.0pt | thicker |
 | 4 | 8.0pt | thickest |
 
-Selection persists across launches.
+Selection persists across launches. The ladder is **fixed, not per-style**: a
+line style does not get to resize your nib. Where an ink type cannot reach a
+width PencilKit clamps it, but the selection stays put and returns intact.
+3pt is honoured exactly by all four styles.
 
 ## 6. Line style and colour
 
@@ -90,8 +93,13 @@ Same flyout. Four styles:
 | 3 | dotted | |
 | 4 | fine dotted | tighter, smaller dots |
 
-Plus a free **colour choice** alongside the four preset swatches, so the user
-is not confined to graphite/red/blue/green.
+Colour is **not** in this panel: free colour choice is the fifth swatch on the
+main toolbar, beside graphite/red/blue/green. A colour is a colour; there is no
+reason four of them live in one place and the rest somewhere else.
+
+The panel itself is a bare vertical strip to the left of the toolbar — nibs
+above, styles below, no headings. Each control is a picture of the mark it
+makes, and a word on top of that only costs room the rail has not got.
 
 ---
 
@@ -111,12 +119,30 @@ sidecar to keep in sync through lasso and erase:
 `PKInkType` gained `.monoline`, `.fountainPen`, `.watercolor` and `.crayon` in
 iOS 17; the deployment target is 17.0, so all are available unconditionally.
 
+Carriers are chosen for the width range they allow, **measured rather than
+assumed**:
+
+| ink type | valid width range |
+|---|---|
+| `.pen` | 0.88 – 25.66 |
+| `.pencil` | 2.4 – 16.0 |
+| `.marker` | 7.5 – 60.0 |
+| `.monoline` | 0.5 – 4.0 |
+| `.fountainPen` | 1.5 – 14.0 |
+| `.watercolor` | 10.0 – 80.0 |
+| `.crayon` | 10.0 – 50.0 |
+
 | style | ink type | rendering |
 |---|---|---|
 | solid (default) | `.pencil` | unchanged — today's behaviour |
 | calligraphic | `.fountainPen` | width responds to direction; native input feel |
-| dotted | `.monoline` | `InkRenderer` applies a dash pattern |
-| fine dotted | `.crayon` | tighter, smaller dash pattern |
+| dotted | `.pen` | `InkRenderer` applies a dash pattern |
+| fine dotted | `.monoline` | smaller dots, wider gaps |
+
+The first pass used `.monoline` for dotted and `.crayon` for fine dotted, which
+capped dotted at 4pt and gave "fine" a 10pt *minimum* — the fattest of the
+four. `.pen` is wide and otherwise unused; `.monoline`'s low ceiling is exactly
+right for the finest style.
 
 The last two are *carriers*, not descriptions: `InkRenderer` is the sole
 rasterizer for display and export, so what those strokes actually look like is

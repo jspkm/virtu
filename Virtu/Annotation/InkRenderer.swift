@@ -23,16 +23,16 @@ enum InkRenderer {
             switch inkType {
             case .marker:
                 return .flat(dash: nil, widthScale: 1)
-            case .monoline:
+            case .pen:
                 // Dotted: round caps on a near-zero dash length give dots
                 // whose diameter is the line width.
                 return .flat(dash: [0.01, max(width * 2.2, 1.2)], widthScale: 1)
-            case .crayon:
+            case .monoline:
                 // Fine dotted. "Finer" has to mean a smaller dot, not merely a
                 // closer one — tightening the spacing alone lays down *more*
                 // ink than plain dotted, which is the opposite of the ask.
-                let scaled = width * 0.5
-                return .flat(dash: [0.01, max(scaled * 2.6, 1.0)], widthScale: 0.5)
+                let scaled = width * 0.6
+                return .flat(dash: [0.01, max(scaled * 2.6, 1.0)], widthScale: 0.6)
             default:
                 // .pencil (solid) and .fountainPen (calligraphic) both keep
                 // their pressure profile; the fountain pen's own point sizes
