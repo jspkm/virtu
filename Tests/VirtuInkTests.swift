@@ -442,6 +442,33 @@ final class VirtuInkTests: XCTestCase {
         )
     }
 
+    func testCanvasAcceptsPencilTouchesWheneverItShould() {
+        // The regression this pins: an attempt to keep fingers off the canvas
+        // via hitTest rejected pencil touches at random, so marks died
+        // mid-stroke and the escaped touches panned the score. The canvas must
+        // be fully live whenever Study is open and the active layer is visible.
+        let page = makePageView()
+        page.setLayers(active: 1, visible: [1])
+        page.annotationEnabled = true
+
+        XCTAssertTrue(page.canvas.isUserInteractionEnabled, "the canvas cannot receive the pencil")
+        XCTAssertTrue(page.canvas.drawingGestureRecognizer.isEnabled)
+        XCTAssertNotNil(
+            page.canvas.hitTest(CGPoint(x: 100, y: 100), with: nil),
+            "the canvas refuses touches at the point of a mark"
+        )
+    }
+
+    func testPerformModeCanvasTakesNoTouchesAtAll() {
+        // No touches means no long press, and so no "Select All / Insert
+        // Space" over music somebody is reading.
+        let page = makePageView()
+        page.annotationEnabled = false
+
+        XCTAssertFalse(page.canvas.isUserInteractionEnabled)
+        XCTAssertFalse(page.canvas.drawingGestureRecognizer.isEnabled)
+    }
+
     func testShowingTheLayerAgainGivesTheCanvasBackItsInk() {
         let page = makePageView()
         page.annotationEnabled = true

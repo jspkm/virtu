@@ -37,22 +37,6 @@ final class PencilObserverRecognizer: UIGestureRecognizer {
 /// gets a text menu across the music they are reading. This canvas refuses the
 /// interaction outright and answers no to every editing action.
 final class ScoreCanvasView: PKCanvasView {
-    /// Fingers never draw (PRD 0.2), so the canvas has no business receiving
-    /// them — and refusing them is the only reliable way to stop the menu.
-    /// Blocking the interaction on this view was not enough: PencilKit
-    /// presents "Select All / Insert Space" from an interaction on its own
-    /// internal content view, which we do not own and cannot subclass. A
-    /// finger that never reaches the canvas cannot summon it.
-    ///
-    /// This also helps navigation: the turn, mode and undo gestures all live
-    /// on the parent, and now get the finger touches unobstructed.
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        if let event, let touch = event.allTouches?.first, touch.type != .pencil {
-            return nil
-        }
-        return super.hitTest(point, with: event)
-    }
-
     override func addInteraction(_ interaction: UIInteraction) {
         guard !(interaction is UIEditMenuInteraction) else { return }
         super.addInteraction(interaction)
@@ -64,6 +48,17 @@ final class ScoreCanvasView: PKCanvasView {
 
     override func buildMenu(with builder: UIMenuBuilder) {
         // Contribute nothing; deliberately does not call super.
+    }
+
+    /// PencilKit builds its content views lazily and hangs the edit-menu
+    /// interaction off them, not off the canvas — so catch each one as it
+    /// arrives. (Refusing touches in hitTest was tried and is a trap:
+    /// `event.allTouches` is an unordered set, so testing `.first` rejects
+    /// pencil touches at random. Strokes died mid-mark and the escaped
+    /// touches panned the score instead.)
+    override func didAddSubview(_ subview: UIView) {
+        super.didAddSubview(subview)
+        subview.stripEditMenuInteractions()
     }
 }
 
@@ -229,7 +224,7 @@ final class ReadingPageView: UIView {
 
         canvas = ScoreCanvasView()
         configureAndAttachCanvas(canvas)
-        canvas.drawingGestureRecognizer.isEnabled = annotationEnabled && canInk
+        applyInputGate()
         if let tool = lastAppliedTool {
             canvas.tool = tool
         }
@@ -340,6 +335,7 @@ final class ReadingPageView: UIView {
         // ink layer is once again the sole display owner.
         rebuildCanvas()
         canvasNormalizations += 1
+        applyInputGate()
     }
 
     /// A hidden active layer accepts no ink. Reachable only by hiding every
@@ -350,9 +346,16 @@ final class ReadingPageView: UIView {
     }
 
     var annotationEnabled: Bool = false {
-        didSet {
-            canvas.drawingGestureRecognizer.isEnabled = annotationEnabled && canInk
-        }
+        didSet { applyInputGate() }
+    }
+
+    /// In Perform the canvas is inert *and untouchable*: with no touches
+    /// reaching it there is no long press, and so no "Select All / Insert
+    /// Space" over music somebody is reading.
+    private func applyInputGate() {
+        let live = annotationEnabled && canInk
+        canvas.drawingGestureRecognizer.isEnabled = live
+        canvas.isUserInteractionEnabled = live
     }
 
     private(set) var toolAssignments = 0

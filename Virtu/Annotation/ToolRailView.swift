@@ -363,9 +363,17 @@ private struct LayerStackView: View {
                 .tracking(0.6)
                 .padding(.bottom, 2)
 
-            ForEach(1...max(state.layerCount, 1), id: \.self) { index in
-                layerRow(index)
+            // Ten layers would otherwise push the toolbar past the height of
+            // an iPad mini in landscape.
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 3) {
+                    ForEach(1...max(state.layerCount, 1), id: \.self) { index in
+                        layerRow(index)
+                    }
+                }
             }
+            .frame(maxHeight: 214)
+            .fixedSize(horizontal: false, vertical: state.layerCount < 6)
 
             if state.canAddLayer {
                 Button {
@@ -384,6 +392,10 @@ private struct LayerStackView: View {
         }
     }
 
+    // A pencil tip is exact where a finger gets UIKit's touch slop, so these
+    // targets are sized for the pencil: at 22x26 the eye was a coin toss with
+    // a Pencil and reliable with a finger, which is precisely backwards for a
+    // Pencil-first app.
     private func layerRow(_ index: Int) -> some View {
         let isActive = state.activeLayer == index
         let isVisible = state.isLayerVisible(index)
@@ -398,7 +410,7 @@ private struct LayerStackView: View {
                     .foregroundStyle(
                         isActive ? theme.accent : (isVisible ? theme.muted : theme.faint)
                     )
-                    .frame(width: 26, height: 26)
+                    .frame(width: 30, height: 32)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -410,9 +422,9 @@ private struct LayerStackView: View {
                 state.toggleLayerVisibility(index)
             } label: {
                 Image(systemName: isVisible ? "eye" : "eye.slash")
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundStyle(isVisible ? theme.muted : theme.faint)
-                    .frame(width: 22, height: 26)
+                    .frame(width: 26, height: 32)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

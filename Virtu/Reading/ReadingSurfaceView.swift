@@ -134,6 +134,15 @@ final class ReadingPageViewController: UIViewController {
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.delegate = self
         scrollView.contentInsetAdjustmentBehavior = .never
+        // The pencil never navigates. Even if a pencil touch somehow misses
+        // the canvas, it must not pan or pinch the score out from under the
+        // mark being made — every other gesture here is already finger-only.
+        scrollView.panGestureRecognizer.allowedTouchTypes = [
+            NSNumber(value: UITouch.TouchType.direct.rawValue)
+        ]
+        scrollView.pinchGestureRecognizer?.allowedTouchTypes = [
+            NSNumber(value: UITouch.TouchType.direct.rawValue)
+        ]
         view.addSubview(scrollView)
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
