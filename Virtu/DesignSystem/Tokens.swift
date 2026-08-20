@@ -72,12 +72,22 @@ enum Tokens {
     static let tapZoneWidth: CGFloat = 170
     static let railButtonSize = CGSize(width: 56, height: 48)
     static let annotationToolSize: CGFloat = 44
-    /// Clear space between the reading-mode icon and the Library icon. A
-    /// hurried hand five minutes before a downbeat must not hit the wrong one.
-    static let readingControlGap: CGFloat = 28
-    /// Horizontal band the always-on reading controls occupy at the top-right
-    /// (two 44pt targets + the gap + edge padding). Chrome keeps clear of it.
-    static let readingControlsBand: CGFloat = 44 * 2 + readingControlGap + 10
+    // MARK: - Always-on reading controls (top right)
+    //
+    // Sized against each other rather than to a 44pt grid. At 44pt square the
+    // two icons read as unrelated neighbours: the frames add ~29pt of air on
+    // top of the gap itself. Narrow frames, tall touch area, and the visible
+    // separation lands near half an icon — close enough to be a pair, far
+    // enough that a hurried hand before a downbeat cannot hit the wrong one.
+    static let readingControlIcon = CGSize(width: 26, height: 34)
+    static let readingControlGlyph: CGFloat = 17
+
+    /// Vertical margin reserved above the spread so these controls sit beside
+    /// the page, never on top of the notation.
+    static let readingControlMargin: CGFloat = 36
+
+    /// Horizontal band they occupy. Chrome keeps clear of it.
+    static let readingControlsBand: CGFloat = readingControlIcon.width * 2 + 12
 
     // MARK: - Rail
 

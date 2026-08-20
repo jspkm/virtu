@@ -163,11 +163,16 @@ final class ReadingPageViewController: UIViewController {
 
         // Fill the height, but never at the cost of overflowing the width:
         // the two limits are required, the fill is merely preferred.
+        // The margin is symmetric and sized so the always-on controls have a
+        // band of their own at the top: they must sit beside the page, never
+        // over the notation. Centring is by inset, so top and bottom match.
         spreadHeightConstraint = spreadContainer.heightAnchor.constraint(
-            equalTo: scrollView.frameLayoutGuide.heightAnchor, constant: -52)
+            equalTo: scrollView.frameLayoutGuide.heightAnchor,
+            constant: -Tokens.readingControlMargin * 2)
         spreadHeightConstraint.priority = .defaultHigh
         spreadHeightLimit = spreadContainer.heightAnchor.constraint(
-            lessThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor, constant: -52)
+            lessThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor,
+            constant: -Tokens.readingControlMargin * 2)
         spreadWidthLimit = spreadContainer.widthAnchor.constraint(
             lessThanOrEqualTo: scrollView.frameLayoutGuide.widthAnchor)
 
@@ -300,7 +305,9 @@ final class ReadingPageViewController: UIViewController {
     }
 
     private func applyModeChange(annotating: Bool) {
-        let margin: CGFloat = annotating ? -48 : -52
+        // Same in both modes now: the controls are always on, so the band
+        // they live in cannot come and go with the mode.
+        let margin = -Tokens.readingControlMargin * 2
         spreadHeightConstraint.constant = margin
         spreadHeightLimit.constant = margin
 

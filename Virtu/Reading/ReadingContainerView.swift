@@ -128,25 +128,31 @@ private struct PageReadoutView: View {
     }
 }
 
-/// The two controls that are always available while reading, top-right:
-/// the reading-mode toggle and the way back to the Library — in that order,
-/// with deliberate space between them.
+/// The two controls that are always available while reading: the Library, then
+/// the reading-mode toggle, in the top-right margin.
 ///
-/// They persist in Perform as well as Study. That is a knowing exception to
-/// the M2 rule that Perform shows "the page and nothing else": a stranger
-/// handed the iPad five minutes before a downbeat must be able to see the way
-/// out. The concession is paid in weight, not absence — both rest at 28%
-/// (35% in Stage) and only brighten under a finger.
+/// They persist in Perform as well as Study — a knowing exception to the M2
+/// rule that Perform shows "the page and nothing else". A stranger handed the
+/// iPad five minutes before a downbeat must be able to see the way out. What
+/// pays for the exception is *position*, not faintness: the spread reserves a
+/// margin band above it (`Tokens.readingControlMargin`), so these sit beside
+/// the page and never over a note. Chrome that is off the score can afford to
+/// be legible, and an icon you have to hunt for is worse than one you can see.
 private struct ReadingControlsView: View {
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
 
     var body: some View {
         VStack {
-            HStack(spacing: Tokens.readingControlGap) {
+            HStack(spacing: 0) {
                 Spacer()
 
-                QuietIconButton(
+                ReadingIconButton(systemName: "books.vertical", label: "Library") {
+                    Haptics.selection()
+                    state.destination = .library
+                }
+
+                ReadingIconButton(
                     systemName: state.annotating ? "music.note" : "pencil.tip",
                     label: state.annotating ? "Perform mode" : "Study mode"
                 ) {
@@ -156,36 +162,31 @@ private struct ReadingControlsView: View {
                         Haptics.medium()
                     }
                 }
-
-                QuietIconButton(systemName: "books.vertical", label: "Library") {
-                    Haptics.selection()
-                    state.destination = .library
-                }
             }
-            .padding(.top, 8)
-            .padding(.trailing, 10)
+            .frame(height: Tokens.readingControlMargin)
+            .padding(.trailing, 12)
 
             Spacer()
         }
     }
 }
 
-/// A 44pt icon that rests almost invisible and wakes under a finger.
-private struct QuietIconButton: View {
+/// Full strength, always. A narrow frame with a tall touch area: the width is
+/// what sets the visible gap between the pair, the height is what a pencil tip
+/// needs to land on.
+private struct ReadingIconButton: View {
     let systemName: String
     let label: String
     let action: () -> Void
 
-    @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
     @State private var pressed = false
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: 15))
-            .foregroundStyle(theme.muted)
-            .opacity(pressed ? 0.9 : (state.stageMode ? 0.35 : 0.28))
-            .frame(width: 44, height: 44)
+            .font(.system(size: Tokens.readingControlGlyph))
+            .foregroundStyle(pressed ? theme.accent : theme.ink)
+            .frame(width: Tokens.readingControlIcon.width, height: Tokens.readingControlIcon.height)
             .contentShape(Rectangle())
             .scaleEffect(pressed ? 1.15 : 1.0)
             .gesture(
