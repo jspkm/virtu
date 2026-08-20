@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+--paper:#F2EFE8; --plate:#FFFDF8; --ink:#16151A; --muted:#75726B; --faint:#A9A49A;
+--line:#E0DBD1; --line2:#CFC9BD; --accent:#B33F26; --blue:#2B3E5E; --wash:#E9E5DC;
+--notation:#1A1A1F; --rail:#161519; --railink:#EDE9E1; --railfaint:#8A857C;
+--sans:'Archivo',system-ui,sans-serif; --serif:'Newsreader',Georgia,serif; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#26251F;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer}
+a{color:var(--accent);text-decoration-color:rgba(179,63,38,.4);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--accent)}
+@keyframes rs-beat{0%{transform:scale(1);opacity:1}100%{transform:scale(.82);opacity:.28}}
+@keyframes rs-fade{from{opacity:0}to{opacity:1}}
+@keyframes rs-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="{{ themeVars }}min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;background:radial-gradient(120% 100% at 50% 0%,#33322B 0%,#1D1C18 100%)">
+
+  <div style="position:relative;width:1246px;height:886px;flex:none;border-radius:34px;background:#0E0E10;padding:26px 26px;box-shadow:0 40px 90px -30px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.06)">
+    <div style="position:absolute;top:50%;left:9px;width:3px;height:44px;border-radius:2px;background:#2A2A2E;transform:translateY(-72px)"></div>
+    <div style="position:absolute;top:50%;left:9px;width:3px;height:44px;border-radius:2px;background:#2A2A2E;transform:translateY(-16px)"></div>
+
+    <div style="position:relative;width:1194px;height:834px;border-radius:14px;overflow:hidden;background:var(--paper);display:flex">
+
+      <!-- ============ SIDE RAIL ============ -->
+      <nav style="width:76px;flex:none;background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:18px 0 14px;gap:4px">
+        <div style="width:34px;height:34px;margin-bottom:14px;display:flex;align-items:center;justify-content:center">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-label="Virtu">
+            <rect x="1" y="3" width="24" height="1.4" fill="#EDE9E1"></rect>
+            <rect x="1" y="8" width="24" height="1.4" fill="#EDE9E1"></rect>
+            <rect x="1" y="13" width="24" height="1.4" fill="#EDE9E1"></rect>
+            <rect x="1" y="18" width="24" height="1.4" fill="#EDE9E1"></rect>
+            <rect x="9.5" y="0" width="1.6" height="26" fill="#B33F26"></rect>
+          </svg>
+        </div>
+        <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+          <button onClick="{{ n.go }}" title="{{ n.label }}" style="{{ n.style }}width:56px;padding:9px 0 7px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:5px;transition:background 120ms ease-out,color 120ms ease-out">
+            <span style="display:block">{{ n.icon }}</span>
+            <span style="font-size:9.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase">{{ n.label }}</span>
+          </button>
+        </sc-for>
+        <div style="flex:1"></div>
+        <button onClick="{{ toggleDark }}" title="Stage mode" style="width:56px;padding:9px 0 7px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--railfaint)">
+          <span style="display:block">{{ stageIcon }}</span>
+          <span style="font-size:9.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase">Stage</span>
+        </button>
+        <div style="width:30px;height:30px;border-radius:999px;margin-top:10px;background:#3A3833;color:#EDE9E1;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">NV</div>
+      </nav>
+
+      <!-- ============ SCREENS ============ -->
+      <main style="flex:1;min-width:0;position:relative;overflow:hidden;background:var(--paper)">
+
+        <!-- ========== LIBRARY ========== -->
+        <sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ true }}">
+        <div style="height:834px;overflow:auto;padding:34px 40px 48px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:28px">
+            <div>
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:9px">Repertoire</div>
+              <h1 style="margin:0;font-family:var(--serif);font-weight:400;font-size:38px;letter-spacing:-.015em;color:var(--ink);line-height:1.1">Nadia's shelf</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--muted);max-width:520px">Six works in study. Two performances scheduled this month.</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="3">
+                <button onClick="{{ s.go }}" style="{{ s.style }}padding:7px 14px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;flex:none;transition:all 120ms ease-out">{{ s.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- tonight's program -->
+          <div style="border:1px solid var(--line2);border-radius:14px;background:var(--wash);padding:22px 24px;margin-bottom:34px;display:flex;gap:32px;align-items:center">
+            <div style="flex:none;width:186px;border-right:1px solid var(--line2);padding-right:24px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Next performance</div>
+              <div style="font-family:var(--serif);font-size:21px;line-height:1.2;color:var(--ink)">Wigmore recital</div>
+              <div style="font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:7px">14 MAR · 19:30</div>
+            </div>
+            <div style="flex:1;display:flex;gap:10px">
+              <sc-for list="{{ program }}" as="pr" hint-placeholder-count="3">
+                <button onClick="{{ pr.go }}" style="flex:1;text-align:left;border:1px solid var(--line2);background:var(--plate);border-radius:10px;padding:13px 14px;transition:border-color 120ms ease-out" style-hover="border-color:var(--accent)">
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.06em">{{ pr.n }}</div>
+                  <div style="font-family:var(--serif);font-size:16px;line-height:1.25;margin-top:6px;color:var(--ink)">{{ pr.title }}</div>
+                  <div style="font-size:11.5px;color:var(--muted);margin-top:5px">{{ pr.meta }}</div>
+                </button>
+              </sc-for>
+            </div>
+            <button onClick="{{ openFirst }}" style="flex:none;align-self:stretch;padding:0 20px;border-radius:10px;background:var(--ink);color:var(--paper);font-size:13px;font-weight:500;display:flex;align-items:center">Open set</button>
+          </div>
+
+          <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px">
+            <h2 style="margin:0;font-family:var(--serif);font-weight:400;font-size:20px;color:var(--ink)">All works</h2>
+            <div style="flex:1;height:1px;background:var(--line)"></div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--faint)">6</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+            <sc-for list="{{ pieces }}" as="p" hint-placeholder-count="6">
+              <button onClick="{{ p.go }}" style="text-align:left;border:1px solid var(--line);background:var(--plate);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:border-color 120ms ease-out" style-hover="border-color:var(--accent)">
+                <div style="height:148px;background:var(--plate);border-bottom:1px solid var(--line);overflow:hidden;position:relative">
+                  <div style="position:absolute;inset:-14px 16px auto 16px;height:210px;opacity:.9">{{ p.plate }}</div>
+                  <div style="position:absolute;left:0;right:0;bottom:0;height:52px;background:linear-gradient(to bottom,rgba(0,0,0,0),var(--plate))"></div>
+                </div>
+                <div style="padding:15px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1">
+                  <div style="font-size:11.5px;color:var(--muted);letter-spacing:.01em">{{ p.composer }}</div>
+                  <div style="font-family:var(--serif);font-size:17px;line-height:1.25;color:var(--ink);text-wrap:pretty">{{ p.title }}</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+                    <span style="font-family:var(--mono);font-size:10.5px;color:var(--faint)">{{ p.cat }}</span>
+                    <span style="width:3px;height:3px;border-radius:9px;background:var(--faint)"></span>
+                    <span style="font-size:11px;color:var(--muted)">{{ p.parts }}</span>
+                  </div>
+                  <div style="flex:1"></div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+                    <div style="flex:1;height:2px;background:var(--line);border-radius:2px;overflow:hidden">
+                      <div style="{{ p.bar }}height:2px;background:var(--accent)"></div>
+                    </div>
+                    <span style="font-family:var(--mono);font-size:10px;color:var(--faint)">{{ p.last }}</span>
+                  </div>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ========== READING ========== -->
+        <sc-if value="{{ isRead }}" hint-placeholder-val="{{ false }}">
+        <div style="height:834px;position:relative;background:var(--paper);overflow:hidden">
+
+          <div style="{{ spreadStyle }}position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px;padding:26px 30px;transition:transform 220ms cubic-bezier(.4,0,.2,1),opacity 220ms ease-out">
+            <div style="flex:none;width:512px;height:782px;background:var(--plate);border:1px solid var(--line);border-right:none;border-radius:4px 0 0 4px;padding:26px 22px;position:relative">{{ pageL }}</div>
+            <div style="flex:none;width:512px;height:782px;background:var(--plate);border:1px solid var(--line);border-radius:0 4px 4px 0;padding:26px 22px;position:relative">{{ pageR }}</div>
+          </div>
+
+          <!-- tap zones -->
+          <button onClick="{{ prev }}" aria-label="Previous page" style="position:absolute;left:0;top:0;bottom:0;width:170px"></button>
+          <button onClick="{{ next }}" aria-label="Next page" style="position:absolute;right:0;top:0;bottom:0;width:170px"></button>
+          <button onClick="{{ toggleChrome }}" aria-label="Toggle controls" style="position:absolute;left:170px;right:170px;top:0;bottom:0"></button>
+
+          <!-- THE SEAM: last system of the page you just left, held for four seconds -->
+          <sc-if value="{{ seam }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ seamTop }}position:absolute;left:30px;right:30px;z-index:5;background:var(--plate);border:1px solid var(--accent);border-radius:12px;padding:8px 18px 10px;display:flex;align-items:center;gap:16px;animation:rs-fade 180ms ease-out">
+              <span style="font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);flex:none">Carried over</span>
+              <div style="flex:1;height:34px;overflow:hidden">{{ seamStrip }}</div>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--faint);flex:none">{{ seamPage }}</span>
+            </div>
+          </sc-if>
+
+          <!-- annotation rail -->
+          <sc-if value="{{ annotating }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:var(--rail);border-radius:16px;padding:10px 8px;display:flex;flex-direction:column;gap:6px;align-items:center;animation:rs-fade 160ms ease-out">
+              <sc-for list="{{ tools }}" as="t" hint-placeholder-count="5">
+                <button onClick="{{ t.go }}" title="{{ t.label }}" style="{{ t.style }}width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;transition:background 120ms ease-out">{{ t.icon }}</button>
+              </sc-for>
+              <div style="width:28px;height:1px;background:rgba(255,255,255,.14);margin:4px 0"></div>
+              <sc-for list="{{ inks }}" as="k" hint-placeholder-count="4">
+                <button onClick="{{ k.go }}" title="{{ k.label }}" style="{{ k.style }}width:26px;height:26px;border-radius:999px"></button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- chrome -->
+          <sc-if value="{{ chrome }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:0;right:0;top:0;padding:14px 20px;display:flex;align-items:center;gap:16px;background:linear-gradient(to bottom,var(--paper) 55%,rgba(0,0,0,0));animation:rs-fade 160ms ease-out">
+            <button onClick="{{ back }}" style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);padding:6px 10px;border-radius:8px" style-hover="color:var(--ink)">← Library</button>
+            <div style="flex:1;min-width:0">
+              <div style="font-family:var(--serif);font-size:17px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ nowTitle }}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:1px">{{ nowMeta }}</div>
+            </div>
+            <button onClick="{{ toggleAnnotate }}" style="{{ annStyle }}padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:7px;transition:all 120ms ease-out">{{ pencilIcon }}Markup</button>
+            <button onClick="{{ toggleMetro }}" style="{{ metroStyle }}padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:500;transition:all 120ms ease-out">{{ bpmLabel }}</button>
+          </div>
+
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:16px 20px 14px;background:linear-gradient(to top,var(--paper) 62%,rgba(0,0,0,0));animation:rs-fade 160ms ease-out">
+            <div style="display:flex;align-items:flex-end;gap:7px;justify-content:center">
+              <sc-for list="{{ thumbs }}" as="t" hint-placeholder-count="14">
+                <button onClick="{{ t.go }}" title="{{ t.label }}" style="{{ t.style }}width:34px;height:46px;border-radius:3px;flex:none;position:relative;transition:all 150ms ease-out">
+                  <span style="{{ t.numStyle }}position:absolute;left:0;right:0;bottom:-15px;font-family:var(--mono);font-size:9px">{{ t.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ showHints }}" hint-placeholder-val="{{ true }}">
+              <div style="text-align:center;margin-top:24px;font-size:11px;color:var(--faint)">Tap the edges to turn · tap the centre to hide everything</div>
+            </sc-if>
+          </div>
+          </sc-if>
+
+          <!-- metronome sheet -->
+          <sc-if value="{{ metronome }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;right:20px;top:66px;width:268px;background:var(--rail);border-radius:16px;padding:18px;animation:rs-rise 180ms cubic-bezier(0,0,.2,1)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <span style="font-size:9.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--railfaint)">Metronome</span>
+                <button onClick="{{ toggleMetro }}" style="color:var(--railfaint);display:flex">{{ closeIcon }}</button>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:8px;color:#FFFDF8">
+                <span style="font-family:var(--mono);font-size:44px;font-weight:500;letter-spacing:-.02em">{{ bpm }}</span>
+                <span style="font-size:11px;color:var(--railfaint);letter-spacing:.1em">BPM</span>
+                <div style="flex:1"></div>
+                <span style="font-family:var(--serif);font-style:italic;font-size:15px;color:var(--railfaint)">{{ tempoWord }}</span>
+              </div>
+              <div style="display:flex;gap:7px;margin:16px 0 14px">
+                <sc-for list="{{ beats }}" as="b" hint-placeholder-count="4">
+                  <div style="{{ b.style }}flex:1;height:5px;border-radius:3px"></div>
+                </sc-for>
+              </div>
+              <input type="range" min="30" max="220" value="{{ bpm }}" onChange="{{ setBpmEv }}" style="width:100%;accent-color:#B33F26;height:20px" />
+              <div style="display:flex;gap:8px;margin-top:16px">
+                <button onClick="{{ toggleRun }}" style="{{ runStyle }}flex:1;white-space:nowrap;padding:11px;border-radius:10px;font-size:13px;font-weight:500">{{ runLabel }}</button>
+                <button onClick="{{ tap }}" style="flex:none;white-space:nowrap;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:500;color:#EDE9E1;border:1px solid rgba(255,255,255,.18)">Tap</button>
+              </div>
+              <div style="margin-top:14px;padding-top:13px;border-top:1px solid rgba(255,255,255,.1);font-size:11.5px;color:var(--railfaint);line-height:1.5">Marked <span style="font-family:var(--mono);color:#EDE9E1">♩= 88–96</span> in this edition. Your last three run-throughs sat at 91.</div>
+            </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <!-- ========== FIND ========== -->
+        <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+        <div style="height:834px;overflow:auto;padding:34px 40px 48px">
+          <div style="max-width:760px">
+            <div style="font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:9px">Find & import</div>
+            <h1 style="margin:0 0 20px;font-family:var(--serif);font-weight:400;font-size:38px;letter-spacing:-.015em;color:var(--ink)">Search everything</h1>
+            <input value="{{ q }}" onChange="{{ setQ }}" placeholder="composer, catalogue number, or a landmark you remember" style="width:100%;height:52px;padding:0 18px;border-radius:12px;border:1px solid var(--line2);background:var(--plate);color:var(--ink);font-family:var(--sans);font-size:15px;outline:none" />
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+              <sc-for list="{{ scopes }}" as="s" hint-placeholder-count="4">
+                <button onClick="{{ s.go }}" style="{{ s.style }}padding:6px 13px;border-radius:999px;font-size:11.5px;font-weight:500;white-space:nowrap;flex:none">{{ s.label }}</button>
+              </sc-for>
+            </div>
+
+            <div style="margin-top:34px;display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ results }}" as="r" hint-placeholder-count="5">
+                <button onClick="{{ r.go }}" style="text-align:left;display:flex;align-items:center;gap:18px;padding:15px 14px;border-radius:10px;border-bottom:1px solid var(--line);transition:background 120ms ease-out" style-hover="background:var(--wash)">
+                  <span style="{{ r.kindStyle }}flex:none;font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:999px">{{ r.kind }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-family:var(--serif);font-size:16px;color:var(--ink)">{{ r.title }}</span>
+                    <span style="display:block;font-size:11.5px;color:var(--muted);margin-top:3px">{{ r.meta }}</span>
+                  </span>
+                  <span style="flex:none;font-family:var(--mono);font-size:10.5px;color:var(--faint)">{{ r.tail }}</span>
+                </button>
+              </sc-for>
+            </div>
+
+            <div style="margin-top:38px;border:1px dashed var(--line2);border-radius:14px;padding:26px;display:flex;align-items:center;gap:22px">
+              <div style="flex:1">
+                <div style="font-family:var(--serif);font-size:19px;color:var(--ink)">Bring in a PDF</div>
+                <p style="margin:7px 0 0;font-size:12.5px;color:var(--muted);line-height:1.55">Drop a file and Virtu reads the title page, splits parts, detects repeats and D.C. jumps, and proposes a page layout. You confirm; nothing is filed silently.</p>
+              </div>
+              <button style="flex:none;padding:11px 20px;border-radius:10px;background:var(--ink);color:var(--paper);font-size:13px;font-weight:500">Choose file</button>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ========== TOOLS ========== -->
+        <sc-if value="{{ isTools }}" hint-placeholder-val="{{ false }}">
+        <div style="height:834px;overflow:auto;padding:34px 40px 48px">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:9px">Tools</div>
+          <h1 style="margin:0 0 26px;font-family:var(--serif);font-weight:400;font-size:38px;letter-spacing:-.015em;color:var(--ink)">On the stand</h1>
+
+          <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;max-width:900px">
+            <div style="border:1px solid var(--line);border-radius:14px;background:var(--plate);padding:24px">
+              <div style="font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Metronome</div>
+              <div style="display:flex;align-items:baseline;gap:10px">
+                <span style="font-family:var(--mono);font-size:60px;font-weight:500;letter-spacing:-.03em;color:var(--ink)">{{ bpm }}</span>
+                <span style="font-family:var(--serif);font-style:italic;font-size:18px;color:var(--muted)">{{ tempoWord }}</span>
+              </div>
+              <div style="display:flex;gap:8px;margin:18px 0 16px">
+                <sc-for list="{{ beatsLight }}" as="b" hint-placeholder-count="4">
+                  <div style="{{ b.style }}flex:1;height:6px;border-radius:3px"></div>
+                </sc-for>
+              </div>
+              <input type="range" min="30" max="220" value="{{ bpm }}" onChange="{{ setBpmEv }}" style="width:100%;accent-color:#B33F26;height:22px" />
+              <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:nowrap">
+                <button onClick="{{ toggleRun }}" style="{{ runStyleLight }}flex:1;white-space:nowrap;padding:12px;border-radius:10px;font-size:13.5px;font-weight:500">{{ runLabel }}</button>
+                <button onClick="{{ tap }}" style="flex:none;white-space:nowrap;padding:12px 20px;border-radius:10px;font-size:13.5px;font-weight:500;border:1px solid var(--line2);color:var(--ink)">Tap tempo</button>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:20px">
+              <div style="border:1px solid var(--line);border-radius:14px;background:var(--plate);padding:24px">
+                <div style="font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:14px">Tuning</div>
+                <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px">
+                  <span style="font-family:var(--serif);font-size:40px;color:var(--ink);line-height:1">A</span>
+                  <span style="font-family:var(--mono);font-size:13px;color:var(--muted)">442 Hz</span>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <sc-for list="{{ pitches }}" as="p" hint-placeholder-count="4">
+                    <button onClick="{{ p.go }}" style="{{ p.style }}flex:1;padding:9px 0;border-radius:8px;font-family:var(--mono);font-size:12px">{{ p.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="border:1px solid var(--line);border-radius:14px;background:var(--plate);padding:24px">
+                <div style="font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:14px">Page turns</div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <sc-for list="{{ prefs }}" as="pf" hint-placeholder-count="3">
+                    <button onClick="{{ pf.go }}" style="display:flex;align-items:center;gap:14px;text-align:left">
+                      <span style="{{ pf.track }}flex:none;width:38px;height:22px;border-radius:999px;position:relative;transition:background 150ms ease-out">
+                        <span style="{{ pf.knob }}position:absolute;top:3px;width:16px;height:16px;border-radius:999px;background:#FFFDF8;transition:left 150ms cubic-bezier(.4,0,.2,1)"></span>
+                      </span>
+                      <span style="flex:1">
+                        <span style="display:block;font-size:13.5px;color:var(--ink)">{{ pf.label }}</span>
+                        <span style="display:block;font-size:11.5px;color:var(--muted);margin-top:2px">{{ pf.hint }}</span>
+                      </span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+      </main>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1302,&quot;height&quot;:942},&quot;markColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#B33F26&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#B33F26&quot;,&quot;#2B3E5E&quot;,&quot;#2D6A3F&quot;,&quot;#7A5C2E&quot;],&quot;section&quot;:&quot;Look&quot;},&quot;stageMode&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Look&quot;},&quot;seamHold&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:4,&quot;min&quot;:0,&quot;max&quot;:10,&quot;step&quot;:1,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Page turns&quot;},&quot;showHints&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Page turns&quot;}}">
+const h = React.createElement;
+
+const LIGHT = {
+  paper:'#F2EFE8', plate:'#FFFDF8', ink:'#16151A', muted:'#75726B', faint:'#A9A49A',
+  line:'#E0DBD1', line2:'#CFC9BD', accent:'#B33F26', blue:'#2B3E5E', wash:'#E9E5DC',
+  notation:'#1A1A1F', rail:'#161519', railink:'#EDE9E1', railfaint:'#8A857C'
+};
+const DARK = {
+  paper:'#0B0B0D', plate:'#131317', ink:'#E6E2DA', muted:'#8B877F', faint:'#63605A',
+  line:'#26262B', line2:'#35353B', accent:'#D9694E', blue:'#7C93BC', wash:'#1A1A1F',
+  notation:'#C9C5BC', rail:'#0B0B0D', railink:'#E6E2DA', railfaint:'#6B6862'
+};
+
+function icon(d, size) {
+  return h('svg', {width:size||20, height:size||20, viewBox:'0 0 24 24', fill:'none',
+    stroke:'currentColor', strokeWidth:1.6, strokeLinecap:'round', strokeLinejoin:'round'},
+    d.map((p,i)=>h('path',{key:i,d:p})));
+}
+const ICONS = {
+  library: ['M4 4h5v16H4z','M11 4h4v16h-4z','M17.2 4.6l3.3 15.1'],
+  search:  ['M11 4a7 7 0 100 14 7 7 0 000-14z','M16.5 16.5L21 21'],
+  tools:   ['M12 3v18','M6 7v10','M18 7v10','M3 12h2','M19 12h2'],
+  stage:   ['M12 3a9 9 0 109 9 7 7 0 01-9-9z'],
+  sun:     ['M12 5v-2','M12 21v-2','M5 12H3','M21 12h-2','M6.4 6.4L5 5','M19 19l-1.4-1.4','M6.4 17.6L5 19','M19 5l-1.4 1.4','M12 8a4 4 0 100 8 4 4 0 000-8z'],
+  pencil:  ['M4 20l4-1 11-11-3-3L5 16z','M14 6l3 3'],
+  close:   ['M6 6l12 12','M18 6L6 18']
+};
+
+// ---- deterministic engraved-score plate -------------------------------------
+function rnd(seed) { let s = seed; return () => (s = (s*1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }
+
+function scorePlate(seed, opts) {
+  const o = opts || {};
+  const W = 420, H = 560, ink = o.ink || '#1A1A1F';
+  const r = rnd(seed*7919 + 13);
+  const systems = 6, top = 76, gap = (H - top - 44) / systems;
+  const els = [];
+  for (let s = 0; s < systems; s++) {
+    const y = top + s*gap;
+    for (let l = 0; l < 5; l++) els.push(h('rect',{key:'l'+s+l,x:38,y:y+l*7,width:W-76,height:.9,fill:ink,opacity:.62}));
+    els.push(h('rect',{key:'b'+s,x:38,y:y,width:1,height:28,fill:ink,opacity:.7}));
+    els.push(h('rect',{key:'e'+s,x:W-39,y:y,width:1.4,height:28,fill:ink,opacity:.7}));
+    els.push(h('text',{key:'c'+s,x:44,y:y+27,fontSize:30,fontFamily:'Newsreader,Georgia,serif',fill:ink,opacity:.78}, s%2 ? '\u{1D122}' : '\u{1D11E}'));
+    let x = 82;
+    while (x < W - 58) {
+      const dur = r();
+      const step = dur < .28 ? 9 : dur < .68 ? 15 : 26;
+      const ny = y + Math.round(r()*8)*3.5 - 4;
+      const stemUp = ny > y + 12;
+      const filled = dur < .72;
+      els.push(h('ellipse',{key:'n'+s+x,cx:x,cy:ny,rx:3.5,ry:2.6,fill:filled?ink:'none',stroke:ink,strokeWidth:filled?0:1.1,transform:'rotate(-18 '+x+' '+ny+')'}));
+      els.push(h('rect',{key:'s'+s+x,x:stemUp?x+3:x-3.6,y:stemUp?ny-19:ny,width:.9,height:19,fill:ink}));
+      if (dur < .28) els.push(h('rect',{key:'f'+s+x,x:x-3.6,y:stemUp?ny-19:ny+18,width:step+3,height:1.6,fill:ink}));
+      if (r() > .88) els.push(h('rect',{key:'bar'+s+x,x:x+step-5,y:y,width:.8,height:28,fill:ink,opacity:.45}));
+      x += step;
+    }
+  }
+  return h('svg',{viewBox:'0 0 '+W+' '+H, width:'100%', height:'100%', preserveAspectRatio:'xMidYMid meet', style:{display:'block'}},
+    o.title !== false ? h('text',{x:W/2,y:44,textAnchor:'middle',fontSize:15,fontFamily:'Newsreader,Georgia,serif',fill:ink,opacity:.85}, o.title || '') : null,
+    o.mark ? h('text',{x:44,y:64,fontSize:12,fontStyle:'italic',fontFamily:'Newsreader,Georgia,serif',fill:ink,opacity:.7}, o.mark) : null,
+    els);
+}
+
+const LIB = [
+  { id:'bwv1007', composer:'J. S. Bach', title:'Cello Suite no. 1 in G major', cat:'BWV 1007',
+    edition:'Bärenreiter · Schwemer/Woodfull-Harris', parts:'cello', pages:14, last:'yesterday', prog:0.62, seed:3 },
+  { id:'op104', composer:'Antonín Dvořák', title:'Cello Concerto in B minor', cat:'Op. 104',
+    edition:'Henle · Del Mar', parts:'cello, piano reduction', pages:62, last:'4 days ago', prog:0.28, seed:11 },
+  { id:'d956', composer:'Franz Schubert', title:'String Quintet in C major', cat:'D. 956',
+    edition:'Bärenreiter urtext', parts:'cello II', pages:38, last:'last week', prog:0.9, seed:5 },
+  { id:'k331', composer:'W. A. Mozart', title:'Piano Sonata no. 11 in A major', cat:'K. 331',
+    edition:'Wiener Urtext · Füssl', parts:'piano', pages:22, last:'2 weeks ago', prog:0.15, seed:19 },
+  { id:'op25', composer:'Johannes Brahms', title:'Piano Quartet no. 1 in G minor', cat:'Op. 25',
+    edition:'Henle', parts:'viola', pages:54, last:'3 weeks ago', prog:0.44, seed:23 },
+  { id:'sz117', composer:'Béla Bartók', title:'Contrasts for violin, clarinet, piano', cat:'Sz. 111',
+    edition:'Boosey & Hawkes', parts:'violin', pages:31, last:'a month ago', prog:0.05, seed:29 }
+];
+
+class Component extends DCLogic {
+  state = {
+    dark: false, view: 'library', piece: LIB[0], spread: 2, chrome: true,
+    annotating: false, tool: 'pencil', color: '#B33F26', metronome: false,
+    running: false, bpm: 92, beat: 0, turning: null, seam: false, search: false, q: ''
+  };
+
+  componentWillUnmount(){ clearInterval(this._t); clearTimeout(this._s); }
+
+  tick(){
+    clearInterval(this._t);
+    if (this.state.running) {
+      this._t = setInterval(()=>this.setState(s=>({beat:(s.beat+1)%4})), 60000/this.state.bpm);
+    }
+  }
+  setBpm(v){ this.setState({bpm:v}, ()=>this.tick()); }
+  toggleRun(){ this.setState(s=>({running:!s.running, beat:0}), ()=>this.tick()); }
+
+  turn(dir){
+    const max = Math.ceil(this.state.piece.pages/2);
+    const next = Math.min(Math.max(this.state.spread + dir, 1), max);
+    if (next === this.state.spread) return;
+    this.setState({turning: dir, seam: dir>0});
+    clearTimeout(this._s);
+    setTimeout(()=>this.setState({spread:next, turning:null}), 220);
+    const hold = (this.props.seamHold ?? 4) * 1000;
+    if (dir>0 && hold>0) this._s = setTimeout(()=>this.setState({seam:false}), hold + 200);
+    if (dir>0 && hold===0) this.setState({seam:false});
+  }
+
+  open(p){ this.setState({piece:p, view:'read', spread:2, chrome:true, seam:false}); }
+
+  renderVals(){
+    const dark = this.state.dark || (this.props.stageMode ?? false);
+    const c = Object.assign({}, dark ? DARK : LIGHT, { accent: this.props.markColor || (dark ? DARK.accent : LIGHT.accent) });
+    this._c = c; this._dark = dark;
+    const themeVars = Object.keys(c).map(k=>'--'+k+':'+c[k]+';').join('');
+    const nav = [
+      {k:'library', label:'Library', ic:'library'},
+      {k:'read', label:'Score', ic:'pencil'},
+      {k:'search', label:'Find', ic:'search'},
+      {k:'tools', label:'Tools', ic:'tools'}
+    ];
+    const navItems = nav.map(n=>{
+      const on = this.state.view === n.k;
+      return { label:n.label, icon: icon(ICONS[n.ic]),
+        style: 'color:'+(on ? '#FFFDF8' : 'var(--railfaint)')+';background:'+(on ? 'rgba(255,255,255,.10)' : 'transparent')+';',
+        go: ()=>this.setState({view:n.k, chrome:true}) };
+    });
+
+    return Object.assign({
+      themeVars, navItems,
+      stageIcon: icon(ICONS[dark ? 'sun' : 'stage']),
+      showHints: this.props.showHints ?? true,
+      toggleDark: ()=>this.setState(s=>({dark:!s.dark}))
+    }, this.screenData());
+  }
+
+  tapTempo(){
+    const now = Date.now();
+    this._taps = (this._taps || []).filter(t => now - t < 2600).concat(now);
+    if (this._taps.length >= 2) {
+      const d = [];
+      for (let i=1;i<this._taps.length;i++) d.push(this._taps[i]-this._taps[i-1]);
+      const avg = d.reduce((a,b)=>a+b,0)/d.length;
+      this.setBpm(Math.max(30, Math.min(220, Math.round(60000/avg))));
+    }
+  }
+
+  tempoWord(){
+    const b = this.state.bpm;
+    if (b < 60) return 'largo'; if (b < 76) return 'adagio'; if (b < 96) return 'andante';
+    if (b < 112) return 'moderato'; if (b < 140) return 'allegro'; return 'presto';
+  }
+
+  screenData(){
+    const s = this.state, c = this._c, p = s.piece;
+    const totalSpreads = Math.ceil(p.pages/2);
+    const pill = (on) => on
+      ? 'background:var(--ink);color:var(--paper);'
+      : 'background:transparent;color:var(--muted);border:1px solid var(--line2);';
+
+    // ---- library
+    const sorts = ['Recently played','By composer','By programme'].map(l=>({
+      label:l, style: pill(this._sort === l || (!this._sort && l==='Recently played')),
+      go: ()=>{ this._sort = l; this.forceUpdate(); }
+    }));
+    const program = [
+      {n:'I', title:'Cello Suite no. 1', meta:'Bach · 18 min', piece:LIB[0]},
+      {n:'II', title:'String Quintet in C', meta:'Schubert · 52 min', piece:LIB[2]},
+      {n:'III', title:'Piano Quartet no. 1', meta:'Brahms · 40 min', piece:LIB[4]}
+    ].map(x=>({n:x.n, title:x.title, meta:x.meta, go:()=>this.open(x.piece)}));
+
+    const pieces = LIB.map(x=>({
+      composer:x.composer, title:x.title, cat:x.cat, parts:x.parts, last:x.last,
+      bar:'width:'+Math.round(x.prog*100)+'%;',
+      plate: scorePlate(x.seed, {ink:c.notation, title:false}),
+      go: ()=>this.open(x)
+    }));
+
+    // ---- reading
+    const pageNo = s.spread*2;
+    const pageL = scorePlate(p.seed + s.spread*3, {ink:c.notation, title:p.title, mark:p.cat+' · p. '+(pageNo-1)});
+    const pageR = scorePlate(p.seed + s.spread*3 + 1, {ink:c.notation, title:false, mark:'p. '+pageNo});
+    const seamStrip = h('svg',{viewBox:'0 0 420 34', width:'100%', height:34, preserveAspectRatio:'none'},
+      [0,1,2,3,4].map(l=>h('rect',{key:l,x:0,y:6+l*5,width:420,height:.9,fill:c.notation,opacity:.55})),
+      Array.from({length:22},(_,i)=>h('ellipse',{key:'n'+i,cx:18+i*18,cy:8+((i*7)%5)*5,rx:3.2,ry:2.4,fill:c.notation,transform:'rotate(-18 '+(18+i*18)+' '+(8+((i*7)%5)*5)+')'})));
+
+    const thumbs = Array.from({length: totalSpreads*2}, (_,i)=>{
+      const n = i+1, on = n===pageNo-1 || n===pageNo;
+      return { label:String(n),
+        style:'background:'+(on ? 'var(--accent)' : 'var(--line2)')+';opacity:'+(on?1:.55)+';'+(on?'height:52px;':''),
+        numStyle:'color:'+(on ? 'var(--accent)' : 'transparent')+';',
+        go: ()=>this.setState({spread: Math.ceil(n/2), seam:false}) };
+    });
+
+    const toolDefs = [
+      {k:'pencil', label:'Pencil', d:ICONS.pencil},
+      {k:'ink', label:'Fountain pen', d:['M5 19l3-9 8-8 3 3-8 8-6 6z','M14 5l3 3']},
+      {k:'hi', label:'Highlighter', d:['M4 20h6','M7 16l9-9 3 3-9 9H7z']},
+      {k:'text', label:'Text', d:['M5 6h14','M12 6v13']},
+      {k:'erase', label:'Erase', d:['M4 17l9-9 5 5-6 6H6z','M4 21h16']}
+    ];
+    const tools = toolDefs.map(t=>({
+      label:t.label, icon: icon(t.d, 19),
+      style:'color:'+(s.tool===t.k?'#FFFDF8':'var(--railfaint)')+';background:'+(s.tool===t.k?'rgba(255,255,255,.13)':'transparent')+';',
+      go: ()=>this.setState({tool:t.k})
+    }));
+    const inks = [{v:'#B33F26',n:'Red pencil'},{v:'#2B3E5E',n:'Blue'},{v:'#2D6A3F',n:'Green'},{v:'#EDE9E1',n:'White chalk'}].map(k=>({
+      label:k.n,
+      style:'background:'+k.v+';box-shadow:'+(s.color===k.v?'0 0 0 2px var(--rail),0 0 0 4px #FFFDF8':'none')+';',
+      go: ()=>this.setState({color:k.v})
+    }));
+
+    // ---- find
+    const scopes = ['My shelf','IMSLP','Publishers','Parts I don\u2019t own'].map((l,i)=>({
+      label:l, style: pill(i===0), go: ()=>{}
+    }));
+    const kindStyle = (k)=> k==='shelf'
+      ? 'background:var(--wash);color:var(--muted);'
+      : k==='imslp' ? 'background:rgba(43,62,94,.1);color:var(--blue);'
+      : 'background:rgba(179,63,38,.1);color:var(--accent);';
+    const results = [
+      {kind:'shelf', title:'Cello Suite no. 1 in G major', meta:'Bach · Bärenreiter · your markings from 3 Mar', tail:'BWV 1007', piece:LIB[0]},
+      {kind:'landmark', title:'Prélude — the bariolage at m. 31', meta:'Landmark in your shelf · flagged bow control', tail:'m. 31–42', piece:LIB[0]},
+      {kind:'imslp', title:'Cello Suites — Alfredo Piatti edition, 1898', meta:'IMSLP · public domain · 2 volumes', tail:'PDF 8.1 MB', piece:LIB[0]},
+      {kind:'shelf', title:'Cello Concerto in B minor', meta:'Dvořák · Henle · piano reduction attached', tail:'Op. 104', piece:LIB[1]},
+      {kind:'imslp', title:'Six Suites a Violoncello Solo senza Basso', meta:'Bach-Gesellschaft Ausgabe, 1879 · facsimile', tail:'PDF 22 MB', piece:LIB[0]}
+    ].map(r=>({kind:r.kind, title:r.title, meta:r.meta, tail:r.tail, kindStyle:kindStyle(r.kind), go:()=>this.open(r.piece)}));
+
+    // ---- tools
+    const pitches = ['A 442','A 440','A 432','A 415'].map((l,i)=>({
+      label:l, style: (this._pitch||0)===i
+        ? 'background:var(--ink);color:var(--paper);'
+        : 'background:var(--wash);color:var(--muted);',
+      go: ()=>{ this._pitch = i; this.forceUpdate(); }
+    }));
+    this._prefs = this._prefs || {seam:true, half:false, pedal:true};
+    const prefDefs = [
+      {k:'seam', label:'Carry the last system over', hint:'The system you just left stays visible for four seconds'},
+      {k:'half', label:'Half-page turns', hint:'Advance one page at a time inside a spread'},
+      {k:'pedal', label:'Bluetooth pedal', hint:'AirTurn PEDpro · connected'}
+    ];
+    const prefs = prefDefs.map(d=>{
+      const on = this._prefs[d.k];
+      return { label:d.label, hint:d.hint,
+        track:'background:'+(on?'var(--accent)':'var(--line2)')+';',
+        knob:'left:'+(on?'19px':'3px')+';',
+        go: ()=>{ this._prefs[d.k] = !on; this.forceUpdate(); } };
+    });
+
+    const beatStyle = (i, dim) => {
+      const on = s.running && s.beat===i;
+      const base = i===0 ? 'var(--accent)' : (dim ? 'rgba(255,255,255,.22)' : 'var(--line2)');
+      return 'background:'+(on ? (i===0?'var(--accent)':(dim?'#FFFDF8':'var(--ink)')) : base)
+        + ';opacity:'+(on?1:(i===0?.45:1))+';transition:opacity 60ms linear,background 60ms linear;';
+    };
+
+    return {
+      isLibrary: s.view==='library', isRead: s.view==='read',
+      isSearch: s.view==='search', isTools: s.view==='tools',
+      sorts, program, pieces, openFirst: ()=>this.open(LIB[0]),
+
+      spreadStyle: s.turning ? 'transform:translateX('+(s.turning>0?-26:26)+'px);opacity:.35;' : '',
+      pageL, pageR, seamStrip, seamPage: 'p. '+Math.max(1,(s.spread-1)*2),
+      seamTop: 'top:'+(s.chrome ? 72 : 14)+'px;',
+      seam: s.seam && this._prefs.seam, annotating: s.annotating, chrome: s.chrome,
+      prev: ()=>this.turn(-1), next: ()=>this.turn(1),
+      toggleChrome: ()=>this.setState(x=>({chrome:!x.chrome})),
+      back: ()=>this.setState({view:'library'}),
+      nowTitle: p.composer + ' — ' + p.title,
+      nowMeta: p.cat + ' · ' + p.edition + ' · ' + p.parts,
+      toggleAnnotate: ()=>this.setState(x=>({annotating:!x.annotating})),
+      annStyle: s.annotating ? 'background:var(--ink);color:var(--paper);' : 'background:transparent;color:var(--muted);border:1px solid var(--line2);',
+      pencilIcon: icon(ICONS.pencil, 15),
+      toggleMetro: ()=>this.setState(x=>({metronome:!x.metronome})),
+      metroStyle: s.metronome ? 'background:var(--ink);color:var(--paper);' : 'background:transparent;color:var(--muted);border:1px solid var(--line2);',
+      bpmLabel: '\u2669 = ' + s.bpm, thumbs, tools, inks,
+      metronome: s.metronome, closeIcon: icon(ICONS.close, 15),
+      bpm: s.bpm, tempoWord: this.tempoWord(),
+      beats: [0,1,2,3].map(i=>({style:beatStyle(i,true)})),
+      beatsLight: [0,1,2,3].map(i=>({style:beatStyle(i,false)})),
+      setBpmEv: (e)=>this.setBpm(Number(e.target.value)),
+      toggleRun: ()=>this.toggleRun(), tap: ()=>this.tapTempo(),
+      runLabel: s.running ? 'Stop' : 'Start',
+      runStyle: s.running ? 'background:var(--accent);color:#FFFDF8;' : 'background:#FFFDF8;color:#16151A;',
+      runStyleLight: s.running ? 'background:var(--accent);color:#FFFDF8;' : 'background:var(--ink);color:var(--paper);',
+
+      q: s.q, setQ: (e)=>this.setState({q:e.target.value}), scopes, results, pitches, prefs
+    };
+  }
+}
+
+</script>
+</body>
+</html>

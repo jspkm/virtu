@@ -1,0 +1,13 @@
+# Xcode / build output
+build/
+build-*/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# XcodeGen output — project.yml is the source of truth
+Virtu.xcodeproj/project.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store

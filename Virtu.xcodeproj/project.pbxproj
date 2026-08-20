@@ -1,0 +1,640 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1880CA884974B3513B6ADA8D /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */; };
+		1B6FD8516A9872115F2EF9C7 /* brahms-piano-quartet-1.pdf in Resources */ = {isa = PBXBuildFile; fileRef = C592AD3F6E92ED07B6CCA021 /* brahms-piano-quartet-1.pdf */; };
+		1DFC3947C562A62AD6428B17 /* Archivo-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2A8BCC65EAF4344A2E22E9AB /* Archivo-Regular.ttf */; };
+		20A38EA95E0DA46FFDEAF6D4 /* ExportButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3986D6AF94E9DE75AFE7BBCA /* ExportButton.swift */; };
+		32039D9D1CA8D9CBA779900C /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5F18367A189DA82BF4D870 /* MainView.swift */; };
+		32D384E7943729CC0DB0E5EE /* ReadingContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9E3C139EEBE58F976E037A /* ReadingContainerView.swift */; };
+		346B69C299F9034E95BF180C /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61561F7BD63B32AE86FE9AD /* AppState.swift */; };
+		35AE5F1C6D532F09B648885C /* TopChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E9923AFC591D23234CC440F /* TopChromeView.swift */; };
+		38172D62A4C05FF73FB91A24 /* Part.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69A78623A24E0FADAD4A486D /* Part.swift */; };
+		3DB97B6E69AF3B0993C9D7C8 /* PageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA50A1D670FBCF0E6761048 /* PageRenderer.swift */; };
+		409E3596CFC20BFD1EA7E549 /* StrokeJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46054EDE258E5D9B852DD4F9 /* StrokeJournal.swift */; };
+		45030C3B6BD3D95835F2E648 /* Newsreader-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 83471927DB01F93DF16A84E1 /* Newsreader-Medium.ttf */; };
+		4AFA373C3CC58DD365B73F16 /* bach-cello-suite-1.pdf in Resources */ = {isa = PBXBuildFile; fileRef = E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */; };
+		4CC1B5DD903DD3175B501135 /* ToolRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0949CFF42733FEA2237BD8B /* ToolRailView.swift */; };
+		5174770ED1BE67FAFACF84EB /* StageInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32BB9FA9516F188E40A59A5F /* StageInk.swift */; };
+		54978DB0B013517BF81D65C2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 17D694569F8FDDDCA3715FB9 /* Assets.xcassets */; };
+		5915C8972EC9F5C9E8DD8772 /* InkRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */; };
+		5BD00051895A7FADDDBE8553 /* ProgramEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */; };
+		5BF8786C61383A861579ED32 /* NavRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470085E4A1BB516D6F599BCF /* NavRailView.swift */; };
+		5FDD4B81E74389BCB45EFEBE /* Archivo-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 48236BE2D525BEC327353494 /* Archivo-SemiBold.ttf */; };
+		708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */; };
+		72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD13E0C987E87F6A734F83AD /* SeedData.swift */; };
+		9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */; };
+		A5EB9096F149A58F0A5DE512 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */; };
+		AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322133D65AC57D316B417AE6 /* BottomChromeView.swift */; };
+		ACE6812A629D83B1B7FC8D2F /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */; };
+		AFCBB76A8A50363A3A09DE56 /* ReadingPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EDAD94D75938D56086D5774 /* ReadingPageView.swift */; };
+		BA27E822B5C6857D63BAEFB0 /* ImportMetadataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C7C9F1985034FF10DC84BC /* ImportMetadataSheet.swift */; };
+		C80C284EC488745603CB03D4 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C6A925B6EF5984AA6FA81EF /* Tokens.swift */; };
+		CB8D896EB2612E17F6430A26 /* Newsreader-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C3485586FDA4910CF3B3216F /* Newsreader-Italic.ttf */; };
+		CE4DD27EEF5913CB02A4F007 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11A0AFD80A381DF6C25CB92D /* Haptics.swift */; };
+		CE91BF8E0DBD2725A89196D7 /* Program.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F4B6847F74900389A116B9 /* Program.swift */; };
+		D1A6F45CDF8CAABAD4B04FE8 /* schubert-string-quintet.pdf in Resources */ = {isa = PBXBuildFile; fileRef = ECF058F13B694D0B1F08C603 /* schubert-string-quintet.pdf */; };
+		D79A8B282BBE61D48E7BC1AB /* Newsreader-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 60526D50DD2CB0AF921C5AA0 /* Newsreader-Regular.ttf */; };
+		DD0A96F5854065C3A282AA54 /* test-score.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 20626071F1844938848A894E /* test-score.pdf */; };
+		DFCA38F078CD2E06CEC3F4BA /* ReadingSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7689CD2217ABC90444CE5FA6 /* ReadingSurfaceView.swift */; };
+		E68050F304A79A25928D4A71 /* WorkCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECA850179DE9196A71EC1F97 /* WorkCardView.swift */; };
+		EA5744BE8016D8D9C0F322BF /* StampLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D9A4179A4BCF3C4AE5FDB3 /* StampLibrary.swift */; };
+		F0AFEEA9511C612CA50E4A37 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 166A41580EFF8747A0F9ABDE /* Typography.swift */; };
+		F0D17506857FCA88CE93F8B6 /* VirtuInkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29CD7488AAD3DCA4CA8D0B6F /* VirtuInkTests.swift */; };
+		F4DB76DFF7DE4B549733AB18 /* VirtuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD2EA59D5336A1F306180094 /* VirtuApp.swift */; };
+		F571E6D459600442EEAFCAAB /* Work.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C163DA4E621F5A22F1EF81A /* Work.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BBCA736493F289AE0FC4DF2C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 26BDC5AF1F4B468D73A65167 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7203A1D5F9ED4836481AF368;
+			remoteInfo = Virtu;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		05D9A4179A4BCF3C4AE5FDB3 /* StampLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StampLibrary.swift; sourceTree = "<group>"; };
+		11A0AFD80A381DF6C25CB92D /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		166A41580EFF8747A0F9ABDE /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
+		17D694569F8FDDDCA3715FB9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1D5F18367A189DA82BF4D870 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		1EDAD94D75938D56086D5774 /* ReadingPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingPageView.swift; sourceTree = "<group>"; };
+		20626071F1844938848A894E /* test-score.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "test-score.pdf"; sourceTree = "<group>"; };
+		29CD7488AAD3DCA4CA8D0B6F /* VirtuInkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtuInkTests.swift; sourceTree = "<group>"; };
+		2A8BCC65EAF4344A2E22E9AB /* Archivo-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Archivo-Regular.ttf"; sourceTree = "<group>"; };
+		322133D65AC57D316B417AE6 /* BottomChromeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomChromeView.swift; sourceTree = "<group>"; };
+		32BB9FA9516F188E40A59A5F /* StageInk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageInk.swift; sourceTree = "<group>"; };
+		3986D6AF94E9DE75AFE7BBCA /* ExportButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportButton.swift; sourceTree = "<group>"; };
+		3A08370A714FE3779261D9D9 /* VirtuTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VirtuTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3E9923AFC591D23234CC440F /* TopChromeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopChromeView.swift; sourceTree = "<group>"; };
+		46054EDE258E5D9B852DD4F9 /* StrokeJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrokeJournal.swift; sourceTree = "<group>"; };
+		470085E4A1BB516D6F599BCF /* NavRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavRailView.swift; sourceTree = "<group>"; };
+		48236BE2D525BEC327353494 /* Archivo-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Archivo-SemiBold.ttf"; sourceTree = "<group>"; };
+		4C6A925B6EF5984AA6FA81EF /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		5AA50A1D670FBCF0E6761048 /* PageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRenderer.swift; sourceTree = "<group>"; };
+		60526D50DD2CB0AF921C5AA0 /* Newsreader-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Regular.ttf"; sourceTree = "<group>"; };
+		69A78623A24E0FADAD4A486D /* Part.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Part.swift; sourceTree = "<group>"; };
+		6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationLayer.swift; sourceTree = "<group>"; };
+		717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Archivo-Medium.ttf"; sourceTree = "<group>"; };
+		7689CD2217ABC90444CE5FA6 /* ReadingSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingSurfaceView.swift; sourceTree = "<group>"; };
+		81EF906636FFFD955E6DB75F /* Virtu.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Virtu.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		83471927DB01F93DF16A84E1 /* Newsreader-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Medium.ttf"; sourceTree = "<group>"; };
+		90C7C9F1985034FF10DC84BC /* ImportMetadataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportMetadataSheet.swift; sourceTree = "<group>"; };
+		9C163DA4E621F5A22F1EF81A /* Work.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Work.swift; sourceTree = "<group>"; };
+		A9F4B6847F74900389A116B9 /* Program.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Program.swift; sourceTree = "<group>"; };
+		AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgramEditorSheet.swift; sourceTree = "<group>"; };
+		AD9E3C139EEBE58F976E037A /* ReadingContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingContainerView.swift; sourceTree = "<group>"; };
+		C3485586FDA4910CF3B3216F /* Newsreader-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Italic.ttf"; sourceTree = "<group>"; };
+		C592AD3F6E92ED07B6CCA021 /* brahms-piano-quartet-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "brahms-piano-quartet-1.pdf"; sourceTree = "<group>"; };
+		CD13E0C987E87F6A734F83AD /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
+		CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
+		D61561F7BD63B32AE86FE9AD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		DD2EA59D5336A1F306180094 /* VirtuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtuApp.swift; sourceTree = "<group>"; };
+		E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "bach-cello-suite-1.pdf"; sourceTree = "<group>"; };
+		ECA850179DE9196A71EC1F97 /* WorkCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkCardView.swift; sourceTree = "<group>"; };
+		ECF058F13B694D0B1F08C603 /* schubert-string-quintet.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "schubert-string-quintet.pdf"; sourceTree = "<group>"; };
+		F0949CFF42733FEA2237BD8B /* ToolRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRailView.swift; sourceTree = "<group>"; };
+		F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
+		FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkRenderer.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		13AC51482161E30EC3D14C84 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				81EF906636FFFD955E6DB75F /* Virtu.app */,
+				3A08370A714FE3779261D9D9 /* VirtuTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		18C3716A1A8989E0078616DD /* Virtu */ = {
+			isa = PBXGroup;
+			children = (
+				1D5F18367A189DA82BF4D870 /* MainView.swift */,
+				470085E4A1BB516D6F599BCF /* NavRailView.swift */,
+				DD2EA59D5336A1F306180094 /* VirtuApp.swift */,
+				80D56EE1B0827CFFC5B54A66 /* Annotation */,
+				2AB84F7F4BB9E79D9C7760B3 /* DesignSystem */,
+				3D9E2888E9A9F4E1A4330730 /* Library */,
+				2AF3D715B39C162210E27AC1 /* Model */,
+				D3672005DB864B2BECCA6CF3 /* Persistence */,
+				FEA6532D21BAAAB45A4892C1 /* Reading */,
+				BEFFD54C72DEE54C57FB6E4C /* Resources */,
+			);
+			path = Virtu;
+			sourceTree = "<group>";
+		};
+		2AB84F7F4BB9E79D9C7760B3 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				11A0AFD80A381DF6C25CB92D /* Haptics.swift */,
+				32BB9FA9516F188E40A59A5F /* StageInk.swift */,
+				4C6A925B6EF5984AA6FA81EF /* Tokens.swift */,
+				166A41580EFF8747A0F9ABDE /* Typography.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		2AF3D715B39C162210E27AC1 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */,
+				D61561F7BD63B32AE86FE9AD /* AppState.swift */,
+				69A78623A24E0FADAD4A486D /* Part.swift */,
+				A9F4B6847F74900389A116B9 /* Program.swift */,
+				CD13E0C987E87F6A734F83AD /* SeedData.swift */,
+				9C163DA4E621F5A22F1EF81A /* Work.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		34B74618A0E42588F3A5E5C0 = {
+			isa = PBXGroup;
+			children = (
+				73D0508AAD9B5B621D63B25E /* Tests */,
+				18C3716A1A8989E0078616DD /* Virtu */,
+				13AC51482161E30EC3D14C84 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3D9E2888E9A9F4E1A4330730 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				90C7C9F1985034FF10DC84BC /* ImportMetadataSheet.swift */,
+				E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */,
+				AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */,
+				ECA850179DE9196A71EC1F97 /* WorkCardView.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		68CC6642CA0A5844F40FF94B /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */,
+				2A8BCC65EAF4344A2E22E9AB /* Archivo-Regular.ttf */,
+				48236BE2D525BEC327353494 /* Archivo-SemiBold.ttf */,
+				CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */,
+				F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */,
+				C3485586FDA4910CF3B3216F /* Newsreader-Italic.ttf */,
+				83471927DB01F93DF16A84E1 /* Newsreader-Medium.ttf */,
+				60526D50DD2CB0AF921C5AA0 /* Newsreader-Regular.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		73D0508AAD9B5B621D63B25E /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				29CD7488AAD3DCA4CA8D0B6F /* VirtuInkTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		80D56EE1B0827CFFC5B54A66 /* Annotation */ = {
+			isa = PBXGroup;
+			children = (
+				FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */,
+				05D9A4179A4BCF3C4AE5FDB3 /* StampLibrary.swift */,
+				F0949CFF42733FEA2237BD8B /* ToolRailView.swift */,
+			);
+			path = Annotation;
+			sourceTree = "<group>";
+		};
+		BEFFD54C72DEE54C57FB6E4C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				17D694569F8FDDDCA3715FB9 /* Assets.xcassets */,
+				20626071F1844938848A894E /* test-score.pdf */,
+				68CC6642CA0A5844F40FF94B /* Fonts */,
+				F0DACF3BBFC53DD76CB151F5 /* SeedScores */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		D3672005DB864B2BECCA6CF3 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				46054EDE258E5D9B852DD4F9 /* StrokeJournal.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		F0DACF3BBFC53DD76CB151F5 /* SeedScores */ = {
+			isa = PBXGroup;
+			children = (
+				E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */,
+				C592AD3F6E92ED07B6CCA021 /* brahms-piano-quartet-1.pdf */,
+				ECF058F13B694D0B1F08C603 /* schubert-string-quintet.pdf */,
+			);
+			path = SeedScores;
+			sourceTree = "<group>";
+		};
+		FEA6532D21BAAAB45A4892C1 /* Reading */ = {
+			isa = PBXGroup;
+			children = (
+				322133D65AC57D316B417AE6 /* BottomChromeView.swift */,
+				3986D6AF94E9DE75AFE7BBCA /* ExportButton.swift */,
+				5AA50A1D670FBCF0E6761048 /* PageRenderer.swift */,
+				AD9E3C139EEBE58F976E037A /* ReadingContainerView.swift */,
+				1EDAD94D75938D56086D5774 /* ReadingPageView.swift */,
+				7689CD2217ABC90444CE5FA6 /* ReadingSurfaceView.swift */,
+				3E9923AFC591D23234CC440F /* TopChromeView.swift */,
+			);
+			path = Reading;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7203A1D5F9ED4836481AF368 /* Virtu */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6647A8253323F19A9DB1E003 /* Build configuration list for PBXNativeTarget "Virtu" */;
+			buildPhases = (
+				5FC3153873D9B6ECBA79534C /* Sources */,
+				5D63C9AD54602C4980DDB464 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Virtu;
+			packageProductDependencies = (
+			);
+			productName = Virtu;
+			productReference = 81EF906636FFFD955E6DB75F /* Virtu.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D437C9B2FA91C8AA082EB322 /* VirtuTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E589E0835640500D0A54C9F1 /* Build configuration list for PBXNativeTarget "VirtuTests" */;
+			buildPhases = (
+				EC1301937B3EDC0F92AA6E6B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				04487988D35D3423B302B7C9 /* PBXTargetDependency */,
+			);
+			name = VirtuTests;
+			packageProductDependencies = (
+			);
+			productName = VirtuTests;
+			productReference = 3A08370A714FE3779261D9D9 /* VirtuTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		26BDC5AF1F4B468D73A65167 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					7203A1D5F9ED4836481AF368 = {
+						DevelopmentTeam = DQ56JFGV59;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = D844641FF881B29A6B540621 /* Build configuration list for PBXProject "Virtu" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 34B74618A0E42588F3A5E5C0;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 13AC51482161E30EC3D14C84 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D437C9B2FA91C8AA082EB322 /* VirtuTests */,
+				7203A1D5F9ED4836481AF368 /* Virtu */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5D63C9AD54602C4980DDB464 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */,
+				1DFC3947C562A62AD6428B17 /* Archivo-Regular.ttf in Resources */,
+				5FDD4B81E74389BCB45EFEBE /* Archivo-SemiBold.ttf in Resources */,
+				54978DB0B013517BF81D65C2 /* Assets.xcassets in Resources */,
+				ACE6812A629D83B1B7FC8D2F /* JetBrainsMono-Medium.ttf in Resources */,
+				A5EB9096F149A58F0A5DE512 /* JetBrainsMono-Regular.ttf in Resources */,
+				CB8D896EB2612E17F6430A26 /* Newsreader-Italic.ttf in Resources */,
+				45030C3B6BD3D95835F2E648 /* Newsreader-Medium.ttf in Resources */,
+				D79A8B282BBE61D48E7BC1AB /* Newsreader-Regular.ttf in Resources */,
+				4AFA373C3CC58DD365B73F16 /* bach-cello-suite-1.pdf in Resources */,
+				1B6FD8516A9872115F2EF9C7 /* brahms-piano-quartet-1.pdf in Resources */,
+				D1A6F45CDF8CAABAD4B04FE8 /* schubert-string-quintet.pdf in Resources */,
+				DD0A96F5854065C3A282AA54 /* test-score.pdf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5FC3153873D9B6ECBA79534C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */,
+				346B69C299F9034E95BF180C /* AppState.swift in Sources */,
+				AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */,
+				20A38EA95E0DA46FFDEAF6D4 /* ExportButton.swift in Sources */,
+				CE4DD27EEF5913CB02A4F007 /* Haptics.swift in Sources */,
+				BA27E822B5C6857D63BAEFB0 /* ImportMetadataSheet.swift in Sources */,
+				5915C8972EC9F5C9E8DD8772 /* InkRenderer.swift in Sources */,
+				1880CA884974B3513B6ADA8D /* LibraryView.swift in Sources */,
+				32039D9D1CA8D9CBA779900C /* MainView.swift in Sources */,
+				5BF8786C61383A861579ED32 /* NavRailView.swift in Sources */,
+				3DB97B6E69AF3B0993C9D7C8 /* PageRenderer.swift in Sources */,
+				38172D62A4C05FF73FB91A24 /* Part.swift in Sources */,
+				CE91BF8E0DBD2725A89196D7 /* Program.swift in Sources */,
+				5BD00051895A7FADDDBE8553 /* ProgramEditorSheet.swift in Sources */,
+				32D384E7943729CC0DB0E5EE /* ReadingContainerView.swift in Sources */,
+				AFCBB76A8A50363A3A09DE56 /* ReadingPageView.swift in Sources */,
+				DFCA38F078CD2E06CEC3F4BA /* ReadingSurfaceView.swift in Sources */,
+				72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */,
+				5174770ED1BE67FAFACF84EB /* StageInk.swift in Sources */,
+				EA5744BE8016D8D9C0F322BF /* StampLibrary.swift in Sources */,
+				409E3596CFC20BFD1EA7E549 /* StrokeJournal.swift in Sources */,
+				C80C284EC488745603CB03D4 /* Tokens.swift in Sources */,
+				4CC1B5DD903DD3175B501135 /* ToolRailView.swift in Sources */,
+				35AE5F1C6D532F09B648885C /* TopChromeView.swift in Sources */,
+				F0AFEEA9511C612CA50E4A37 /* Typography.swift in Sources */,
+				F4DB76DFF7DE4B549733AB18 /* VirtuApp.swift in Sources */,
+				F571E6D459600442EEAFCAAB /* Work.swift in Sources */,
+				E68050F304A79A25928D4A71 /* WorkCardView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EC1301937B3EDC0F92AA6E6B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F0D17506857FCA88CE93F8B6 /* VirtuInkTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		04487988D35D3423B302B7C9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7203A1D5F9ED4836481AF368 /* Virtu */;
+			targetProxy = BBCA736493F289AE0FC4DF2C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0912047742C64B25B07B0625 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DQ56JFGV59;
+				INFOPLIST_FILE = Virtu/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jspkm.virtu;
+				SDKROOT = iphoneos;
+				SUPPORTS_MAC_DESIGNED_FOR_IPAD = NO;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		192AA13D148341C27268F384 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = DQ56JFGV59;
+				INFOPLIST_FILE = Virtu/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jspkm.virtu;
+				SDKROOT = iphoneos;
+				SUPPORTS_MAC_DESIGNED_FOR_IPAD = NO;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		3E2E1B5695E6A99EBB2F1203 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		6207D9F881B6FDCF00FE4EB4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CAD602961E25A1BC63031D96 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jspkm.virtu.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Virtu.app/Virtu";
+			};
+			name = Release;
+		};
+		F51399F8F507970E76C836FF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jspkm.virtu.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Virtu.app/Virtu";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6647A8253323F19A9DB1E003 /* Build configuration list for PBXNativeTarget "Virtu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0912047742C64B25B07B0625 /* Debug */,
+				192AA13D148341C27268F384 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D844641FF881B29A6B540621 /* Build configuration list for PBXProject "Virtu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6207D9F881B6FDCF00FE4EB4 /* Debug */,
+				3E2E1B5695E6A99EBB2F1203 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E589E0835640500D0A54C9F1 /* Build configuration list for PBXNativeTarget "VirtuTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F51399F8F507970E76C836FF /* Debug */,
+				CAD602961E25A1BC63031D96 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 26BDC5AF1F4B468D73A65167 /* Project object */;
+}

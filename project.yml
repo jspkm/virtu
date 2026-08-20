@@ -1,0 +1,77 @@
+name: Virtu
+options:
+  bundleIdPrefix: com.virtu
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+
+targets:
+  VirtuTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Virtu
+    settings:
+      base:
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Virtu.app/Virtu
+        BUNDLE_LOADER: $(TEST_HOST)
+        PRODUCT_BUNDLE_IDENTIFIER: com.jspkm.virtu.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.9"
+
+  Virtu:
+    type: application
+    platform: iOS
+    sources:
+      - path: Virtu
+        excludes:
+          - Info.plist
+    info:
+      path: Virtu/Info.plist
+      properties:
+        CFBundleDisplayName: Virtu
+        CFBundleShortVersionString: "0.0.1"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIAppFonts:
+          - Newsreader-Regular.ttf
+          - Newsreader-Medium.ttf
+          - Newsreader-Italic.ttf
+          - Archivo-Regular.ttf
+          - Archivo-Medium.ttf
+          - Archivo-SemiBold.ttf
+          - JetBrainsMono-Regular.ttf
+          - JetBrainsMono-Medium.ttf
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+        # Personalized bundle id: explicit App IDs are globally unique, so a
+        # generic com.virtu.app could already be taken by another team.
+        PRODUCT_BUNDLE_IDENTIFIER: com.jspkm.virtu
+        SUPPORTS_MAC_DESIGNED_FOR_IPAD: false
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: DQ56JFGV59
+
+schemes:
+  Virtu:
+    build:
+      targets:
+        Virtu: all
+        VirtuTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - VirtuTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
