@@ -107,38 +107,63 @@ struct ToolRailView: View {
         .accessibilityLabel(label)
     }
 
+    @ViewBuilder
     private func toolButton(tool: AppState.AnnotationTool, icon: String, label: String) -> some View {
         let isActive = state.tool == tool
-        return Button {
-            Haptics.selection()
-            state.tool = tool
-            if tool != .pencil { close() }
-        } label: {
-            Image(systemName: icon)
-                .font(.system(size: 17))
-                .foregroundStyle(isActive ? theme.accent : theme.muted)
-                .frame(width: 40, height: 40)
-                .background(isActive ? theme.accent.opacity(0.12) : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(alignment: .bottomTrailing) {
-                    // A pencil with more behind it than a tap reveals says so.
-                    if tool == .pencil {
-                        Circle()
-                            .fill(theme.muted.opacity(0.5))
-                            .frame(width: 3, height: 3)
-                            .padding(.trailing, 5)
-                            .padding(.bottom, 5)
+
+        if tool == .pencil {
+            // Built from bare gestures, not a Button: a SwiftUI Button
+            // swallows the long press, which is why the options never opened.
+            toolFace(icon: icon, isActive: isActive, showsMore: true)
+                .contentShape(Rectangle())
+                .onLongPressGesture(minimumDuration: 0.35) {
+                    Haptics.light()
+                    state.tool = .pencil
+                    showPencilOptions = true
+                }
+                .onTapGesture {
+                    Haptics.selection()
+                    if state.tool == .pencil {
+                        // Tapping the pencil already in your hand opens its
+                        // options. A long press nobody can see is a feature
+                        // nobody has.
+                        showPencilOptions.toggle()
+                    } else {
+                        state.tool = .pencil
                     }
                 }
+                .accessibilityLabel(label)
+                .accessibilityHint("Thickness, line style and colour")
+        } else {
+            Button {
+                Haptics.selection()
+                state.tool = tool
+                close()
+            } label: {
+                toolFace(icon: icon, isActive: isActive, showsMore: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(label)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityHint(tool == .pencil ? "Long press for thickness, line style and colour" : "")
-        .modifier(PencilLongPress(enabled: tool == .pencil) {
-            Haptics.light()
-            state.tool = .pencil
-            showPencilOptions.toggle()
-        })
+    }
+
+    private func toolFace(icon: String, isActive: Bool, showsMore: Bool) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 17))
+            .foregroundStyle(isActive ? theme.accent : theme.muted)
+            .frame(width: 40, height: 40)
+            .background(isActive ? theme.accent.opacity(0.12) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(alignment: .leading) {
+                // Points at where the options slide out from.
+                if showsMore {
+                    Image(systemName: showPencilOptions ? "chevron.right" : "chevron.left")
+                        .font(.system(size: 7, weight: .semibold))
+                        .foregroundStyle(isActive ? theme.accent : theme.muted)
+                        .opacity(0.7)
+                        .padding(.leading, 1)
+                }
+            }
     }
 
     private var divider: some View {
@@ -167,21 +192,6 @@ struct ToolRailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
-    }
-}
-
-/// Attaches a long-press only where one belongs, so the other tools keep a
-/// plain tap with no press-and-hold delay.
-private struct PencilLongPress: ViewModifier {
-    let enabled: Bool
-    let action: () -> Void
-
-    func body(content: Content) -> some View {
-        if enabled {
-            content.onLongPressGesture(minimumDuration: 0.4, perform: action)
-        } else {
-            content
-        }
     }
 }
 

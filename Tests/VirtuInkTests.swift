@@ -419,6 +419,42 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertNil(page.inkView.image, "hidden layers still rendered — the clean-score promise is broken")
     }
 
+    func testHidingALayerAlsoBlanksTheCanvas() {
+        // Found on hardware: hiding a layer cleared the older marks but left
+        // the freshly-written ones on screen. Re-rendering our ink layer is
+        // not enough — PencilKit is still lighting the strokes it drew
+        // interactively, and it is a second renderer with its own opinion.
+        let page = makePageView()
+        page.annotationEnabled = true
+        page.canvas.drawing = makeDrawing([makeStroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 160, y: 100))])
+        page.canvasViewDrawingDidChange(page.canvas)
+        XCTAssertEqual(page.canvas.drawing.strokes.count, 1, "precondition: the canvas holds the ink")
+
+        page.setLayers(active: 1, visible: [])
+
+        XCTAssertEqual(
+            page.canvas.drawing.strokes.count, 0,
+            "hiding a layer left ink in PencilKit's canvas, which keeps drawing what our ink layer no longer does"
+        )
+        XCTAssertFalse(
+            page.canvas.drawingGestureRecognizer.isEnabled,
+            "a hidden active layer still accepted ink — the pencil would write into something invisible"
+        )
+    }
+
+    func testShowingTheLayerAgainGivesTheCanvasBackItsInk() {
+        let page = makePageView()
+        page.annotationEnabled = true
+        page.canvas.drawing = makeDrawing([makeStroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 160, y: 100))])
+        page.canvasViewDrawingDidChange(page.canvas)
+
+        page.setLayers(active: 1, visible: [])
+        page.setLayers(active: 1, visible: [1])
+
+        XCTAssertEqual(page.canvas.drawing.strokes.count, 1, "ink did not return to the canvas when its layer was shown")
+        XCTAssertTrue(page.canvas.drawingGestureRecognizer.isEnabled)
+    }
+
     func testHiddenLayerReturnsUnharmed() throws {
         let partID = UUID()
         let page = makePageView(partID: partID)

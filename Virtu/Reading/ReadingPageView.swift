@@ -37,6 +37,22 @@ final class PencilObserverRecognizer: UIGestureRecognizer {
 /// gets a text menu across the music they are reading. This canvas refuses the
 /// interaction outright and answers no to every editing action.
 final class ScoreCanvasView: PKCanvasView {
+    /// Fingers never draw (PRD 0.2), so the canvas has no business receiving
+    /// them — and refusing them is the only reliable way to stop the menu.
+    /// Blocking the interaction on this view was not enough: PencilKit
+    /// presents "Select All / Insert Space" from an interaction on its own
+    /// internal content view, which we do not own and cannot subclass. A
+    /// finger that never reaches the canvas cannot summon it.
+    ///
+    /// This also helps navigation: the turn, mode and undo gestures all live
+    /// on the parent, and now get the finger touches unobstructed.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let event, let touch = event.allTouches?.first, touch.type != .pencil {
+            return nil
+        }
+        return super.hitTest(point, with: event)
+    }
+
     override func addInteraction(_ interaction: UIInteraction) {
         guard !(interaction is UIEditMenuInteraction) else { return }
         super.addInteraction(interaction)
@@ -170,11 +186,10 @@ final class ReadingPageView: UIView {
         // recorded strokes away from the pencil tip. Fixed, inset-free surface.
         c.contentInsetAdjustmentBehavior = .never
         c.isScrollEnabled = false
-        // Belt to ScoreCanvasView's braces: drop any edit-menu interaction
-        // PencilKit attached before we could refuse it.
-        c.interactions
-            .filter { $0 is UIEditMenuInteraction }
-            .forEach(c.removeInteraction)
+        // Belt to ScoreCanvasView's braces: strip any edit-menu interaction
+        // PencilKit attached before we could refuse it — on the canvas and on
+        // every internal view it has built so far.
+        c.stripEditMenuInteractions()
         c.translatesAutoresizingMaskIntoConstraints = false
         addSubview(c)
         NSLayoutConstraint.activate([
@@ -214,7 +229,7 @@ final class ReadingPageView: UIView {
 
         canvas = ScoreCanvasView()
         configureAndAttachCanvas(canvas)
-        canvas.drawingGestureRecognizer.isEnabled = annotationEnabled
+        canvas.drawingGestureRecognizer.isEnabled = annotationEnabled && canInk
         if let tool = lastAppliedTool {
             canvas.tool = tool
         }
@@ -314,21 +329,29 @@ final class ReadingPageView: UIView {
     /// state sync: only a genuine change costs a re-render.
     func setLayers(active: Int, visible: [Int]) {
         guard active != activeLayer || visible != visibleLayers else { return }
-        let activeChanged = active != activeLayer
         activeLayer = active
         visibleLayers = visible
-        if activeChanged {
-            // Hand the canvas its new layer, and let the display-ownership
-            // machinery blank whatever the old one left lit.
-            applyDrawingToCanvas()
-        } else {
-            renderInkFallback()
-        }
+
+        // EVERY layer change goes through the nuclear handoff, visibility
+        // included. Re-rendering only our ink layer was not enough: PencilKit
+        // is still lighting the strokes it drew interactively, so hiding a
+        // layer cleared the older marks (which lived only in our layer) and
+        // left the freshly-written ones on screen. Destroy the canvas so the
+        // ink layer is once again the sole display owner.
+        rebuildCanvas()
+        canvasNormalizations += 1
+    }
+
+    /// A hidden active layer accepts no ink. Reachable only by hiding every
+    /// layer — at which point the musician has asked for a clean score, and
+    /// writing into something invisible is never what that meant.
+    private var canInk: Bool {
+        visibleLayers.contains(activeLayer)
     }
 
     var annotationEnabled: Bool = false {
         didSet {
-            canvas.drawingGestureRecognizer.isEnabled = annotationEnabled
+            canvas.drawingGestureRecognizer.isEnabled = annotationEnabled && canInk
         }
     }
 
@@ -458,7 +481,9 @@ final class ReadingPageView: UIView {
         // leaves its interactive render layer lit — the committed ink layer
         // then double-renders every fresh stroke.
         canvas.drawing = PKDrawing()
-        canvas.drawing = activeDrawing.transformed(using: CGAffineTransform(scaleX: scale, y: scale))
+        if canInk {
+            canvas.drawing = activeDrawing.transformed(using: CGAffineTransform(scaleX: scale, y: scale))
+        }
         isApplying = false
         appliedScale = scale
         renderInkFallback()
@@ -474,6 +499,9 @@ final class ReadingPageView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // PencilKit builds its content views lazily, so an interaction can
+        // appear long after setup.
+        canvas.stripEditMenuInteractions()
         if canvas.contentOffset != .zero {
             canvas.contentOffset = .zero
         }
@@ -508,5 +536,15 @@ extension ReadingPageView: PKCanvasViewDelegate {
 
     func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
         onCanvasUsed?(self)
+    }
+}
+
+extension UIView {
+    /// Remove every edit-menu interaction in this view's tree.
+    func stripEditMenuInteractions() {
+        interactions
+            .filter { $0 is UIEditMenuInteraction }
+            .forEach(removeInteraction)
+        subviews.forEach { $0.stripEditMenuInteractions() }
     }
 }
