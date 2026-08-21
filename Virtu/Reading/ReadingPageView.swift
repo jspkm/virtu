@@ -10,6 +10,13 @@ final class PencilObserverRecognizer: UIGestureRecognizer {
     var onMoved: (([CGPoint]) -> Void)?
     var onEnded: (() -> Void)?
 
+    // Nothing prevents this recognizer and it prevents nothing: when
+    // PencilKit's drawing recognizer claims the gesture, UIKit fails every
+    // recognizer it can — a failed recognizer stops receiving touches, and
+    // the wet preview starved to nothing mid-stroke on device.
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         guard let touch = touches.first else { return }
         onBegan?(touch.location(in: view))
@@ -375,13 +382,15 @@ final class ReadingPageView: UIView {
     private(set) var toolAssignments = 0
     private var appliedToolKey = ""
     private var lastAppliedTool: PKTool?
-    /// Near-zero while a dotted style is armed. PencilKit's live renderer
-    /// knows nothing of the dash carriers, so on device it draws — and keeps
-    /// lit until normalization — a solid pen stroke that contradicts the
-    /// committed dots. For those styles the canvas becomes invisible (still
-    /// receiving input; above 0.01 it still hit-tests) and the dashed wet
-    /// layer is the live preview. Solid and calligraphic keep PencilKit's
-    /// native live render, which is accurate for them.
+    /// Near-zero for every tool except the lasso. ONE rule, deliberately not
+    /// per-style: InkRenderer is the sole authority on what committed ink
+    /// looks like, and any moment PencilKit's layer is visible it can flash
+    /// its own opinion — which is how switching the armed style visibly
+    /// changed marks that were already on the page. The canvas still receives
+    /// input (above 0.01 it still hit-tests); the wet layer previews every
+    /// stroke with the same geometry the commit will use. The lasso is the
+    /// one tool whose feedback PencilKit itself renders, so it alone gets a
+    /// visible canvas.
     private var canvasAlphaForTool: CGFloat = 1
 
     func apply(tool: PKTool) {
@@ -417,14 +426,13 @@ final class ReadingPageView: UIView {
             wetStyleWidth = wet.width
             wetStyleDash = wet.dash.map { $0.map { NSNumber(value: Double($0)) } }
             wetActive = true
-            canvasAlphaForTool = wet.dash == nil ? 1 : 0.02
         } else {
-            // Eraser and lasso get no wet preview — and the lasso needs the
-            // canvas visible, since PencilKit renders the selection.
+            // Eraser and lasso get no wet preview; erasing reads back through
+            // the ink layer, which re-renders on every change mid-gesture.
             wetActive = false
             clearWet()
-            canvasAlphaForTool = 1
         }
+        canvasAlphaForTool = tool is PKLassoTool ? 1 : 0.02
         canvas.alpha = canvasAlphaForTool
     }
 

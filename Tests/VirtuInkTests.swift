@@ -735,23 +735,33 @@ final class VirtuInkTests: XCTestCase {
             "calligraphic ink ignores stroke direction — it will read as the regular style")
     }
 
-    func testCanvasHidesItsLiveRenderForDottedStylesOnly() throws {
-        // PencilKit's live layer draws dash-carrier strokes as solid pen and
-        // keeps them lit until normalization — "strokes do not snap to
-        // dotted". For those styles the canvas must be invisible so the
-        // dashed wet layer is the only live preview.
+    func testCanvasLiveRenderHiddenUniformly() throws {
+        // ONE rule for every tool but the lasso. Per-style alpha was tried
+        // and produced the worst bug of the batch: committed ink's appearance
+        // depended on which tool was ARMED — switching styles revealed
+        // PencilKit's hidden solid render of strokes already on the page.
         let state = AppState(defaults: Self.scratchDefaults())
-        state.tool = .pencil
         let page = makePageView()
 
-        state.strokeStyle = .dotted
+        state.tool = .pencil
+        var alphas: [CGFloat] = []
+        for style in AppState.StrokeStyle.allCases {
+            state.strokeStyle = style
+            page.apply(tool: state.currentPKTool())
+            alphas.append(page.canvas.alpha)
+        }
+        state.tool = .highlighter
         page.apply(tool: state.currentPKTool())
-        XCTAssertLessThan(page.canvas.alpha, 0.1, "dotted: PencilKit's solid live render is visible")
-        XCTAssertGreaterThan(page.canvas.alpha, 0.011, "an alpha this low stops hit-testing — input dies")
+        alphas.append(page.canvas.alpha)
+        state.tool = .eraser
+        page.apply(tool: state.currentPKTool())
+        alphas.append(page.canvas.alpha)
 
-        state.strokeStyle = .solid
-        page.apply(tool: state.currentPKTool())
-        XCTAssertEqual(page.canvas.alpha, 1, "solid: the native live render should stay")
+        XCTAssertEqual(Set(alphas).count, 1,
+                       "canvas visibility varies by tool — switching tools will change how existing ink looks")
+        let alpha = try XCTUnwrap(alphas.first)
+        XCTAssertLessThan(alpha, 0.1, "PencilKit's layer can flash its own opinion of committed ink")
+        XCTAssertGreaterThan(alpha, 0.011, "an alpha this low stops hit-testing — input dies")
 
         state.tool = .lasso
         page.apply(tool: state.currentPKTool())
