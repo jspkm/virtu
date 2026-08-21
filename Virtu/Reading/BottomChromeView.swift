@@ -16,7 +16,9 @@ struct BottomChromeView: View {
                     .font(VFont.metadata)
                     .foregroundStyle(theme.faint)
             }
-            .padding(.horizontal, 20)
+            .padding(.leading, 20)
+            // Keep clear of the always-on control row in the corner.
+            .padding(.trailing, Tokens.readingControlsBand)
             .padding(.vertical, 14)
             .background(
                 LinearGradient(

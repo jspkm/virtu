@@ -9,15 +9,10 @@ struct ExportButton: View {
     @State private var exportedURL: URL?
 
     var body: some View {
-        Button {
+        // Same face as the rest of the bottom-right row it now sits in.
+        ReadingIconButton(systemName: "square.and.arrow.up", label: "Share annotated PDF") {
             exportAnnotatedPDF()
-        } label: {
-            Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 16))
-                .foregroundStyle(theme.muted)
-                .frame(width: 36, height: 36)
         }
-        .buttonStyle(.plain)
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
                 ShareSheet(items: [url])

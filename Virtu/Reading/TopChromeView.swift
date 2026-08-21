@@ -6,9 +6,9 @@ struct TopChromeView: View {
 
     var body: some View {
         VStack {
-            // Library and the mode toggle now live in the always-on controls
-            // at the top-right (ReadingControlsView), so the chrome carries
-            // only what it alone can: what you are looking at, and export.
+            // Library, the mode toggle and Share all live in the bottom-right
+            // row now, so the chrome carries only what it alone can: what you
+            // are looking at.
             HStack(spacing: 16) {
                 // Title block
                 if let work = state.currentWork {
@@ -52,13 +52,12 @@ struct TopChromeView: View {
                 }
 
                 Spacer()
-
-                // Export button
-                ExportButton()
             }
-            .padding(.leading, 20)
-            // Keep clear of the always-on controls above.
-            .padding(.trailing, Tokens.readingControlsBand)
+            // The status bar is visible in Study and its content is not ours
+            // to move, so the title starts inboard of the clock and date and
+            // stops short of the radio and battery indicators.
+            .padding(.leading, Tokens.statusBarLeadingInset)
+            .padding(.trailing, Tokens.statusBarTrailingInset)
             .padding(.vertical, 14)
             .background(
                 LinearGradient(

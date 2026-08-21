@@ -82,12 +82,24 @@ enum Tokens {
     static let readingControlIcon = CGSize(width: 26, height: 34)
     static let readingControlGlyph: CGFloat = 17
 
-    /// Vertical margin reserved above the spread so these controls sit beside
-    /// the page, never on top of the notation.
+    /// Vertical margin reserved above and below the spread, so these controls
+    /// sit beside the page and never on top of the notation.
+    ///
+    /// They live at the BOTTOM right. The top right belongs to iPadOS — wifi,
+    /// battery, the lot — and in Study the status bar is visible, so anything
+    /// we put up there is read through somebody else's icons.
     static let readingControlMargin: CGFloat = 36
 
-    /// Horizontal band they occupy. Chrome keeps clear of it.
-    static let readingControlsBand: CGFloat = readingControlIcon.width * 2 + 12
+    /// Horizontal band the row occupies, at its widest: share, Library, mode.
+    /// Chrome keeps clear of it.
+    static let readingControlsBand: CGFloat = readingControlIcon.width * 3 + 12
+
+    /// Room to leave for the status bar's own content. The clock and date sit
+    /// at the leading edge, the radio and battery indicators at the trailing
+    /// one, and neither is ours to move — so the title block starts inboard of
+    /// the first and stops short of the second.
+    static let statusBarLeadingInset: CGFloat = 190
+    static let statusBarTrailingInset: CGFloat = 130
 
     // MARK: - Rail
 

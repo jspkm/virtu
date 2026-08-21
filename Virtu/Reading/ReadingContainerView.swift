@@ -128,8 +128,13 @@ private struct PageReadoutView: View {
     }
 }
 
-/// The two controls that are always available while reading: the Library, then
-/// the reading-mode toggle, in the top-right margin.
+/// The controls that are always available while reading: the Library, then the
+/// reading-mode toggle, in the **bottom**-right margin — joined by Share
+/// whenever the chrome is up.
+///
+/// Bottom because the top right is iPadOS's. The status bar is visible in
+/// Study, so icons placed up there are read through the wifi and battery
+/// indicators.
 ///
 /// They persist in Perform as well as Study — a knowing exception to the M2
 /// rule that Perform shows "the page and nothing else". A stranger handed the
@@ -144,8 +149,16 @@ private struct ReadingControlsView: View {
 
     var body: some View {
         VStack {
+            Spacer()
+
             HStack(spacing: 0) {
                 Spacer()
+
+                // Share joins the row rather than sitting off in the top
+                // chrome: one place to look for anything that is not the page.
+                if state.chromeVisible {
+                    ExportButton()
+                }
 
                 ReadingIconButton(systemName: "books.vertical", label: "Library") {
                     Haptics.selection()
@@ -165,8 +178,6 @@ private struct ReadingControlsView: View {
             }
             .frame(height: Tokens.readingControlMargin)
             .padding(.trailing, 12)
-
-            Spacer()
         }
     }
 }
@@ -174,7 +185,7 @@ private struct ReadingControlsView: View {
 /// Full strength, always. A narrow frame with a tall touch area: the width is
 /// what sets the visible gap between the pair, the height is what a pencil tip
 /// needs to land on.
-private struct ReadingIconButton: View {
+struct ReadingIconButton: View {
     let systemName: String
     let label: String
     let action: () -> Void
