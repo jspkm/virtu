@@ -792,6 +792,69 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertLessThan(fine, dotted, "live fine dotted is not finer than dotted")
     }
 
+    func testCommittedStrokeIsIdenticallyTheLiveStroke() throws {
+        // The paper rule: pen-up changes nothing. The pencil pipeline is ours
+        // end to end, so the points drawn under the tip must be, identically,
+        // the points that persist — same geometry, same ink, same widths.
+        let partID = UUID()
+        let page = makePageView(partID: partID)
+        page.setLayers(active: 1, visible: [1])
+        page.annotationEnabled = true
+
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.tool = .pencil
+        state.strokeStyle = .dotted
+        page.apply(tool: state.currentPKTool())
+
+        let samples = (0...20).map { i in
+            (location: CGPoint(x: 100 + CGFloat(i) * 10, y: 200 + CGFloat(i) * 3),
+             force: CGFloat(0.6))
+        }
+        page.inkGestureBegan([samples[0]])
+        page.inkGestureMoved(Array(samples.dropFirst()))
+        page.inkGestureEnded()
+        waitForJournal()
+
+        let saved = try XCTUnwrap(
+            StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: 1),
+            "the live stroke was not committed at pen-up")
+        XCTAssertEqual(saved.strokes.count, 1)
+        let stroke = try XCTUnwrap(saved.strokes.first)
+        XCTAssertEqual(stroke.ink.inkType, .pen, "the committed stroke lost its style carrier")
+        // Display scale is 1 in the harness, so PDF-space equals view-space.
+        XCTAssertEqual(saved.bounds.minX, 100, accuracy: 4)
+        XCTAssertEqual(saved.bounds.maxX, 300, accuracy: 4)
+        XCTAssertNotNil(page.inkView.image, "committed ink is not on the ink layer")
+
+        // PencilKit did not participate: its recognizer must be off while an
+        // inking tool is armed, and on for the lasso.
+        XCTAssertFalse(page.canvas.drawingGestureRecognizer.isEnabled,
+                       "PencilKit still records inking strokes — two sources of truth again")
+        state.tool = .lasso
+        page.apply(tool: state.currentPKTool())
+        XCTAssertTrue(page.canvas.drawingGestureRecognizer.isEnabled,
+                      "the lasso still needs PencilKit's recognizer")
+    }
+
+    func testCancelledInkGestureLeavesNoMark() {
+        // A cancelled touch is the system taking the gesture back — paper
+        // keeps no mark from a pencil that never truly landed.
+        let partID = UUID()
+        let page = makePageView(partID: partID)
+        page.setLayers(active: 1, visible: [1])
+        page.annotationEnabled = true
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.tool = .pencil
+        page.apply(tool: state.currentPKTool())
+
+        page.inkGestureBegan([(location: CGPoint(x: 50, y: 50), force: 0.6)])
+        page.inkGestureMoved([(location: CGPoint(x: 150, y: 50), force: 0.6)])
+        // Cancel path clears without committing (observer.onCancelled → clearWet).
+        waitForJournal()
+        XCTAssertNil(StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: 1),
+                     "an uncommitted gesture persisted ink")
+    }
+
     func testHighlighterStillCompositesUnderInk() {
         // Sorting by ink type is what keeps a marker under a pencil; the style
         // carriers added four more ink types it must not be confused by.
