@@ -508,7 +508,7 @@ final class VirtuInkTests: XCTestCase {
         window.addSubview(margin)
         margin.isMarginSurface = true
         margin.configure(
-            partID: partID, pageIndex: AnnotationLayers.marginLeftIndex, pdfSize: pdfSize)
+            partID: partID, pageIndex: AnnotationLayers.marginRightIndex, pdfSize: pdfSize)
         margin.layoutIfNeeded()
 
         margin.canvas.drawing = makeDrawing([
@@ -518,7 +518,7 @@ final class VirtuInkTests: XCTestCase {
         waitForJournal()
 
         let saved = try XCTUnwrap(StrokeJournal.shared.load(
-            partID: partID, pageIndex: AnnotationLayers.marginLeftIndex, layer: AnnotationLayers.first))
+            partID: partID, pageIndex: AnnotationLayers.marginRightIndex, layer: AnnotationLayers.first))
         XCTAssertEqual(saved.strokes.count, 1)
 
         // It must not have landed on any real page, at any index.
@@ -531,7 +531,7 @@ final class VirtuInkTests: XCTestCase {
 
     func testTheTwoMarginsDoNotShareASlot() throws {
         let partID = UUID()
-        for (index, y) in [(AnnotationLayers.marginLeftIndex, 40.0), (AnnotationLayers.marginBottomIndex, 300.0)] {
+        for (index, y) in [(AnnotationLayers.marginRightIndex, 40.0), (AnnotationLayers.marginBottomIndex, 300.0)] {
             StrokeJournal.shared.save(
                 makeDrawing([makeStroke(from: CGPoint(x: 10, y: y), to: CGPoint(x: 60, y: y))]),
                 partID: partID, pageIndex: index, layer: AnnotationLayers.first,
@@ -540,7 +540,7 @@ final class VirtuInkTests: XCTestCase {
         waitForJournal()
 
         let left = try XCTUnwrap(StrokeJournal.shared.load(
-            partID: partID, pageIndex: AnnotationLayers.marginLeftIndex, layer: AnnotationLayers.first))
+            partID: partID, pageIndex: AnnotationLayers.marginRightIndex, layer: AnnotationLayers.first))
         let bottom = try XCTUnwrap(StrokeJournal.shared.load(
             partID: partID, pageIndex: AnnotationLayers.marginBottomIndex, layer: AnnotationLayers.first))
         XCTAssertEqual(left.bounds.minY, 40, accuracy: 4)

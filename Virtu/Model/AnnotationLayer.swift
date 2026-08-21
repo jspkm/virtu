@@ -13,7 +13,9 @@ enum AnnotationLayers {
     // The shared margins belong to the PART, not to any page: what you write
     // beside page 1 is still there beside page 5. They need slots in the
     // journal that no real page index can ever take.
-    static let marginLeftIndex = -1
+    /// Value kept at -1 through the move from the left edge to the right, so
+    /// anything already written in the margin travels with it.
+    static let marginRightIndex = -1
     static let marginBottomIndex = -2
 
     static func isMargin(_ pageIndex: Int) -> Bool { pageIndex < 0 }

@@ -42,11 +42,11 @@ final class ReadingPageViewController: UIViewController {
     private let rightPage = ReadingPageView()
     /// Shared scratch space, keyed to the part rather than the page: what you
     /// write here beside page 1 is still here beside page 5.
-    private let marginLeftView = ReadingPageView()
+    private let marginRightView = ReadingPageView()
     private let marginBottomView = ReadingPageView()
 
     private var inkViews: [ReadingPageView] {
-        [leftPage, rightPage, marginLeftView, marginBottomView]
+        [leftPage, rightPage, marginRightView, marginBottomView]
     }
     private let gutterView = UIView()
     private let gutterWidth: CGFloat = 2
@@ -129,17 +129,19 @@ final class ReadingPageViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         centerContent()
-        if needsScrollToPage, marginLeftView.bounds.width > 0 {
+        if needsScrollToPage, leftPage.bounds.width > 0 {
             needsScrollToPage = false
             scrollToPage(animated: false)
         }
     }
 
-    /// Put the page where the eye is. The margins sit left of and below it in
-    /// the content, so offset zero would open on empty desk.
+    /// Put the page where the eye is: the margins sit right of and below it,
+    /// out of frame until the paper is moved.
     private func scrollToPage(animated: Bool) {
+        // The page block sits at the content origin now; the margins are
+        // outboard right and below.
         let offset = CGPoint(
-            x: marginLeftView.bounds.width - scrollView.contentInset.left,
+            x: -scrollView.contentInset.left,
             y: -scrollView.contentInset.top
         )
         scrollView.setContentOffset(offset, animated: animated)
@@ -211,7 +213,7 @@ final class ReadingPageViewController: UIViewController {
             }
             spreadContainer.addSubview(page)
         }
-        for margin in [marginLeftView, marginBottomView] {
+        for margin in [marginRightView, marginBottomView] {
             margin.isMarginSurface = true
         }
 
@@ -227,14 +229,18 @@ final class ReadingPageViewController: UIViewController {
         // pages -> margin -> container edge vertically, so the container sizes
         // itself from the page. Only the page carries an aspect ratio.
         NSLayoutConstraint.activate([
-            marginLeftView.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
-            marginLeftView.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
-            marginLeftView.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
-            marginLeftView.widthAnchor.constraint(
-                equalTo: leftPage.widthAnchor, multiplier: Tokens.marginWidthFraction),
-
+            // The margin is outboard of the last page, on the writing-hand
+            // side. The page block starts flush at the container's leading
+            // edge, so what you see at rest is only the score.
             leftPage.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
-            leftPage.leadingAnchor.constraint(equalTo: marginLeftView.trailingAnchor),
+            leftPage.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
+
+            marginRightView.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
+            marginRightView.leadingAnchor.constraint(equalTo: rightPage.trailingAnchor),
+            marginRightView.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
+            marginRightView.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
+            marginRightView.widthAnchor.constraint(
+                equalTo: leftPage.widthAnchor, multiplier: Tokens.marginWidthFraction),
 
             gutterView.topAnchor.constraint(equalTo: leftPage.topAnchor),
             gutterView.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
@@ -244,7 +250,6 @@ final class ReadingPageViewController: UIViewController {
             rightPage.topAnchor.constraint(equalTo: leftPage.topAnchor),
             rightPage.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
             rightPage.leadingAnchor.constraint(equalTo: gutterView.trailingAnchor),
-            rightPage.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
 
             marginBottomView.topAnchor.constraint(equalTo: leftPage.bottomAnchor),
             marginBottomView.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
@@ -348,7 +353,7 @@ final class ReadingPageViewController: UIViewController {
             // The same paper as the page. A margin shaded like a desk reads
             // as scenery; blank paper reads as somewhere to write, which is
             // the entire reason it is there.
-            for margin in [marginLeftView, marginBottomView] {
+            for margin in [marginRightView, marginBottomView] {
                 margin.backgroundColor = stage ? UIColor(hex: 0x0A0908) : UIColor(hex: 0xFFFDF8)
                 margin.layer.borderColor = (stage ? UIColor(hex: 0x25211C) : UIColor(hex: 0xE0DBD1)).cgColor
             }
@@ -418,9 +423,9 @@ final class ReadingPageViewController: UIViewController {
     private func configureMargins(partID: UUID?) {
         guard let renderer else { return }
         let page = renderer.pageSize
-        marginLeftView.configure(
+        marginRightView.configure(
             partID: partID,
-            pageIndex: AnnotationLayers.marginLeftIndex,
+            pageIndex: AnnotationLayers.marginRightIndex,
             pdfSize: CGSize(width: page.width * Tokens.marginWidthFraction, height: page.height)
         )
         marginBottomView.configure(

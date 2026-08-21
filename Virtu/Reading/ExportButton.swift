@@ -86,20 +86,18 @@ struct ExportButton: View {
 }
 
 private extension ExportButton {
-    /// One page carrying both margins in the arrangement they are written in:
-    /// the left margin down the left edge, the bottom margin across the foot,
-    /// and the space between them left empty where the music would be.
+    /// One page carrying both margins in the arrangement they are written in.
     func drawMarginPage(
         part: Part, journal: StrokeJournal, context: UIGraphicsPDFRendererContext
     ) {
         let layers = part.visibleLayerIndices
-        let left = layers.compactMap {
-            journal.load(partID: part.id, pageIndex: AnnotationLayers.marginLeftIndex, layer: $0)
+        let side = layers.compactMap {
+            journal.load(partID: part.id, pageIndex: AnnotationLayers.marginRightIndex, layer: $0)
         }
         let bottom = layers.compactMap {
             journal.load(partID: part.id, pageIndex: AnnotationLayers.marginBottomIndex, layer: $0)
         }
-        guard left.contains(where: { !$0.strokes.isEmpty })
+        guard side.contains(where: { !$0.strokes.isEmpty })
                 || bottom.contains(where: { !$0.strokes.isEmpty }) else { return }
 
         guard let firstPage = PDFDocument(url: part.pdfURL)?.page(at: 0) else { return }
@@ -111,8 +109,12 @@ private extension ExportButton {
         context.beginPage(withBounds: CGRect(origin: .zero, size: size), pageInfo: [:])
         let cg = context.cgContext
 
+        // Laid out as written: the side margin outboard of where the spread
+        // would be, the bottom margin across the foot, and the space the music
+        // occupied left empty.
         cg.saveGState()
-        InkRenderer.draw(left, in: cg)
+        cg.translateBy(x: page.width * 2, y: 0)
+        InkRenderer.draw(side, in: cg)
         cg.restoreGState()
 
         cg.saveGState()

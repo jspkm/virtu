@@ -116,10 +116,12 @@ enum Tokens {
     // MARK: - Shared margins
 
     /// Scratch space beside and below the score, as a fraction of one page.
-    /// Shared across the whole part — fingerings, a reminder about the repeat,
-    /// the conductor's tempo — so it does not have to be rewritten per page.
-    static let marginWidthFraction: CGFloat = 0.22
-    static let marginHeightFraction: CGFloat = 0.16
+    /// A whole page of it in each direction, not a strip: this is where a
+    /// fingering chart, the conductor's notes from Tuesday, or a worked-out
+    /// bowing goes, and none of those fit in a gutter. Shared across the whole
+    /// part, so it is written once rather than on every page.
+    static let marginWidthFraction: CGFloat = 1.0
+    static let marginHeightFraction: CGFloat = 1.0
 
     // MARK: - Rail
 

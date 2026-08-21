@@ -170,3 +170,31 @@ forward into layer 1 on first load, so existing ink survives untouched.
 M6 listed "Layers — mine / section / this-program, per-layer visibility and
 export." Item 1 is that feature pulled to P0 with **numbered** layers instead
 of named roles. Named/role-based layers remain an M6 refinement on top.
+
+---
+
+## 7. Shared margins  *(added 2026-08-20)*
+
+A **full page** of blank paper to the **right** of the score and another
+**below** it — right from the reader's point of view, under the writing hand.
+
+- The margin belongs to the **part, not the page**: what is written beside
+  page 1 is still there beside page 5. Fingering charts, a conductor's note
+  from Tuesday, a worked-out bowing — none of which want rewriting per page.
+- It **costs the score no size**. Fit is measured against the page; the margins
+  hang off the container outside the viewport, so they appear only when the
+  paper is moved. Panning is Study-only.
+- Same white as the page. A margin shaded like a desk reads as scenery; blank
+  paper reads as somewhere to write.
+- Journal slots -1 (side) and -2 (bottom), per layer, so margins honour layer
+  visibility like everything else.
+- The bottom margin's coordinate space is fixed at two pages wide, so rotating
+  the iPad rescales what is written rather than reflowing it onto other notes.
+
+**Consequence:** swipe-to-turn becomes Perform-only. In Study a horizontal drag
+moves the paper to reach the margin and cannot also turn the page. Edge taps,
+the pedal and the scrubber still turn in both modes.
+
+**Export** asks: the part alone (default), or with margin notes as one extra
+page at the end. Working notes are not music, and a stand partner expects a
+clean part at the original page size.
