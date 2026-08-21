@@ -304,8 +304,7 @@ final class ReadingPageViewController: UIViewController {
             bottomHeadroom.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
             bottomHeadroom.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
             bottomHeadroom.bottomAnchor.constraint(equalTo: spreadContainer.bottomAnchor),
-            bottomHeadroom.heightAnchor.constraint(
-                equalTo: leftPage.heightAnchor, multiplier: Tokens.bottomHeadroomFraction),
+            bottomHeadroom.heightAnchor.constraint(equalToConstant: Tokens.bottomHeadroom),
 
             pagesGuide.leadingAnchor.constraint(equalTo: leftPage.leadingAnchor),
             pagesGuide.trailingAnchor.constraint(equalTo: rightPage.trailingAnchor),

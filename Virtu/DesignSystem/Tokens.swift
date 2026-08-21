@@ -126,12 +126,16 @@ enum Tokens {
     /// written here; it exists so the page can be pushed up far enough to
     /// reach and mark its lowest system instead of writing at the bezel.
     ///
-    /// At rest the page letterboxes to the viewport, so this fraction is also
-    /// roughly the fraction of screen the page can rise by: 0.4 lifts a final
-    /// system sitting at 92% of page height to just above mid-screen, which is
-    /// where a hand wants it. A whole page of headroom (what this was) is
-    /// scroll travel through nothing.
-    static let bottomHeadroomFraction: CGFloat = 0.4
+    /// Fixed, and the same on every iPad — a fraction of the page was the wrong
+    /// unit, because what this has to clear is a hand, and a hand is the same
+    /// size on a mini and on a 13".
+    ///
+    /// For scale, measured off the Bach at iPad Pro 13" size (page 1333pt): the
+    /// bare five-line staff is 33.5pt, one bar of ink with its stems, slurs and
+    /// ornaments is 75pt, one bar's slot from system to system is 119pt. So 70
+    /// is just under one bar of ink — enough to lift the lowest system clear of
+    /// the bezel, and no more.
+    static let bottomHeadroom: CGFloat = 70
 
     // MARK: - Rail
 

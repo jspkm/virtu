@@ -562,14 +562,14 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertTrue(headroom.subviews.isEmpty,
                       "something is mounted in the headroom — it holds nothing")
 
-        // Headroom, not a second page: enough to lift the lowest system off
-        // the bezel, nowhere near a page of travel.
+        // Headroom, not a second page: one bar of travel, fixed. It clears a
+        // hand, so it does not scale with the paper.
         let pageHeight = vc.testPage.bounds.height
         XCTAssertGreaterThan(pageHeight, 0)
-        let ratio = headroom.bounds.height / pageHeight
-        XCTAssertEqual(ratio, Tokens.bottomHeadroomFraction, accuracy: 0.02)
-        XCTAssertLessThan(ratio, 0.75, "a page of headroom is scrolling through nothing")
-        XCTAssertGreaterThan(ratio, 0.15, "too little to reach the lowest system")
+        XCTAssertEqual(headroom.bounds.height, Tokens.bottomHeadroom, accuracy: 1,
+                       "the headroom is no longer a fixed height")
+        XCTAssertLessThan(headroom.bounds.height, pageHeight / 4,
+                          "a page of headroom is scrolling through nothing")
     }
 
     // MARK: - Journal format v2
