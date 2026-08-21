@@ -93,18 +93,13 @@ enum Tokens {
     /// its own gesture.
     static let readingControlBottomInset: CGFloat = 12
 
-    /// Height of the Study title chrome — status bar, title, metadata line and
-    /// its padding. In Study the page top starts below this, so the chrome
-    /// never sits on the first system.
-    static let topChromeClearance: CGFloat = 96
+    /// How far down from the top a touch still means "show me the score
+    /// info", as a fraction of the view height.
+    static let chromeSummonBand: CGFloat = 0.12
 
-    /// Vertical margin reserved above and below the spread, so these controls
-    /// sit beside the page and never on top of the notation.
-    ///
-    /// They live at the BOTTOM right. The top right belongs to iPadOS — wifi,
-    /// battery, the lot — and in Study the status bar is visible, so anything
-    /// we put up there is read through somebody else's icons.
-    static let readingControlMargin: CGFloat = readingControlIcon.height + readingControlBottomInset
+    // The controls live at the BOTTOM right, overlaying the page's own
+    // printed margin. The top right belongs to iPadOS — wifi, battery, the
+    // lot — so anything we put up there is read through somebody's icons.
 
     /// Horizontal band the row occupies, at its widest: share, Library, mode.
     /// Chrome keeps clear of it.

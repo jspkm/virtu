@@ -69,6 +69,9 @@ struct TopChromeView: View {
 
             Spacer()
         }
-        .transition(.opacity.animation(.easeOut(duration: 0.16)))
+        .transition(
+            .move(edge: .top).combined(with: .opacity)
+                .animation(.timingCurve(0.32, 0.72, 0, 1, duration: 0.26))
+        )
     }
 }

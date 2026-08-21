@@ -694,9 +694,9 @@ final class VirtuInkTests: XCTestCase {
     // MARK: - Reading layout: what the two modes reserve
 
     /// Hosts the real controller against a real PDF and toggles modes.
-    /// Pins the regression where entering Study kept Perform's full-bleed
-    /// offset and parked the first system under the title chrome.
-    func testModeChangeReparksThePageUnderItsOwnReserves() throws {
+    /// The contract: the score occupies the same space in both modes — all
+    /// chrome overlays it — and each switch re-parks the page cleanly.
+    func testModeSwitchDoesNotResizeTheScore() throws {
         let bundle = Bundle(for: ReadingPageViewController.self)
         let pdfURL = try XCTUnwrap(bundle.url(forResource: "test-score", withExtension: "pdf"))
         let stored = "\(UUID().uuidString).pdf"
@@ -722,25 +722,25 @@ final class VirtuInkTests: XCTestCase {
 
         let scroll = try XCTUnwrap(vc.view.subviews.compactMap { $0 as? UIScrollView }.first)
 
-        // Perform: nothing reserved — the page is the screen.
-        XCTAssertLessThan(scroll.contentInset.top, Tokens.topChromeClearance,
-                          "Perform reserved chrome space it does not use")
+        let performInsetTop = scroll.contentInset.top
+        let performPageHeight = scroll.subviews.first?.bounds.height ?? 0
 
         state.readingMode = .study
         vc.syncFromState()
         settle()
-        XCTAssertGreaterThanOrEqual(
-            scroll.contentInset.top, Tokens.topChromeClearance - 1,
-            "Study did not reserve the chrome's height above the page")
-        XCTAssertEqual(
-            scroll.contentOffset.y, -scroll.contentInset.top, accuracy: 2,
-            "entering Study kept the old offset — the first system sits under the chrome")
+        // The mode switch must not resize or move the score: chrome, tool
+        // rail and scrubber are all overlays now.
+        XCTAssertEqual(scroll.contentInset.top, performInsetTop, accuracy: 1,
+                       "Study reserved space Perform did not — the score shrank")
+        XCTAssertEqual(scroll.subviews.first?.bounds.height ?? 0, performPageHeight, accuracy: 1,
+                       "the score changed size across the mode switch")
+        XCTAssertEqual(scroll.contentOffset.y, -scroll.contentInset.top, accuracy: 2,
+                       "entering Study moved the page off its parked position")
 
         state.readingMode = .perform
         vc.syncFromState()
         settle()
-        XCTAssertEqual(
-            scroll.contentOffset.y, -scroll.contentInset.top, accuracy: 2,
-            "returning to Perform did not re-park at full bleed")
+        XCTAssertEqual(scroll.contentOffset.y, -scroll.contentInset.top, accuracy: 2,
+                       "returning to Perform did not re-park at full bleed")
     }
 }

@@ -28,7 +28,10 @@ struct BottomChromeView: View {
                 )
             )
         }
-        .transition(.opacity.animation(.easeOut(duration: 0.16)))
+        .transition(
+            .move(edge: .bottom).combined(with: .opacity)
+                .animation(.timingCurve(0.32, 0.72, 0, 1, duration: 0.26))
+        )
     }
 
     private var thumbnailStrip: some View {

@@ -43,15 +43,18 @@ struct ReadingContainerView: View {
 
                 StageBrightnessToast()
             }
-            .statusBarHidden(!state.annotating)
+            // The status bar rides with the chrome: score info and clock
+            // arrive together and leave together.
+            .statusBarHidden(!state.chromeVisible)
             .persistentSystemOverlays(state.annotating ? .automatic : .hidden)
             .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
             .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
             .task(id: performChromeToken) {
-                // Perform chrome is a visitor: summoned by long-press,
-                // gone again after 8s.
-                guard !state.annotating, state.chromeVisible else { return }
-                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                // Chrome is a visitor in BOTH modes: summoned by touching the
+                // top of the score, gone again on its own. Nobody needs the
+                // title of the piece they are playing for more than a glance.
+                guard state.chromeVisible else { return }
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.16)) { state.chromeVisible = false }
             }
@@ -229,7 +232,7 @@ private struct FirstOpenHintView: View {
         VStack {
             Spacer()
             if visible {
-                Text("Tap the edges to turn \u{00B7} tap \u{270E} top-right for Study")
+                Text("Tap the edges to turn \u{00B7} \u{270E} bottom-right for Study \u{00B7} touch the top for score info")
                     .font(VFont.metadata)
                     .foregroundStyle(theme.muted)
                     .opacity(0.75)

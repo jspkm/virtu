@@ -63,13 +63,6 @@ final class ReadingPageViewController: UIViewController {
     /// without the margins answering for it.
     private let pagesGuide = UILayoutGuide()
     private var needsScrollToPage = true
-    /// Vertical room reserved above and below the page. Study reserves the
-    /// full title chrome on top and the control row below. Perform reserves
-    /// NOTHING: the page is the screen, edge to edge — the M2 rule, restored.
-    /// The corner icons overlay the page's own printed margin, which is paper,
-    /// not notation.
-    private var reservedTopInset: CGFloat = 0
-    private var reservedBottomInset: CGFloat = 0
     private var spreadHeightConstraint: NSLayoutConstraint!
     private var spreadHeightLimit: NSLayoutConstraint!
     private var spreadWidthLimit: NSLayoutConstraint!
@@ -304,13 +297,15 @@ final class ReadingPageViewController: UIViewController {
         // Fit is measured against the PAGE, not the container. The shared
         // margins hang off the container outside the viewport, so they cost
         // the score no size at all — you reach them by moving the paper.
+        // Full bleed in BOTH modes: the page is the screen, and the mode
+        // switch must not resize the score. Chrome, the tool rail and the
+        // scrubber all overlay it as visitors — the right margin is why that
+        // costs nothing, since the score can be moved out from under them.
         spreadHeightConstraint = leftPage.heightAnchor.constraint(
-            equalTo: scrollView.frameLayoutGuide.heightAnchor,
-            constant: -Tokens.readingControlMargin * 2)
+            equalTo: scrollView.frameLayoutGuide.heightAnchor)
         spreadHeightConstraint.priority = .defaultHigh
         spreadHeightLimit = leftPage.heightAnchor.constraint(
-            lessThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor,
-            constant: -Tokens.readingControlMargin * 2)
+            lessThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor)
         spreadWidthLimit = pagesGuide.widthAnchor.constraint(
             lessThanOrEqualTo: scrollView.frameLayoutGuide.widthAnchor)
         NSLayoutConstraint.activate([
@@ -412,15 +407,6 @@ final class ReadingPageViewController: UIViewController {
     }
 
     private func applyModeChange(annotating: Bool) {
-        // Study reserves the chrome's height above the page — the title block
-        // is persistent there and must never sit on the first system — and the
-        // control row below. Perform reserves nothing: maximize the score.
-        reservedTopInset = annotating ? Tokens.topChromeClearance : 0
-        reservedBottomInset = annotating ? Tokens.readingControlMargin : 0
-        let margin = -(reservedTopInset + reservedBottomInset)
-        spreadHeightConstraint.constant = margin
-        spreadHeightLimit.constant = margin
-
         if !annotating {
             scrollView.setZoomScale(1, animated: false)
             leftPage.canvas.resignFirstResponder()
@@ -450,20 +436,8 @@ final class ReadingPageViewController: UIViewController {
         let content = scrollView.contentSize
         guard bounds.width > 0, content.width > 0 else { return }
         let x = max(0, (bounds.width - content.width) / 2)
-        // The vertical reserves are unconditional insets, not letterbox
-        // arithmetic: with the full-page margins in the content, contentSize
-        // always exceeds the viewport, so a "split the leftover" scheme sees
-        // no leftover and parks the page under the chrome. The rest offset is
-        // -inset.top, which is exactly the chrome clearance; the bottom
-        // reserve doubles as over-scroll room so the control row never covers
-        // the foot of the bottom margin.
-        let extraY = max(0, bounds.height - content.height - reservedTopInset - reservedBottomInset)
-        let inset = UIEdgeInsets(
-            top: reservedTopInset + extraY / 2,
-            left: x,
-            bottom: reservedBottomInset + extraY / 2,
-            right: x
-        )
+        let extraY = max(0, bounds.height - content.height)
+        let inset = UIEdgeInsets(top: extraY / 2, left: x, bottom: extraY / 2, right: x)
         if scrollView.contentInset != inset {
             scrollView.contentInset = inset
         }
@@ -538,7 +512,7 @@ final class ReadingPageViewController: UIViewController {
 
     private func updatePages(renderer: PageRenderer, animated: Bool, direction: Int) {
         let state = appState!
-        let height = max(leftPage.bounds.height, view.bounds.height - Tokens.readingControlMargin * 2)
+        let height = max(leftPage.bounds.height, view.bounds.height)
         let stage = state.stageMode
 
         let apply = { [weak self] in
@@ -622,6 +596,15 @@ final class ReadingPageViewController: UIViewController {
             let moved = hypot(location.x - pressStartPoint.x, location.y - pressStartPoint.y) > 12
             defer { dismissPeek() }
             guard !moved else { return }
+
+            // A quick touch near the top summons the score info, in BOTH
+            // modes — the one thing the title chrome is for. Edge zones keep
+            // their corners for turning.
+            if pressZone == .center, dt < 0.3,
+               location.y < view.bounds.height * Tokens.chromeSummonBand {
+                appState.chromeVisible = true
+                return
+            }
 
             switch pressZone {
             case .left:

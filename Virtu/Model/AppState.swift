@@ -355,8 +355,9 @@ final class AppState {
 
     func toggleMode() {
         readingMode = annotating ? .perform : .study
-        // Study starts with chrome up; Perform starts clean.
-        chromeVisible = annotating
+        // Both modes start clean. The title is a visitor in Study as well —
+        // summoned by touching the top of the score, gone again on its own.
+        chromeVisible = false
     }
 
     // MARK: - PencilKit tool construction
