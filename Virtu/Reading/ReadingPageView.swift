@@ -6,9 +6,20 @@ import PencilKit
 /// interfere with PencilKit's drawing recognizer — it just watches the same
 /// touches to feed the live wet-ink layer the OS no longer draws.
 final class PencilObserverRecognizer: UIGestureRecognizer {
-    var onBegan: ((CGPoint) -> Void)?
-    var onMoved: (([CGPoint]) -> Void)?
+    /// A live sample: location plus normalized force (1 on devices that
+    /// report none, so the simulator draws at full nib width).
+    typealias Sample = (location: CGPoint, force: CGFloat)
+
+    var onBegan: (([Sample]) -> Void)?
+    var onMoved: (([Sample]) -> Void)?
     var onEnded: (() -> Void)?
+
+    private func sample(_ touch: UITouch) -> Sample {
+        let norm = touch.maximumPossibleForce > 0
+            ? touch.force / touch.maximumPossibleForce
+            : 0.6   // the factor curve maps 0.6 to exactly the nib width
+        return (touch.location(in: view), norm)
+    }
 
     // Nothing prevents this recognizer and it prevents nothing: when
     // PencilKit's drawing recognizer claims the gesture, UIKit fails every
@@ -19,13 +30,13 @@ final class PencilObserverRecognizer: UIGestureRecognizer {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         guard let touch = touches.first else { return }
-        onBegan?(touch.location(in: view))
+        onBegan?([sample(touch)])
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
-        guard let touch = touches.first, let view else { return }
+        guard let touch = touches.first, view != nil else { return }
         let coalesced = event.coalescedTouches(for: touch) ?? [touch]
-        onMoved?(coalesced.map { $0.location(in: view) })
+        onMoved?(coalesced.map { sample($0) })
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
@@ -119,14 +130,12 @@ final class ReadingPageView: UIView {
     /// Called when the user begins drawing on this page's canvas.
     var onCanvasUsed: ((ReadingPageView) -> Void)?
 
-    // Live wet ink: iPadOS 26.x's PencilKit shows nothing while drawing, so a
-    // shape layer previews the stroke under the tip; the pressure-rendered
-    // commit replaces it at pen-up.
-    private let wetLayer = CAShapeLayer()
-    private let wetPath = UIBezierPath()
-    private var wetStyleColor: UIColor = .black
-    private var wetStyleWidth: CGFloat = 3
-    private var wetStyleDash: [NSNumber]?
+    // Live wet ink. Drawn by InkRenderer ITSELF — the stroke under the tip
+    // and the committed stroke are one code path, so what you write is the
+    // chosen style from the first millimetre and pen-up has nothing to snap.
+    private let wetView = WetStrokeView()
+    private var wetInk = PKInk(.pencil, color: .black)
+    private var wetBaseWidth: CGFloat = 3
     private var wetActive = false
 
     private var displayScale: CGFloat {
@@ -165,18 +174,22 @@ final class ReadingPageView: UIView {
             inkView.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
 
-        wetLayer.fillColor = nil
-        wetLayer.lineCap = .round
-        wetLayer.lineJoin = .round
-        layer.addSublayer(wetLayer)
+        wetView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(wetView)
+        NSLayoutConstraint.activate([
+            wetView.topAnchor.constraint(equalTo: topAnchor),
+            wetView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            wetView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            wetView.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ])
 
         let observer = PencilObserverRecognizer()
         observer.cancelsTouchesInView = false
         observer.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
         // The observer only feeds the wet preview; pencil-up truth comes from
         // PencilKit's drawing recognizer (see drawingGestureChanged).
-        observer.onBegan = { [weak self] point in self?.wetBegan(at: point) }
-        observer.onMoved = { [weak self] points in self?.wetMoved(through: points) }
+        observer.onBegan = { [weak self] samples in self?.wetBegan(samples) }
+        observer.onMoved = { [weak self] samples in self?.wetMoved(samples) }
         observer.onEnded = { [weak self] in self?.wetEnded() }
         addGestureRecognizer(observer)
     }
@@ -235,6 +248,7 @@ final class ReadingPageView: UIView {
 
         canvas = ScoreCanvasView()
         configureAndAttachCanvas(canvas)
+        bringSubviewToFront(wetView)
         applyInputGate()
         canvas.alpha = canvasAlphaForTool
         if let tool = lastAppliedTool {
@@ -281,22 +295,14 @@ final class ReadingPageView: UIView {
 
     // MARK: - Wet ink
 
-    private func wetBegan(at point: CGPoint) {
+    private func wetBegan(_ samples: [PencilObserverRecognizer.Sample]) {
         guard annotationEnabled, wetActive else { return }
-        wetPath.removeAllPoints()
-        wetPath.move(to: point)
-        wetLayer.strokeColor = wetStyleColor.cgColor
-        wetLayer.lineWidth = wetStyleWidth
-        wetLayer.lineDashPattern = wetStyleDash
-        wetLayer.path = wetPath.cgPath
+        wetView.begin(ink: wetInk, baseWidth: wetBaseWidth, samples: samples)
     }
 
-    private func wetMoved(through points: [CGPoint]) {
-        guard annotationEnabled, wetActive, !wetPath.isEmpty else { return }
-        for point in points {
-            wetPath.addLine(to: point)
-        }
-        wetLayer.path = wetPath.cgPath
+    private func wetMoved(_ samples: [PencilObserverRecognizer.Sample]) {
+        guard annotationEnabled, wetActive else { return }
+        wetView.append(samples: samples)
     }
 
     private func wetEnded() {
@@ -308,8 +314,7 @@ final class ReadingPageView: UIView {
     }
 
     private func clearWet() {
-        wetPath.removeAllPoints()
-        wetLayer.path = nil
+        wetView.clear()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -418,13 +423,8 @@ final class ReadingPageView: UIView {
         }
 
         if let inking = tool as? PKInkingTool {
-            wetStyleColor = inking.color
-            // The stroke under the tip previews the committed look, dots and
-            // all — the swatch, the wet stroke and the page all read from the
-            // same geometry.
-            let wet = InkRenderer.wetGeometry(inkType: inking.inkType, width: inking.width)
-            wetStyleWidth = wet.width
-            wetStyleDash = wet.dash.map { $0.map { NSNumber(value: Double($0)) } }
+            wetInk = PKInk(inking.inkType, color: inking.color)
+            wetBaseWidth = inking.width
             wetActive = true
         } else {
             // Eraser and lasso get no wet preview; erasing reads back through
@@ -590,5 +590,62 @@ extension UIView {
             .filter { $0 is UIEditMenuInteraction }
             .forEach(removeInteraction)
         subviews.forEach { $0.stripEditMenuInteractions() }
+    }
+}
+
+/// The live stroke, rendered by InkRenderer — the same code that renders the
+/// commit — so every style looks like itself from the first millimetre.
+/// Point widths come from real pencil force, which is also what PencilKit
+/// records, so pen-up refines the stroke rather than replacing its character.
+final class WetStrokeView: UIView {
+    private var ink = PKInk(.pencil, color: .black)
+    private var baseWidth: CGFloat = 3
+    private var points: [PKStrokePoint] = []
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isOpaque = false
+        backgroundColor = .clear
+        isUserInteractionEnabled = false
+        contentMode = .redraw
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func begin(ink: PKInk, baseWidth: CGFloat, samples: [PencilObserverRecognizer.Sample]) {
+        self.ink = ink
+        self.baseWidth = baseWidth
+        points = []
+        append(samples: samples)
+    }
+
+    func append(samples: [PencilObserverRecognizer.Sample]) {
+        for sample in samples {
+            // 0.6 normalized force — an ordinary writing pressure — maps to
+            // exactly the nib width; light strokes thin, pressed ones swell.
+            let width = max(baseWidth * (0.55 + 0.75 * sample.force), 0.5)
+            points.append(PKStrokePoint(
+                location: sample.location,
+                timeOffset: TimeInterval(points.count) * 0.01,
+                size: CGSize(width: width, height: width),
+                opacity: 1, force: sample.force, azimuth: 0, altitude: .pi / 2
+            ))
+        }
+        setNeedsDisplay()
+    }
+
+    func clear() {
+        points = []
+        setNeedsDisplay()
+    }
+
+    override func draw(_ rect: CGRect) {
+        guard points.count > 1, let ctx = UIGraphicsGetCurrentContext() else { return }
+        var drawing = PKDrawing()
+        drawing.strokes = [PKStroke(
+            ink: ink,
+            path: PKStrokePath(controlPoints: points, creationDate: Date())
+        )]
+        InkRenderer.draw(drawing, in: ctx)
     }
 }

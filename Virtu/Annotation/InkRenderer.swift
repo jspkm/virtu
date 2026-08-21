@@ -31,19 +31,6 @@ enum InkRenderer {
         return (w, [0.01, max(w * 2.1, 0.8)])
     }
 
-    /// What the live wet-ink preview should draw for a tool, so the stroke
-    /// under the tip already looks like what will be committed.
-    static func wetGeometry(inkType: PKInk.InkType, width: CGFloat) -> (width: CGFloat, dash: [CGFloat]?) {
-        switch inkType {
-        case .pen:
-            let g = dottedGeometry(nib: width); return (g.width, g.dash)
-        case .monoline:
-            let g = fineDottedGeometry(nib: width); return (g.width, g.dash)
-        default:
-            return (width, nil)
-        }
-    }
-
     /// How a stroke is drawn, decoded from the ink type it was authored with.
     private enum RenderStyle {
         /// Per-segment pressure width — what makes handwriting look handwritten.

@@ -768,6 +768,30 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(page.canvas.alpha, 1, "lasso: PencilKit renders the selection — it must be visible")
     }
 
+    func testLivePreviewIsTheChosenStyleFromTheFirstMillimetre() throws {
+        // The wet stroke renders through InkRenderer itself, so what you
+        // write IS the style you chose — pen-up refines, it does not replace.
+        func pixels(_ inkType: PKInkingTool.InkType) -> Int {
+            let wet = WetStrokeView(frame: CGRect(x: 0, y: 0, width: 300, height: 100))
+            let samples = (0...29).map { i in
+                (location: CGPoint(x: 10 + CGFloat(i) * 9.3, y: 50), force: CGFloat(0.6))
+            }
+            wet.begin(ink: PKInk(inkType, color: .black), baseWidth: 3, samples: [samples[0]])
+            wet.append(samples: Array(samples.dropFirst()))
+            let renderer = UIGraphicsImageRenderer(size: wet.bounds.size)
+            let image = renderer.image { wet.layer.render(in: $0.cgContext) }
+            return inkPixelCount(of: image)
+        }
+
+        let solid = pixels(.pencil)
+        let dotted = pixels(.pen)
+        let fine = pixels(.monoline)
+        XCTAssertGreaterThan(solid, 0, "the live preview draws nothing at all")
+        XCTAssertLessThan(dotted, solid * 3 / 4,
+                          "the live preview draws dotted as a solid line — the style snaps at pen-up")
+        XCTAssertLessThan(fine, dotted, "live fine dotted is not finer than dotted")
+    }
+
     func testHighlighterStillCompositesUnderInk() {
         // Sorting by ink type is what keeps a marker under a pencil; the style
         // carriers added four more ink types it must not be confused by.
