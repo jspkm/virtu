@@ -11,3 +11,6 @@ Virtu.xcodeproj/project.xcworkspace/xcuserdata/
 
 # macOS
 .DS_Store
+
+# gstack tooling runtime state (design daemon pid/port)
+.gstack/
