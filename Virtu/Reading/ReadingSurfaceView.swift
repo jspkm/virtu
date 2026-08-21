@@ -63,10 +63,13 @@ final class ReadingPageViewController: UIViewController {
     /// without the margins answering for it.
     private let pagesGuide = UILayoutGuide()
     private var needsScrollToPage = true
-    /// Vertical room reserved above the page. In Study this is the full title
-    /// chrome, so the chrome never covers the first system; in Perform it is
-    /// only the letterbox band. Bottom reserve is always the control row.
-    private var reservedTopInset: CGFloat = Tokens.readingControlMargin
+    /// Vertical room reserved above and below the page. Study reserves the
+    /// full title chrome on top and the control row below. Perform reserves
+    /// NOTHING: the page is the screen, edge to edge — the M2 rule, restored.
+    /// The corner icons overlay the page's own printed margin, which is paper,
+    /// not notation.
+    private var reservedTopInset: CGFloat = 0
+    private var reservedBottomInset: CGFloat = 0
     private var spreadHeightConstraint: NSLayoutConstraint!
     private var spreadHeightLimit: NSLayoutConstraint!
     private var spreadWidthLimit: NSLayoutConstraint!
@@ -410,21 +413,27 @@ final class ReadingPageViewController: UIViewController {
 
     private func applyModeChange(annotating: Bool) {
         // Study reserves the chrome's height above the page — the title block
-        // is persistent there and must never sit on the first system. Perform
-        // reserves only the letterbox band; its transient chrome is a visitor.
-        reservedTopInset = annotating ? Tokens.topChromeClearance : Tokens.readingControlMargin
-        let margin = -(reservedTopInset + Tokens.readingControlMargin)
+        // is persistent there and must never sit on the first system — and the
+        // control row below. Perform reserves nothing: maximize the score.
+        reservedTopInset = annotating ? Tokens.topChromeClearance : 0
+        reservedBottomInset = annotating ? Tokens.readingControlMargin : 0
+        let margin = -(reservedTopInset + reservedBottomInset)
         spreadHeightConstraint.constant = margin
         spreadHeightLimit.constant = margin
 
         if !annotating {
-            // Perform is the page: no panning, and never parked on the desk.
             scrollView.setZoomScale(1, animated: false)
-            scrollToPage(animated: false)
             leftPage.canvas.resignFirstResponder()
             rightPage.canvas.resignFirstResponder()
             becomeFirstResponder()
         }
+        // Re-park on EVERY mode change, after the new reserves have resolved
+        // into real insets — the rest offset is derived from them, and a page
+        // left where the other mode parked it sits under the Study chrome
+        // (entering) or shy of full bleed (leaving).
+        view.layoutIfNeeded()
+        centerContent()
+        scrollToPage(animated: false)
         scrollView.pinchGestureRecognizer?.isEnabled = annotating
         // Panning is Study-only: it is how you reach the shared margins, and
         // in Perform a stray drag must never shift the page a player is
@@ -448,12 +457,11 @@ final class ReadingPageViewController: UIViewController {
         // -inset.top, which is exactly the chrome clearance; the bottom
         // reserve doubles as over-scroll room so the control row never covers
         // the foot of the bottom margin.
-        let reservedBottom = Tokens.readingControlMargin
-        let extraY = max(0, bounds.height - content.height - reservedTopInset - reservedBottom)
+        let extraY = max(0, bounds.height - content.height - reservedTopInset - reservedBottomInset)
         let inset = UIEdgeInsets(
             top: reservedTopInset + extraY / 2,
             left: x,
-            bottom: reservedBottom + extraY / 2,
+            bottom: reservedBottomInset + extraY / 2,
             right: x
         )
         if scrollView.contentInset != inset {

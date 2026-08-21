@@ -690,4 +690,57 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(second.nibIndex, 3)
         XCTAssertEqual(second.toolColors[.pencil], 0x123456)
     }
+
+    // MARK: - Reading layout: what the two modes reserve
+
+    /// Hosts the real controller against a real PDF and toggles modes.
+    /// Pins the regression where entering Study kept Perform's full-bleed
+    /// offset and parked the first system under the title chrome.
+    func testModeChangeReparksThePageUnderItsOwnReserves() throws {
+        let bundle = Bundle(for: ReadingPageViewController.self)
+        let pdfURL = try XCTUnwrap(bundle.url(forResource: "test-score", withExtension: "pdf"))
+        let stored = "\(UUID().uuidString).pdf"
+        try FileManager.default.copyItem(
+            at: pdfURL, to: Part.storageDirectory.appendingPathComponent(stored))
+
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.currentPart = Part(name: "test", pdfFileName: stored, pageCount: 1)
+
+        let vc = ReadingPageViewController()
+        vc.appState = state
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1032, height: 1376))
+        window.rootViewController = vc
+        window.isHidden = false
+        window.layoutIfNeeded()
+
+        func settle() {
+            vc.view.setNeedsLayout()
+            window.layoutIfNeeded()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        }
+        settle()
+
+        let scroll = try XCTUnwrap(vc.view.subviews.compactMap { $0 as? UIScrollView }.first)
+
+        // Perform: nothing reserved — the page is the screen.
+        XCTAssertLessThan(scroll.contentInset.top, Tokens.topChromeClearance,
+                          "Perform reserved chrome space it does not use")
+
+        state.readingMode = .study
+        vc.syncFromState()
+        settle()
+        XCTAssertGreaterThanOrEqual(
+            scroll.contentInset.top, Tokens.topChromeClearance - 1,
+            "Study did not reserve the chrome's height above the page")
+        XCTAssertEqual(
+            scroll.contentOffset.y, -scroll.contentInset.top, accuracy: 2,
+            "entering Study kept the old offset — the first system sits under the chrome")
+
+        state.readingMode = .perform
+        vc.syncFromState()
+        settle()
+        XCTAssertEqual(
+            scroll.contentOffset.y, -scroll.contentInset.top, accuracy: 2,
+            "returning to Perform did not re-park at full bleed")
+    }
 }
