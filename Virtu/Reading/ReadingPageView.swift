@@ -119,6 +119,7 @@ final class ReadingPageView: UIView {
     private let wetPath = UIBezierPath()
     private var wetStyleColor: UIColor = .black
     private var wetStyleWidth: CGFloat = 3
+    private var wetStyleDash: [NSNumber]?
     private var wetActive = false
 
     private var displayScale: CGFloat {
@@ -278,6 +279,7 @@ final class ReadingPageView: UIView {
         wetPath.move(to: point)
         wetLayer.strokeColor = wetStyleColor.cgColor
         wetLayer.lineWidth = wetStyleWidth
+        wetLayer.lineDashPattern = wetStyleDash
         wetLayer.path = wetPath.cgPath
     }
 
@@ -399,7 +401,12 @@ final class ReadingPageView: UIView {
 
         if let inking = tool as? PKInkingTool {
             wetStyleColor = inking.color
-            wetStyleWidth = inking.width
+            // The stroke under the tip previews the committed look, dots and
+            // all — the swatch, the wet stroke and the page all read from the
+            // same geometry.
+            let wet = InkRenderer.wetGeometry(inkType: inking.inkType, width: inking.width)
+            wetStyleWidth = wet.width
+            wetStyleDash = wet.dash.map { $0.map { NSNumber(value: Double($0)) } }
             wetActive = true
         } else {
             // Eraser and lasso get no wet preview.

@@ -11,39 +11,64 @@ import PencilKit
 /// is decided here and nowhere else.
 enum InkRenderer {
 
+    // MARK: - Dotted geometry: ONE source of truth
+    //
+    // The style swatches in the pencil flyout draw from these same functions,
+    // so the mark on the page matches the swatch that promised it — by
+    // construction, not by keeping two sets of constants in agreement.
+
+    /// Dotted: round caps on a near-zero dash length give circular dots whose
+    /// diameter is the nib width, spaced about a dot apart.
+    static func dottedGeometry(nib: CGFloat) -> (width: CGFloat, dash: [CGFloat]) {
+        let w = max(nib, 1.2)
+        return (w, [0.01, max(w * 2.1, 1.2)])
+    }
+
+    /// Fine dotted: smaller dots, same rhythm. "Finer" means a smaller dot,
+    /// not merely a closer one — tighter spacing alone lays down MORE ink.
+    static func fineDottedGeometry(nib: CGFloat) -> (width: CGFloat, dash: [CGFloat]) {
+        let w = max(nib * 0.58, 0.8)
+        return (w, [0.01, max(w * 2.1, 0.8)])
+    }
+
+    /// What the live wet-ink preview should draw for a tool, so the stroke
+    /// under the tip already looks like what will be committed.
+    static func wetGeometry(inkType: PKInk.InkType, width: CGFloat) -> (width: CGFloat, dash: [CGFloat]?) {
+        switch inkType {
+        case .pen:
+            let g = dottedGeometry(nib: width); return (g.width, g.dash)
+        case .monoline:
+            let g = fineDottedGeometry(nib: width); return (g.width, g.dash)
+        default:
+            return (width, nil)
+        }
+    }
+
     /// How a stroke is drawn, decoded from the ink type it was authored with.
     private enum RenderStyle {
         /// Per-segment pressure width — what makes handwriting look handwritten.
         case pressure
-        /// One flat path. Overlapping segments of translucent ink must not
-        /// double-darken, and a dash pattern must not restart every segment.
-        case flat(dash: [CGFloat]?, widthScale: CGFloat)
+        /// One flat path at a resolved width. Overlapping segments of
+        /// translucent ink must not double-darken, and a dash pattern must not
+        /// restart every segment.
+        case flat(width: CGFloat, dash: [CGFloat]?)
 
         static func decode(_ inkType: PKInk.InkType, width: CGFloat) -> RenderStyle {
             switch inkType {
             case .marker:
-                return .flat(dash: nil, widthScale: 1)
+                return .flat(width: width, dash: nil)
             case .pen:
-                // Dotted: round caps on a near-zero dash length give dots
-                // whose diameter is the line width.
-                return .flat(dash: [0.01, max(width * 2.2, 1.2)], widthScale: 1)
+                let g = InkRenderer.dottedGeometry(nib: width)
+                return .flat(width: g.width, dash: g.dash)
             case .monoline:
-                // Fine dotted. "Finer" has to mean a smaller dot, not merely a
-                // closer one — tightening the spacing alone lays down *more*
-                // ink than plain dotted, which is the opposite of the ask.
-                let scaled = width * 0.6
-                return .flat(dash: [0.01, max(scaled * 2.6, 1.0)], widthScale: 0.6)
+                let g = InkRenderer.fineDottedGeometry(nib: width)
+                return .flat(width: g.width, dash: g.dash)
             default:
                 // .pencil (solid) and .fountainPen (calligraphic) both keep
                 // their pressure profile; the fountain pen's own point sizes
                 // supply the calligraphic swell.
                 return .pressure
             }
-        }
-
-        var isDashed: Bool {
-            if case .flat(let dash, _) = self { return dash != nil }
-            return false
         }
     }
 
@@ -71,14 +96,22 @@ enum InkRenderer {
             // uniform scale factor.
             let t = stroke.transform
             let widthFactor = max(sqrt(abs(t.a * t.d - t.b * t.c)), 0.01)
-            let baseWidth = max(points[0].size.width * widthFactor, 0.8)
-            let style = RenderStyle.decode(stroke.ink.inkType, width: baseWidth)
+            // Flat styles size from the MEDIAN recorded width, not the first
+            // point's: touch-down pressure is light, and a whole dotted line
+            // sized by its first millisecond came out thinner than the swatch
+            // promised. The median is what the hand actually drew.
+            let sorted = points.map { $0.size.width }.sorted()
+            let medianWidth = max(sorted[sorted.count / 2] * widthFactor, 0.8)
+            let style = RenderStyle.decode(stroke.ink.inkType, width: medianWidth)
 
             switch style {
-            case .flat(let dash, let widthScale):
-                cg.setLineWidth(max(baseWidth * widthScale, 0.5))
+            case .flat(let width, let dash):
+                cg.setLineWidth(width)
                 if let dash {
-                    cg.setLineDash(phase: 0, lengths: dash.map { $0 * widthFactor })
+                    // The geometry already carries widthFactor via the width
+                    // it was derived from — scaling the dash again was
+                    // double-counting it on transformed strokes.
+                    cg.setLineDash(phase: 0, lengths: dash)
                 }
                 cg.beginPath()
                 cg.move(to: points[0].location.applying(t))
@@ -86,7 +119,7 @@ enum InkRenderer {
                     cg.addLine(to: point.location.applying(t))
                 }
                 cg.strokePath()
-                if style.isDashed {
+                if dash != nil {
                     cg.setLineDash(phase: 0, lengths: [])
                 }
 

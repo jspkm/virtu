@@ -295,7 +295,7 @@ private struct PencilOptionsPanel: View {
             Haptics.selection()
             state.strokeStyle = style
         } label: {
-            StyleSampleLine(style: style, color: theme.ink)
+            StyleSampleLine(style: style, color: theme.ink, nib: state.pencilWidth)
                 .frame(width: 30, height: 26)
                 .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 7))
@@ -309,10 +309,13 @@ private struct PencilOptionsPanel: View {
     }
 }
 
-/// A miniature of what the style actually draws.
+/// A miniature of what the style actually draws, at the selected nib. The
+/// dotted geometry comes from InkRenderer itself — the swatch and the page
+/// share one set of numbers, so they cannot drift apart.
 private struct StyleSampleLine: View {
     let style: AppState.StrokeStyle
     let color: Color
+    let nib: CGFloat
 
     var body: some View {
         Canvas { context, size in
@@ -324,7 +327,7 @@ private struct StyleSampleLine: View {
             switch style {
             case .solid:
                 context.stroke(path, with: .color(color),
-                               style: .init(lineWidth: 2, lineCap: .round))
+                               style: .init(lineWidth: nib, lineCap: .round))
             case .calligraphic:
                 // A swell, the way a nib loads and lifts.
                 var swell = Path()
@@ -333,13 +336,15 @@ private struct StyleSampleLine: View {
                     to: CGPoint(x: size.width - 5, y: y),
                     control: CGPoint(x: size.width / 2, y: y - 3))
                 context.stroke(swell, with: .color(color),
-                               style: .init(lineWidth: 3.2, lineCap: .round))
+                               style: .init(lineWidth: nib * 1.15, lineCap: .round))
             case .dotted:
+                let g = InkRenderer.dottedGeometry(nib: nib)
                 context.stroke(path, with: .color(color),
-                               style: .init(lineWidth: 2.4, lineCap: .round, dash: [0.01, 5]))
+                               style: .init(lineWidth: g.width, lineCap: .round, dash: g.dash))
             case .fineDotted:
+                let g = InkRenderer.fineDottedGeometry(nib: nib)
                 context.stroke(path, with: .color(color),
-                               style: .init(lineWidth: 1.4, lineCap: .round, dash: [0.01, 3]))
+                               style: .init(lineWidth: g.width, lineCap: .round, dash: g.dash))
             }
         }
     }

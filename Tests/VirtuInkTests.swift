@@ -662,6 +662,39 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertLessThan(fine, dotted, "fine dotted is not finer than dotted")
     }
 
+    func testDottedDotSizeComesFromTheMedianPressureNotTheFirstPoint() throws {
+        // A stroke begins at touch-down pressure, which is light. Sizing the
+        // dots from the first point made every dotted line thinner than the
+        // swatch promised — the median is what the hand actually drew.
+        let size = CGSize(width: 200, height: 40)
+        func stroke(firstWidth: CGFloat) -> PKStroke {
+            let points = stride(from: 0.0, through: 1.0, by: 0.05).map { t in
+                PKStrokePoint(
+                    location: CGPoint(x: 10 + 180 * t, y: 20),
+                    timeOffset: t,
+                    size: CGSize(width: t == 0 ? firstWidth : 3, height: t == 0 ? firstWidth : 3),
+                    opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2
+                )
+            }
+            return PKStroke(
+                ink: PKInk(.pen, color: .black),
+                path: PKStrokePath(controlPoints: points, creationDate: Date())
+            )
+        }
+
+        func count(_ s: PKStroke) throws -> Int {
+            let image = try XCTUnwrap(
+                InkRenderer.image(for: makeDrawing([s]), pdfSize: size, displayScale: 1))
+            return inkPixelCount(of: image)
+        }
+
+        let lightStart = try count(stroke(firstWidth: 0.4))
+        let steady = try count(stroke(firstWidth: 3))
+        XCTAssertEqual(
+            Double(lightStart), Double(steady), accuracy: Double(steady) / 5,
+            "a light touch-down resized the whole dotted line")
+    }
+
     func testHighlighterStillCompositesUnderInk() {
         // Sorting by ink type is what keeps a marker under a pencil; the style
         // carriers added four more ink types it must not be confused by.
