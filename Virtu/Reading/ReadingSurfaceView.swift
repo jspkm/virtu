@@ -43,10 +43,14 @@ final class ReadingPageViewController: UIViewController {
     /// Shared scratch space, keyed to the part rather than the page: what you
     /// write here beside page 1 is still here beside page 5.
     private let marginRightView = ReadingPageView()
-    private let marginBottomView = ReadingPageView()
+    /// Not a surface. Empty space under the score so the page can be pushed up
+    /// far enough to mark its lowest system without writing at the bezel. It
+    /// is a bare UIView on purpose: a ReadingPageView here would take tools,
+    /// layers, pencil input and a journal slot, which is what it used to do.
+    private let bottomHeadroom = UIView()
 
     private var inkViews: [ReadingPageView] {
-        [leftPage, rightPage, marginRightView, marginBottomView]
+        [leftPage, rightPage, marginRightView]
     }
     private let gutterView = UIView()
     private let gutterWidth: CGFloat = 2
@@ -88,6 +92,10 @@ final class ReadingPageViewController: UIViewController {
     /// view itself, and it is the guard that keeps a turn from dragging the
     /// page off screen.
     var testScrollView: UIScrollView { scrollView }
+    /// Test hook. Both halves of "headroom, not paper" are only checkable on
+    /// the view itself: its type (never a writable surface) and its height.
+    var testBottomHeadroom: UIView { bottomHeadroom }
+    var testPage: UIView { leftPage }
     #endif
 
     // MARK: - Lifecycle
@@ -176,7 +184,6 @@ final class ReadingPageViewController: UIViewController {
         guard marginRightView.alpha != targetAlpha else { return }
         UIView.animate(withDuration: 0.15) {
             self.marginRightView.alpha = targetAlpha
-            self.marginBottomView.alpha = targetAlpha
         }
     }
 
@@ -246,13 +253,18 @@ final class ReadingPageViewController: UIViewController {
             }
             spreadContainer.addSubview(page)
         }
-        for margin in [marginRightView, marginBottomView] {
-            margin.isMarginSurface = true
-            // Invisible until the paper moves. The page letterboxes inside the
-            // viewport, so at rest a sliver of margin would otherwise peek out
-            // beside and below the score.
-            margin.alpha = 0
-        }
+        marginRightView.isMarginSurface = true
+        // Invisible until the paper moves. The page letterboxes inside the
+        // viewport, so at rest a sliver of margin would otherwise peek out
+        // beside the score.
+        marginRightView.alpha = 0
+
+        // The headroom paints nothing. Paper below the score would read as
+        // somewhere to write, and there is nowhere to write down there.
+        bottomHeadroom.translatesAutoresizingMaskIntoConstraints = false
+        bottomHeadroom.backgroundColor = .clear
+        bottomHeadroom.isUserInteractionEnabled = false
+        spreadContainer.addSubview(bottomHeadroom)
 
         gutterView.translatesAutoresizingMaskIntoConstraints = false
         gutterView.backgroundColor = UIColor(hex: 0xE0DBD1)
@@ -288,12 +300,12 @@ final class ReadingPageViewController: UIViewController {
             rightPage.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
             rightPage.leadingAnchor.constraint(equalTo: gutterView.trailingAnchor),
 
-            marginBottomView.topAnchor.constraint(equalTo: leftPage.bottomAnchor),
-            marginBottomView.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
-            marginBottomView.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
-            marginBottomView.bottomAnchor.constraint(equalTo: spreadContainer.bottomAnchor),
-            marginBottomView.heightAnchor.constraint(
-                equalTo: leftPage.heightAnchor, multiplier: Tokens.marginHeightFraction),
+            bottomHeadroom.topAnchor.constraint(equalTo: leftPage.bottomAnchor),
+            bottomHeadroom.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
+            bottomHeadroom.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
+            bottomHeadroom.bottomAnchor.constraint(equalTo: spreadContainer.bottomAnchor),
+            bottomHeadroom.heightAnchor.constraint(
+                equalTo: leftPage.heightAnchor, multiplier: Tokens.bottomHeadroomFraction),
 
             pagesGuide.leadingAnchor.constraint(equalTo: leftPage.leadingAnchor),
             pagesGuide.trailingAnchor.constraint(equalTo: rightPage.trailingAnchor),
@@ -391,11 +403,11 @@ final class ReadingPageViewController: UIViewController {
             }
             // The same paper as the page. A margin shaded like a desk reads
             // as scenery; blank paper reads as somewhere to write, which is
-            // the entire reason it is there.
-            for margin in [marginRightView, marginBottomView] {
-                margin.backgroundColor = stage ? UIColor(hex: 0x0A0908) : UIColor(hex: 0xFFFDF8)
-                margin.layer.borderColor = (stage ? UIColor(hex: 0x25211C) : UIColor(hex: 0xE0DBD1)).cgColor
-            }
+            // the entire reason it is there. The bottom headroom gets none of
+            // this: it is not a surface, so it stays the ground behind it.
+            marginRightView.backgroundColor = stage ? UIColor(hex: 0x0A0908) : UIColor(hex: 0xFFFDF8)
+            marginRightView.layer.borderColor =
+                (stage ? UIColor(hex: 0x25211C) : UIColor(hex: 0xE0DBD1)).cgColor
         }
 
         applyToolState()
@@ -462,10 +474,9 @@ final class ReadingPageViewController: UIViewController {
         inkViews.forEach { $0.apply(tool: tool) }
     }
 
-    /// The margins are configured once per part and never again — that is the
-    /// whole point of them. Their coordinate spaces are fixed (the bottom one
-    /// is always two pages wide) so that rotating the iPad rescales the ink
-    /// rather than reflowing it onto different notes.
+    /// The margin is configured once per part and never again — that is the
+    /// whole point of it. Its coordinate space is fixed, so that rotating the
+    /// iPad rescales the ink rather than reflowing it onto different notes.
     private func configureMargins(partID: UUID?) {
         guard let renderer else { return }
         let page = renderer.pageSize
@@ -474,11 +485,8 @@ final class ReadingPageViewController: UIViewController {
             pageIndex: AnnotationLayers.marginRightIndex,
             pdfSize: CGSize(width: page.width * Tokens.marginWidthFraction, height: page.height)
         )
-        marginBottomView.configure(
-            partID: partID,
-            pageIndex: AnnotationLayers.marginBottomIndex,
-            pdfSize: CGSize(width: page.width * 2, height: page.height * Tokens.marginHeightFraction)
-        )
+        // Nothing to configure below the score: the headroom holds no ink and
+        // owns no coordinate space.
     }
 
     /// Push the part's layer state onto both pages. Idempotent by design —

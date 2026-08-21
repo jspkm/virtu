@@ -28,9 +28,9 @@ struct ExportButton: View {
         }
     }
 
-    /// The part alone by default. The shared margins are working notes, not
+    /// The part alone by default. The shared margin is working notes, not
     /// part of the music — a stand partner expects a clean part at the
-    /// original page size — so they ship only when asked for, and then as a
+    /// original page size — so it ships only when asked for, and then as a
     /// single page at the end rather than repeated behind every system.
     private func exportAnnotatedPDF(includeMargins: Bool) {
         guard let part = state.currentPart,
@@ -86,41 +86,23 @@ struct ExportButton: View {
 }
 
 private extension ExportButton {
-    /// One page carrying both margins in the arrangement they are written in.
+    /// One page carrying the margin, at the size it was written at. There is
+    /// no second surface to compose any more: the space under the score is
+    /// scroll headroom and holds no ink.
     func drawMarginPage(
         part: Part, journal: StrokeJournal, context: UIGraphicsPDFRendererContext
     ) {
-        let layers = part.visibleLayerIndices
-        let side = layers.compactMap {
+        let side = part.visibleLayerIndices.compactMap {
             journal.load(partID: part.id, pageIndex: AnnotationLayers.marginRightIndex, layer: $0)
         }
-        let bottom = layers.compactMap {
-            journal.load(partID: part.id, pageIndex: AnnotationLayers.marginBottomIndex, layer: $0)
-        }
-        guard side.contains(where: { !$0.strokes.isEmpty })
-                || bottom.contains(where: { !$0.strokes.isEmpty }) else { return }
+        guard side.contains(where: { !$0.strokes.isEmpty }) else { return }
 
         guard let firstPage = PDFDocument(url: part.pdfURL)?.page(at: 0) else { return }
         let page = firstPage.bounds(for: .mediaBox).size
-        let marginW = page.width * Tokens.marginWidthFraction
-        let marginH = page.height * Tokens.marginHeightFraction
-        let size = CGSize(width: marginW + page.width * 2, height: page.height + marginH)
+        let size = CGSize(width: page.width * Tokens.marginWidthFraction, height: page.height)
 
         context.beginPage(withBounds: CGRect(origin: .zero, size: size), pageInfo: [:])
-        let cg = context.cgContext
-
-        // Laid out as written: the side margin outboard of where the spread
-        // would be, the bottom margin across the foot, and the space the music
-        // occupied left empty.
-        cg.saveGState()
-        cg.translateBy(x: page.width * 2, y: 0)
-        InkRenderer.draw(side, in: cg)
-        cg.restoreGState()
-
-        cg.saveGState()
-        cg.translateBy(x: 0, y: page.height)
-        InkRenderer.draw(bottom, in: cg)
-        cg.restoreGState()
+        InkRenderer.draw(side, in: context.cgContext)
     }
 }
 

@@ -529,22 +529,47 @@ final class VirtuInkTests: XCTestCase {
         }
     }
 
-    func testTheTwoMarginsDoNotShareASlot() throws {
-        let partID = UUID()
-        for (index, y) in [(AnnotationLayers.marginRightIndex, 40.0), (AnnotationLayers.marginBottomIndex, 300.0)] {
-            StrokeJournal.shared.save(
-                makeDrawing([makeStroke(from: CGPoint(x: 10, y: y), to: CGPoint(x: 60, y: y))]),
-                partID: partID, pageIndex: index, layer: AnnotationLayers.first,
-                pageSize: CGSize(width: 200, height: 400))
-        }
-        waitForJournal()
+    /// The space under the score is headroom, not a surface. It used to be a
+    /// ReadingPageView a full page tall, which meant it took tools, layers,
+    /// pencil input and a journal slot, and gave a whole screen of scrolling
+    /// through nothing. Both halves of that are the bug.
+    func testBottomHeadroomIsNotWritableAndIsNotAPage() throws {
+        let bundle = Bundle(for: ReadingPageViewController.self)
+        let pdfURL = try XCTUnwrap(bundle.url(forResource: "test-score", withExtension: "pdf"))
+        let stored = "\(UUID().uuidString).pdf"
+        try FileManager.default.copyItem(
+            at: pdfURL, to: Part.storageDirectory.appendingPathComponent(stored))
 
-        let left = try XCTUnwrap(StrokeJournal.shared.load(
-            partID: partID, pageIndex: AnnotationLayers.marginRightIndex, layer: AnnotationLayers.first))
-        let bottom = try XCTUnwrap(StrokeJournal.shared.load(
-            partID: partID, pageIndex: AnnotationLayers.marginBottomIndex, layer: AnnotationLayers.first))
-        XCTAssertEqual(left.bounds.minY, 40, accuracy: 4)
-        XCTAssertEqual(bottom.bounds.minY, 300, accuracy: 4, "the two margins overwrote each other")
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.currentPart = Part(name: "test", pdfFileName: stored, pageCount: 1)
+        state.readingMode = .study
+
+        let vc = ReadingPageViewController()
+        vc.appState = state
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1032, height: 1376))
+        window.rootViewController = vc
+        window.isHidden = false
+        window.layoutIfNeeded()
+        vc.syncFromState()
+        vc.view.setNeedsLayout()
+        window.layoutIfNeeded()
+
+        let headroom = vc.testBottomHeadroom
+        XCTAssertFalse(headroom is ReadingPageView,
+                       "the space under the score is a writable surface again")
+        XCTAssertFalse(headroom.isUserInteractionEnabled,
+                       "the headroom takes touches, so it can take a pencil")
+        XCTAssertTrue(headroom.subviews.isEmpty,
+                      "something is mounted in the headroom — it holds nothing")
+
+        // Headroom, not a second page: enough to lift the lowest system off
+        // the bezel, nowhere near a page of travel.
+        let pageHeight = vc.testPage.bounds.height
+        XCTAssertGreaterThan(pageHeight, 0)
+        let ratio = headroom.bounds.height / pageHeight
+        XCTAssertEqual(ratio, Tokens.bottomHeadroomFraction, accuracy: 0.02)
+        XCTAssertLessThan(ratio, 0.75, "a page of headroom is scrolling through nothing")
+        XCTAssertGreaterThan(ratio, 0.15, "too little to reach the lowest system")
     }
 
     // MARK: - Journal format v2

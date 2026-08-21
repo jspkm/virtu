@@ -115,13 +115,23 @@ enum Tokens {
 
     // MARK: - Shared margins
 
-    /// Scratch space beside and below the score, as a fraction of one page.
-    /// A whole page of it in each direction, not a strip: this is where a
-    /// fingering chart, the conductor's notes from Tuesday, or a worked-out
-    /// bowing goes, and none of those fit in a gutter. Shared across the whole
-    /// part, so it is written once rather than on every page.
+    /// Scratch space beside the score, as a fraction of one page. A whole page
+    /// of it, not a strip: this is where a fingering chart, the conductor's
+    /// notes from Tuesday, or a worked-out bowing goes, and none of those fit
+    /// in a gutter. Shared across the whole part, so it is written once rather
+    /// than on every page.
     static let marginWidthFraction: CGFloat = 1.0
-    static let marginHeightFraction: CGFloat = 1.0
+
+    /// Empty space below the score — headroom, not paper. Nothing is ever
+    /// written here; it exists so the page can be pushed up far enough to
+    /// reach and mark its lowest system instead of writing at the bezel.
+    ///
+    /// At rest the page letterboxes to the viewport, so this fraction is also
+    /// roughly the fraction of screen the page can rise by: 0.4 lifts a final
+    /// system sitting at 92% of page height to just above mid-screen, which is
+    /// where a hand wants it. A whole page of headroom (what this was) is
+    /// scroll travel through nothing.
+    static let bottomHeadroomFraction: CGFloat = 0.4
 
     // MARK: - Rail
 
