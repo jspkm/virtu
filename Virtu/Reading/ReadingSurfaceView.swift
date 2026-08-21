@@ -63,6 +63,10 @@ final class ReadingPageViewController: UIViewController {
     /// without the margins answering for it.
     private let pagesGuide = UILayoutGuide()
     private var needsScrollToPage = true
+    /// Vertical room reserved above the page. In Study this is the full title
+    /// chrome, so the chrome never covers the first system; in Perform it is
+    /// only the letterbox band. Bottom reserve is always the control row.
+    private var reservedTopInset: CGFloat = Tokens.readingControlMargin
     private var spreadHeightConstraint: NSLayoutConstraint!
     private var spreadHeightLimit: NSLayoutConstraint!
     private var spreadWidthLimit: NSLayoutConstraint!
@@ -145,6 +149,32 @@ final class ReadingPageViewController: UIViewController {
             y: -scrollView.contentInset.top
         )
         scrollView.setContentOffset(offset, animated: animated)
+        updateMarginVisibility()
+    }
+
+    // MARK: - Margin visibility
+
+    /// The paper is sitting where a reader left it: not being dragged, not
+    /// coasting, parked at the rest offset, unzoomed.
+    private var isAtRest: Bool {
+        guard !scrollView.isDragging, !scrollView.isDecelerating,
+              scrollView.zoomScale <= 1.01 else { return false }
+        let rest = CGPoint(x: -scrollView.contentInset.left, y: -scrollView.contentInset.top)
+        return abs(scrollView.contentOffset.x - rest.x) < 2
+            && abs(scrollView.contentOffset.y - rest.y) < 2
+    }
+
+    /// Margins exist only mid-gesture and while the paper is away from rest.
+    /// In Perform they never appear at all; in Study the letterboxed sliver
+    /// around the page stays clean until the musician drags toward them.
+    private func updateMarginVisibility() {
+        let visible = appState?.annotating == true && !isAtRest
+        let targetAlpha: CGFloat = visible ? 1 : 0
+        guard marginRightView.alpha != targetAlpha else { return }
+        UIView.animate(withDuration: 0.15) {
+            self.marginRightView.alpha = targetAlpha
+            self.marginBottomView.alpha = targetAlpha
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -215,6 +245,10 @@ final class ReadingPageViewController: UIViewController {
         }
         for margin in [marginRightView, marginBottomView] {
             margin.isMarginSurface = true
+            // Invisible until the paper moves. The page letterboxes inside the
+            // viewport, so at rest a sliver of margin would otherwise peek out
+            // beside and below the score.
+            margin.alpha = 0
         }
 
         gutterView.translatesAutoresizingMaskIntoConstraints = false
@@ -375,9 +409,11 @@ final class ReadingPageViewController: UIViewController {
     }
 
     private func applyModeChange(annotating: Bool) {
-        // Same in both modes now: the controls are always on, so the band
-        // they live in cannot come and go with the mode.
-        let margin = -Tokens.readingControlMargin * 2
+        // Study reserves the chrome's height above the page — the title block
+        // is persistent there and must never sit on the first system. Perform
+        // reserves only the letterbox band; its transient chrome is a visitor.
+        reservedTopInset = annotating ? Tokens.topChromeClearance : Tokens.readingControlMargin
+        let margin = -(reservedTopInset + Tokens.readingControlMargin)
         spreadHeightConstraint.constant = margin
         spreadHeightLimit.constant = margin
 
@@ -394,6 +430,7 @@ final class ReadingPageViewController: UIViewController {
         // in Perform a stray drag must never shift the page a player is
         // reading from.
         scrollView.panGestureRecognizer.isEnabled = annotating
+        updateMarginVisibility()
     }
 
     /// Keep a spread smaller than the viewport centred, and let a zoomed one
@@ -404,8 +441,21 @@ final class ReadingPageViewController: UIViewController {
         let content = scrollView.contentSize
         guard bounds.width > 0, content.width > 0 else { return }
         let x = max(0, (bounds.width - content.width) / 2)
-        let y = max(0, (bounds.height - content.height) / 2)
-        let inset = UIEdgeInsets(top: y, left: x, bottom: y, right: x)
+        // The vertical reserves are unconditional insets, not letterbox
+        // arithmetic: with the full-page margins in the content, contentSize
+        // always exceeds the viewport, so a "split the leftover" scheme sees
+        // no leftover and parks the page under the chrome. The rest offset is
+        // -inset.top, which is exactly the chrome clearance; the bottom
+        // reserve doubles as over-scroll room so the control row never covers
+        // the foot of the bottom margin.
+        let reservedBottom = Tokens.readingControlMargin
+        let extraY = max(0, bounds.height - content.height - reservedTopInset - reservedBottom)
+        let inset = UIEdgeInsets(
+            top: reservedTopInset + extraY / 2,
+            left: x,
+            bottom: reservedBottom + extraY / 2,
+            right: x
+        )
         if scrollView.contentInset != inset {
             scrollView.contentInset = inset
         }
@@ -718,6 +768,25 @@ extension ReadingPageViewController: UIScrollViewDelegate {
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         centerContent()
+        updateMarginVisibility()
+    }
+
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        // The margins fade in as the drag starts, so pulling the paper aside
+        // reveals paper rather than a void that pops filled at gesture end.
+        updateMarginVisibility()
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        updateMarginVisibility()
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { updateMarginVisibility() }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        updateMarginVisibility()
     }
 }
 

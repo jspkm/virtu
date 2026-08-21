@@ -93,6 +93,11 @@ enum Tokens {
     /// its own gesture.
     static let readingControlBottomInset: CGFloat = 12
 
+    /// Height of the Study title chrome — status bar, title, metadata line and
+    /// its padding. In Study the page top starts below this, so the chrome
+    /// never sits on the first system.
+    static let topChromeClearance: CGFloat = 96
+
     /// Vertical margin reserved above and below the spread, so these controls
     /// sit beside the page and never on top of the notation.
     ///
