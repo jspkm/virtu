@@ -79,7 +79,13 @@ enum Tokens {
     // top of the gap itself. Narrow frames, tall touch area, and the visible
     // separation lands near half an icon — close enough to be a pair, far
     // enough that a hurried hand before a downbeat cannot hit the wrong one.
-    static let readingControlIcon = CGSize(width: 26, height: 34)
+    // The frame sets BOTH the gap and the target: with no spacing between
+    // them, the visible separation is frame width minus glyph. 35 - 17 gives
+    // an 18pt gap, double the old 9, and hands each icon a 35x40 target
+    // instead of 26x34. A fingertip covers what it is aiming at, where a
+    // pencil tip does not, so a target sized by eye for a pencil is too small
+    // for a finger — which is exactly backwards from the last time.
+    static let readingControlIcon = CGSize(width: 35, height: 40)
     static let readingControlGlyph: CGFloat = 17
 
     /// Vertical margin reserved above and below the spread, so these controls
@@ -88,7 +94,7 @@ enum Tokens {
     /// They live at the BOTTOM right. The top right belongs to iPadOS — wifi,
     /// battery, the lot — and in Study the status bar is visible, so anything
     /// we put up there is read through somebody else's icons.
-    static let readingControlMargin: CGFloat = 36
+    static let readingControlMargin: CGFloat = 44
 
     /// Horizontal band the row occupies, at its widest: share, Library, mode.
     /// Chrome keeps clear of it.

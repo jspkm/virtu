@@ -34,7 +34,12 @@ struct BottomChromeView: View {
     private var thumbnailStrip: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 7) {
+                // Lazy, emphatically. A plain HStack built a thumbnail view
+                // for every page in the score the instant the chrome appeared,
+                // and each one queues a PDF render behind the same actor — so
+                // a long part paid for its whole scrubber on entering Study.
+                // That was the delay switching modes.
+                LazyHStack(spacing: 7) {
                     if let part = state.currentPart {
                         ForEach(0..<part.pageCount, id: \.self) { pageIdx in
                             let isCurrent = state.visiblePageIndices.contains(pageIdx)

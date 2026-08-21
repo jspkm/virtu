@@ -517,12 +517,9 @@ final class ReadingPageViewController: UIViewController {
     }
 
     @objc private func handleModeTap() {
-        Haptics.light()
+        Haptics.medium()
         appState.toggleMode()
         syncFromState()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
-            Haptics.medium()
-        }
     }
 
     @objc private func handleUndoTap() {

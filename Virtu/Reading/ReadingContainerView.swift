@@ -169,11 +169,11 @@ private struct ReadingControlsView: View {
                     systemName: state.annotating ? "music.note" : "pencil.tip",
                     label: state.annotating ? "Perform mode" : "Study mode"
                 ) {
-                    Haptics.light()
+                    // One knock, now. The second one landed 260ms later to
+                    // mark the end of the settle, which read as the switch
+                    // itself being late.
+                    Haptics.medium()
                     state.toggleMode()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
-                        Haptics.medium()
-                    }
                 }
             }
             .frame(height: Tokens.readingControlMargin)
