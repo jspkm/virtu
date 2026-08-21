@@ -695,6 +695,69 @@ final class VirtuInkTests: XCTestCase {
             "a light touch-down resized the whole dotted line")
     }
 
+    func testDottedStyleSurvivesTheFullCanvasPipeline() throws {
+        // Not just the renderer in isolation: a stroke drawn on the canvas
+        // goes through display-space -> PDF-space conversion and back before
+        // the ink layer shows it. The style must survive the round trip.
+        func inkPixels(_ ink: PKInkingTool.InkType) throws -> Int {
+            let page = makePageView()
+            page.canvas.drawing = makeDrawing([
+                makeStroke(from: CGPoint(x: 50, y: 300), to: CGPoint(x: 550, y: 300), ink: ink)
+            ])
+            page.canvasViewDrawingDidChange(page.canvas)
+            let image = try XCTUnwrap(page.inkView.image, "no committed ink rendered")
+            return inkPixelCount(of: image)
+        }
+
+        let solid = try inkPixels(.pencil)
+        let dotted = try inkPixels(.pen)
+        let fine = try inkPixels(.monoline)
+        XCTAssertLessThan(dotted, solid * 3 / 4, "dotted committed as a solid line")
+        XCTAssertLessThan(fine, dotted, "fine dotted committed no finer than dotted")
+    }
+
+    func testCalligraphicWidthFollowsStrokeDirection() throws {
+        // The italic nib: a northwest stroke is broad, a northeast stroke is
+        // thin. If both render the same, the calligraphic style has collapsed
+        // into the regular one — which is exactly what shipping only the
+        // recorded point widths did.
+        func inkPixels(from: CGPoint, to: CGPoint) throws -> Int {
+            let drawing = makeDrawing([makeStroke(from: from, to: to, ink: .fountainPen)])
+            let image = try XCTUnwrap(
+                InkRenderer.image(for: drawing, pdfSize: CGSize(width: 300, height: 300), displayScale: 1))
+            return inkPixelCount(of: image)
+        }
+
+        let northeast = try inkPixels(from: CGPoint(x: 50, y: 250), to: CGPoint(x: 250, y: 50))
+        let northwest = try inkPixels(from: CGPoint(x: 50, y: 50), to: CGPoint(x: 250, y: 250))
+        XCTAssertGreaterThan(
+            Double(northwest), Double(northeast) * 1.5,
+            "calligraphic ink ignores stroke direction — it will read as the regular style")
+    }
+
+    func testCanvasHidesItsLiveRenderForDottedStylesOnly() throws {
+        // PencilKit's live layer draws dash-carrier strokes as solid pen and
+        // keeps them lit until normalization — "strokes do not snap to
+        // dotted". For those styles the canvas must be invisible so the
+        // dashed wet layer is the only live preview.
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.tool = .pencil
+        let page = makePageView()
+
+        state.strokeStyle = .dotted
+        page.apply(tool: state.currentPKTool())
+        XCTAssertLessThan(page.canvas.alpha, 0.1, "dotted: PencilKit's solid live render is visible")
+        XCTAssertGreaterThan(page.canvas.alpha, 0.011, "an alpha this low stops hit-testing — input dies")
+
+        state.strokeStyle = .solid
+        page.apply(tool: state.currentPKTool())
+        XCTAssertEqual(page.canvas.alpha, 1, "solid: the native live render should stay")
+
+        state.tool = .lasso
+        page.apply(tool: state.currentPKTool())
+        XCTAssertEqual(page.canvas.alpha, 1, "lasso: PencilKit renders the selection — it must be visible")
+    }
+
     func testHighlighterStillCompositesUnderInk() {
         // Sorting by ink type is what keeps a marker under a pencil; the style
         // carriers added four more ink types it must not be confused by.

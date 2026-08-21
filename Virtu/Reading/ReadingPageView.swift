@@ -229,6 +229,7 @@ final class ReadingPageView: UIView {
         canvas = ScoreCanvasView()
         configureAndAttachCanvas(canvas)
         applyInputGate()
+        canvas.alpha = canvasAlphaForTool
         if let tool = lastAppliedTool {
             canvas.tool = tool
         }
@@ -374,6 +375,14 @@ final class ReadingPageView: UIView {
     private(set) var toolAssignments = 0
     private var appliedToolKey = ""
     private var lastAppliedTool: PKTool?
+    /// Near-zero while a dotted style is armed. PencilKit's live renderer
+    /// knows nothing of the dash carriers, so on device it draws — and keeps
+    /// lit until normalization — a solid pen stroke that contradicts the
+    /// committed dots. For those styles the canvas becomes invisible (still
+    /// receiving input; above 0.01 it still hit-tests) and the dashed wet
+    /// layer is the live preview. Solid and calligraphic keep PencilKit's
+    /// native live render, which is accurate for them.
+    private var canvasAlphaForTool: CGFloat = 1
 
     func apply(tool: PKTool) {
         // Idempotent: reassigning canvas.tool mid-gesture (e.g. from a UI
@@ -408,11 +417,15 @@ final class ReadingPageView: UIView {
             wetStyleWidth = wet.width
             wetStyleDash = wet.dash.map { $0.map { NSNumber(value: Double($0)) } }
             wetActive = true
+            canvasAlphaForTool = wet.dash == nil ? 1 : 0.02
         } else {
-            // Eraser and lasso get no wet preview.
+            // Eraser and lasso get no wet preview — and the lasso needs the
+            // canvas visible, since PencilKit renders the selection.
             wetActive = false
             clearWet()
+            canvasAlphaForTool = 1
         }
+        canvas.alpha = canvasAlphaForTool
     }
 
     private static func toolKey(for tool: PKTool) -> String {

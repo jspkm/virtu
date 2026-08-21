@@ -48,6 +48,12 @@ enum InkRenderer {
     private enum RenderStyle {
         /// Per-segment pressure width — what makes handwriting look handwritten.
         case pressure
+        /// Pressure modulated by stroke direction: an italic nib. PencilKit's
+        /// live fountain pen gets its character from stroke DIRECTION, not
+        /// from recorded point widths — a fountain stroke's widths are nearly
+        /// constant. Replaying widths alone flattened calligraphic ink to a
+        /// plain line the moment our renderer took over at pen-up.
+        case calligraphic
         /// One flat path at a resolved width. Overlapping segments of
         /// translucent ink must not double-darken, and a dash pattern must not
         /// restart every segment.
@@ -63,13 +69,22 @@ enum InkRenderer {
             case .monoline:
                 let g = InkRenderer.fineDottedGeometry(nib: width)
                 return .flat(width: g.width, dash: g.dash)
+            case .fountainPen:
+                return .calligraphic
             default:
-                // .pencil (solid) and .fountainPen (calligraphic) both keep
-                // their pressure profile; the fountain pen's own point sizes
-                // supply the calligraphic swell.
+                // .pencil (solid) keeps its pressure profile.
                 return .pressure
             }
         }
+    }
+
+    /// The italic-nib width factor for a segment travelling at `angle`:
+    /// widest perpendicular to the nib edge, thinnest along it. Nib edge held
+    /// at the classic 45° — in top-left-origin coordinates that makes the
+    /// downstroke toward lower-right broad and the northeast stroke thin,
+    /// which is how an italic hand actually writes.
+    static func nibFactor(angle: CGFloat) -> CGFloat {
+        0.35 + 0.95 * abs(sin(angle + .pi / 4))
     }
 
     /// Draw one drawing's strokes into a CG context whose coordinate space
@@ -131,6 +146,19 @@ enum InkRenderer {
                     cg.beginPath()
                     cg.move(to: a.location.applying(t))
                     cg.addLine(to: b.location.applying(t))
+                    cg.strokePath()
+                }
+
+            case .calligraphic:
+                for i in 1..<points.count {
+                    let a = points[i - 1].location.applying(t)
+                    let b = points[i].location.applying(t)
+                    let angle = atan2(b.y - a.y, b.x - a.x)
+                    let pressure = (points[i - 1].size.width + points[i].size.width) / 2
+                    cg.setLineWidth(max(pressure * widthFactor * Self.nibFactor(angle: angle), 0.6))
+                    cg.beginPath()
+                    cg.move(to: a)
+                    cg.addLine(to: b)
                     cg.strokePath()
                 }
             }
