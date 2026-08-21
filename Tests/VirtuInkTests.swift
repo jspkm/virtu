@@ -497,6 +497,56 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(saved.strokes.count, 1)
     }
 
+    // MARK: - Shared margins
+
+    func testMarginInkBelongsToThePartNotThePage() throws {
+        // The whole promise: write beside page 1, still there beside page 5.
+        let partID = UUID()
+        let pdfSize = CGSize(width: 140, height: 792)
+        let margin = ReadingPageView(frame: CGRect(origin: .zero, size: pdfSize))
+        let window = UIWindow(frame: CGRect(origin: .zero, size: pdfSize))
+        window.addSubview(margin)
+        margin.isMarginSurface = true
+        margin.configure(
+            partID: partID, pageIndex: AnnotationLayers.marginLeftIndex, pdfSize: pdfSize)
+        margin.layoutIfNeeded()
+
+        margin.canvas.drawing = makeDrawing([
+            makeStroke(from: CGPoint(x: 20, y: 40), to: CGPoint(x: 90, y: 40))
+        ])
+        margin.canvasViewDrawingDidChange(margin.canvas)
+        waitForJournal()
+
+        let saved = try XCTUnwrap(StrokeJournal.shared.load(
+            partID: partID, pageIndex: AnnotationLayers.marginLeftIndex, layer: AnnotationLayers.first))
+        XCTAssertEqual(saved.strokes.count, 1)
+
+        // It must not have landed on any real page, at any index.
+        for page in 0..<6 {
+            XCTAssertNil(
+                StrokeJournal.shared.load(partID: partID, pageIndex: page, layer: AnnotationLayers.first),
+                "margin ink leaked onto page \(page)")
+        }
+    }
+
+    func testTheTwoMarginsDoNotShareASlot() throws {
+        let partID = UUID()
+        for (index, y) in [(AnnotationLayers.marginLeftIndex, 40.0), (AnnotationLayers.marginBottomIndex, 300.0)] {
+            StrokeJournal.shared.save(
+                makeDrawing([makeStroke(from: CGPoint(x: 10, y: y), to: CGPoint(x: 60, y: y))]),
+                partID: partID, pageIndex: index, layer: AnnotationLayers.first,
+                pageSize: CGSize(width: 200, height: 400))
+        }
+        waitForJournal()
+
+        let left = try XCTUnwrap(StrokeJournal.shared.load(
+            partID: partID, pageIndex: AnnotationLayers.marginLeftIndex, layer: AnnotationLayers.first))
+        let bottom = try XCTUnwrap(StrokeJournal.shared.load(
+            partID: partID, pageIndex: AnnotationLayers.marginBottomIndex, layer: AnnotationLayers.first))
+        XCTAssertEqual(left.bounds.minY, 40, accuracy: 4)
+        XCTAssertEqual(bottom.bounds.minY, 300, accuracy: 4, "the two margins overwrote each other")
+    }
+
     // MARK: - Journal format v2
 
     func testJournalCarriesAuthoredPageSize() throws {

@@ -79,14 +79,19 @@ enum Tokens {
     // top of the gap itself. Narrow frames, tall touch area, and the visible
     // separation lands near half an icon — close enough to be a pair, far
     // enough that a hurried hand before a downbeat cannot hit the wrong one.
-    // The frame sets BOTH the gap and the target: with no spacing between
-    // them, the visible separation is frame width minus glyph. 35 - 17 gives
-    // an 18pt gap, double the old 9, and hands each icon a 35x40 target
-    // instead of 26x34. A fingertip covers what it is aiming at, where a
-    // pencil tip does not, so a target sized by eye for a pencil is too small
-    // for a finger — which is exactly backwards from the last time.
-    static let readingControlIcon = CGSize(width: 35, height: 40)
+    // Real spacing, not padding inside the frames. Widening the frames alone
+    // grew the *look* of a gap while leaving the targets edge to edge — so a
+    // finger aimed at the mode toggle and landing a few points left hit
+    // Library instead and navigated away. Which is what "cannot switch modes
+    // with a finger" actually was. The gap between targets is now empty
+    // screen: a near miss does nothing, and doing nothing is recoverable.
+    static let readingControlIcon = CGSize(width: 34, height: 44)
     static let readingControlGlyph: CGFloat = 17
+    static let readingControlSpacing: CGFloat = 8
+
+    /// Lifts the row clear of the very bottom edge, which iPadOS reserves for
+    /// its own gesture.
+    static let readingControlBottomInset: CGFloat = 12
 
     /// Vertical margin reserved above and below the spread, so these controls
     /// sit beside the page and never on top of the notation.
@@ -94,11 +99,12 @@ enum Tokens {
     /// They live at the BOTTOM right. The top right belongs to iPadOS — wifi,
     /// battery, the lot — and in Study the status bar is visible, so anything
     /// we put up there is read through somebody else's icons.
-    static let readingControlMargin: CGFloat = 44
+    static let readingControlMargin: CGFloat = readingControlIcon.height + readingControlBottomInset
 
     /// Horizontal band the row occupies, at its widest: share, Library, mode.
     /// Chrome keeps clear of it.
-    static let readingControlsBand: CGFloat = readingControlIcon.width * 3 + 12
+    static let readingControlsBand: CGFloat =
+        readingControlIcon.width * 3 + readingControlSpacing * 2 + 12
 
     /// Room to leave for the status bar's own content. The clock and date sit
     /// at the leading edge, the radio and battery indicators at the trailing
@@ -106,6 +112,14 @@ enum Tokens {
     /// the first and stops short of the second.
     static let statusBarLeadingInset: CGFloat = 190
     static let statusBarTrailingInset: CGFloat = 130
+
+    // MARK: - Shared margins
+
+    /// Scratch space beside and below the score, as a fraction of one page.
+    /// Shared across the whole part — fingerings, a reminder about the repeat,
+    /// the conductor's tempo — so it does not have to be rewritten per page.
+    static let marginWidthFraction: CGFloat = 0.22
+    static let marginHeightFraction: CGFloat = 0.16
 
     // MARK: - Rail
 

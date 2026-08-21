@@ -151,7 +151,7 @@ private struct ReadingControlsView: View {
         VStack {
             Spacer()
 
-            HStack(spacing: 0) {
+            HStack(spacing: Tokens.readingControlSpacing) {
                 Spacer()
 
                 // Share joins the row rather than sitting off in the top
@@ -176,46 +176,45 @@ private struct ReadingControlsView: View {
                     state.toggleMode()
                 }
             }
-            .frame(height: Tokens.readingControlMargin)
+            .frame(height: Tokens.readingControlIcon.height)
             .padding(.trailing, 12)
+            .padding(.bottom, Tokens.readingControlBottomInset)
         }
     }
 }
 
-/// Full strength, always. A narrow frame with a tall touch area: the width is
-/// what sets the visible gap between the pair, the height is what a pencil tip
-/// needs to land on.
+/// Full strength, always, and a plain Button rather than a hand-rolled
+/// DragGesture — the machinery that makes a tap forgiving (touch slop, press
+/// tracking, cancellation on drag-away) is exactly what a bare drag gesture
+/// does not have, and a finger needs all of it.
 struct ReadingIconButton: View {
     let systemName: String
     let label: String
     let action: () -> Void
 
-    @Environment(\.theme) private var theme
-    @State private var pressed = false
-
     var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: Tokens.readingControlGlyph))
-            .foregroundStyle(pressed ? theme.accent : theme.ink)
-            .frame(width: Tokens.readingControlIcon.width, height: Tokens.readingControlIcon.height)
-            .contentShape(Rectangle())
-            .scaleEffect(pressed ? 1.15 : 1.0)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard !pressed else { return }
-                        withAnimation(.easeOut(duration: 0.12)) { pressed = true }
-                    }
-                    .onEnded { value in
-                        withAnimation(.easeOut(duration: 0.12)) { pressed = false }
-                        // A finger that slid off the control is a miss, not a tap.
-                        let d = hypot(value.translation.width, value.translation.height)
-                        guard d < 24 else { return }
-                        action()
-                    }
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: Tokens.readingControlGlyph))
+        }
+        .buttonStyle(ReadingIconButtonStyle())
+        .accessibilityLabel(label)
+    }
+}
+
+private struct ReadingIconButtonStyle: ButtonStyle {
+    @Environment(\.theme) private var theme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(configuration.isPressed ? theme.accent : theme.ink)
+            .frame(
+                width: Tokens.readingControlIcon.width,
+                height: Tokens.readingControlIcon.height
             )
-            .accessibilityLabel(label)
-            .accessibilityAddTraits(.isButton)
+            .contentShape(Rectangle())
+            .scaleEffect(configuration.isPressed ? 1.15 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

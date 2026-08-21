@@ -80,7 +80,10 @@ final class ReadingPageView: UIView {
     /// Recreated at each display handoff — see rebuildCanvas().
     private(set) var canvas = ScoreCanvasView()
 
-    private(set) var pageIndex: Int = -1
+    /// -1 used to mean "not configured yet" — which is now the left margin's
+    /// own index, so an unconfigured page would have been mistaken for it.
+    static let unconfiguredPage = Int.min
+    private(set) var pageIndex: Int = ReadingPageView.unconfiguredPage
     private var partID: UUID?
     private(set) var pdfSize = CGSize(width: 595, height: 842)
 
@@ -345,6 +348,14 @@ final class ReadingPageView: UIView {
         visibleLayers.contains(activeLayer)
     }
 
+    /// Margins carry no page image and read as the desk, not as more page.
+    var isMarginSurface = false {
+        didSet {
+            imageView.isHidden = isMarginSurface
+            layer.cornerRadius = isMarginSurface ? 2 : 4
+        }
+    }
+
     var annotationEnabled: Bool = false {
         didSet { applyInputGate() }
     }
@@ -463,7 +474,9 @@ final class ReadingPageView: UIView {
     }
 
     private func persist(layer: Int) {
-        guard let partID, pageIndex >= 0 else { return }
+        // Margins carry negative indices on purpose, so this cannot test for
+        // a positive one.
+        guard let partID, pageIndex != Self.unconfiguredPage else { return }
         journal.save(
             layerDrawings[layer] ?? PKDrawing(),
             partID: partID,
@@ -518,7 +531,7 @@ extension ReadingPageView: PKCanvasViewDelegate {
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
         guard !isApplying else { return }
         let scale = displayScale
-        guard scale > 0, let partID, pageIndex >= 0 else { return }
+        guard scale > 0, let partID, pageIndex != Self.unconfiguredPage else { return }
         activeDrawing = canvasView.drawing.transformed(
             using: CGAffineTransform(scaleX: 1 / scale, y: 1 / scale)
         )

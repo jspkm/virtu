@@ -9,6 +9,14 @@ enum AnnotationLayers {
     /// which is the point: the ceiling should never be the thing you notice.
     static let max = 10
     static let first = 1
+
+    // The shared margins belong to the PART, not to any page: what you write
+    // beside page 1 is still there beside page 5. They need slots in the
+    // journal that no real page index can ever take.
+    static let marginLeftIndex = -1
+    static let marginBottomIndex = -2
+
+    static func isMargin(_ pageIndex: Int) -> Bool { pageIndex < 0 }
 }
 
 @Model

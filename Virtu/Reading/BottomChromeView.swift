@@ -81,6 +81,11 @@ struct BottomChromeView: View {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
             }
+            // Explicit, because LazyHStack gives a horizontal ScrollView no
+            // determinate height to size itself from: it grew to fill the
+            // screen, and the chrome's opaque paper gradient came with it and
+            // covered the score.
+            .frame(height: 78)
         }
     }
 }

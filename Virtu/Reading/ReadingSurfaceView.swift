@@ -40,20 +40,34 @@ final class ReadingPageViewController: UIViewController {
     private let spreadContainer = UIView()
     private let leftPage = ReadingPageView()
     private let rightPage = ReadingPageView()
+    /// Shared scratch space, keyed to the part rather than the page: what you
+    /// write here beside page 1 is still here beside page 5.
+    private let marginLeftView = ReadingPageView()
+    private let marginBottomView = ReadingPageView()
+
+    private var inkViews: [ReadingPageView] {
+        [leftPage, rightPage, marginLeftView, marginBottomView]
+    }
     private let gutterView = UIView()
     private let gutterWidth: CGFloat = 2
 
     private var renderer: PageRenderer?
     private var rendererPartID: UUID?
 
-    private var displayedPageIndex = -1
+    private var displayedPageIndex = ReadingPageView.unconfiguredPage
     private var displayedPagesPerView = 0
     private var displayedAnnotating: Bool?
     private var displayedStage: Bool?
 
+    /// Spans the pages only, so "does the score fit the screen?" can be asked
+    /// without the margins answering for it.
+    private let pagesGuide = UILayoutGuide()
+    private var needsScrollToPage = true
     private var spreadHeightConstraint: NSLayoutConstraint!
     private var spreadHeightLimit: NSLayoutConstraint!
     private var spreadWidthLimit: NSLayoutConstraint!
+    /// Aspect lives on the page, not the container: the container's size is
+    /// now derived from the page plus its margins.
     private var aspectConstraint: NSLayoutConstraint?
     private var rightWidthEqual: NSLayoutConstraint!
     private var rightWidthZero: NSLayoutConstraint!
@@ -115,6 +129,20 @@ final class ReadingPageViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         centerContent()
+        if needsScrollToPage, marginLeftView.bounds.width > 0 {
+            needsScrollToPage = false
+            scrollToPage(animated: false)
+        }
+    }
+
+    /// Put the page where the eye is. The margins sit left of and below it in
+    /// the content, so offset zero would open on empty desk.
+    private func scrollToPage(animated: Bool) {
+        let offset = CGPoint(
+            x: marginLeftView.bounds.width - scrollView.contentInset.left,
+            y: -scrollView.contentInset.top
+        )
+        scrollView.setContentOffset(offset, animated: animated)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -163,32 +191,19 @@ final class ReadingPageViewController: UIViewController {
 
         // Fill the height, but never at the cost of overflowing the width:
         // the two limits are required, the fill is merely preferred.
-        // The margin is symmetric and sized so the always-on controls have a
-        // band of their own at the top: they must sit beside the page, never
-        // over the notation. Centring is by inset, so top and bottom match.
-        spreadHeightConstraint = spreadContainer.heightAnchor.constraint(
-            equalTo: scrollView.frameLayoutGuide.heightAnchor,
-            constant: -Tokens.readingControlMargin * 2)
-        spreadHeightConstraint.priority = .defaultHigh
-        spreadHeightLimit = spreadContainer.heightAnchor.constraint(
-            lessThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor,
-            constant: -Tokens.readingControlMargin * 2)
-        spreadWidthLimit = spreadContainer.widthAnchor.constraint(
-            lessThanOrEqualTo: scrollView.frameLayoutGuide.widthAnchor)
-
         NSLayoutConstraint.activate([
             spreadContainer.topAnchor.constraint(equalTo: content.topAnchor),
             spreadContainer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             spreadContainer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             spreadContainer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            spreadHeightConstraint,
-            spreadHeightLimit,
-            spreadWidthLimit,
         ])
+        // The fit constraints measure the PAGE, not the container, so they are
+        // built in setupPages() — the page does not exist yet here, and an
+        // anchor pair with no common ancestor is a crash, not a warning.
     }
 
     private func setupPages() {
-        for page in [leftPage, rightPage] {
+        for page in inkViews {
             page.translatesAutoresizingMaskIntoConstraints = false
             page.onCanvasUsed = { [weak self] used in
                 self?.lastDrawnPage = used
@@ -196,28 +211,68 @@ final class ReadingPageViewController: UIViewController {
             }
             spreadContainer.addSubview(page)
         }
+        for margin in [marginLeftView, marginBottomView] {
+            margin.isMarginSurface = true
+        }
 
         gutterView.translatesAutoresizingMaskIntoConstraints = false
         gutterView.backgroundColor = UIColor(hex: 0xE0DBD1)
         spreadContainer.addSubview(gutterView)
+        spreadContainer.addLayoutGuide(pagesGuide)
 
         rightWidthEqual = leftPage.widthAnchor.constraint(equalTo: rightPage.widthAnchor)
         rightWidthZero = rightPage.widthAnchor.constraint(equalToConstant: 0)
 
+        // The chain runs margin -> pages -> container edge horizontally, and
+        // pages -> margin -> container edge vertically, so the container sizes
+        // itself from the page. Only the page carries an aspect ratio.
         NSLayoutConstraint.activate([
-            leftPage.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
-            leftPage.bottomAnchor.constraint(equalTo: spreadContainer.bottomAnchor),
-            leftPage.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
+            marginLeftView.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
+            marginLeftView.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
+            marginLeftView.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
+            marginLeftView.widthAnchor.constraint(
+                equalTo: leftPage.widthAnchor, multiplier: Tokens.marginWidthFraction),
 
-            gutterView.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
-            gutterView.bottomAnchor.constraint(equalTo: spreadContainer.bottomAnchor),
+            leftPage.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
+            leftPage.leadingAnchor.constraint(equalTo: marginLeftView.trailingAnchor),
+
+            gutterView.topAnchor.constraint(equalTo: leftPage.topAnchor),
+            gutterView.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
             gutterView.leadingAnchor.constraint(equalTo: leftPage.trailingAnchor),
             gutterView.widthAnchor.constraint(equalToConstant: gutterWidth),
 
-            rightPage.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
-            rightPage.bottomAnchor.constraint(equalTo: spreadContainer.bottomAnchor),
+            rightPage.topAnchor.constraint(equalTo: leftPage.topAnchor),
+            rightPage.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
             rightPage.leadingAnchor.constraint(equalTo: gutterView.trailingAnchor),
             rightPage.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
+
+            marginBottomView.topAnchor.constraint(equalTo: leftPage.bottomAnchor),
+            marginBottomView.leadingAnchor.constraint(equalTo: spreadContainer.leadingAnchor),
+            marginBottomView.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
+            marginBottomView.bottomAnchor.constraint(equalTo: spreadContainer.bottomAnchor),
+            marginBottomView.heightAnchor.constraint(
+                equalTo: leftPage.heightAnchor, multiplier: Tokens.marginHeightFraction),
+
+            pagesGuide.leadingAnchor.constraint(equalTo: leftPage.leadingAnchor),
+            pagesGuide.trailingAnchor.constraint(equalTo: rightPage.trailingAnchor),
+            pagesGuide.topAnchor.constraint(equalTo: leftPage.topAnchor),
+            pagesGuide.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
+        ])
+
+        // Fit is measured against the PAGE, not the container. The shared
+        // margins hang off the container outside the viewport, so they cost
+        // the score no size at all — you reach them by moving the paper.
+        spreadHeightConstraint = leftPage.heightAnchor.constraint(
+            equalTo: scrollView.frameLayoutGuide.heightAnchor,
+            constant: -Tokens.readingControlMargin * 2)
+        spreadHeightConstraint.priority = .defaultHigh
+        spreadHeightLimit = leftPage.heightAnchor.constraint(
+            lessThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor,
+            constant: -Tokens.readingControlMargin * 2)
+        spreadWidthLimit = pagesGuide.widthAnchor.constraint(
+            lessThanOrEqualTo: scrollView.frameLayoutGuide.widthAnchor)
+        NSLayoutConstraint.activate([
+            spreadHeightConstraint, spreadHeightLimit, spreadWidthLimit,
         ])
     }
 
@@ -268,7 +323,9 @@ final class ReadingPageViewController: UIViewController {
         if state.currentPart?.id != rendererPartID {
             rendererPartID = state.currentPart?.id
             renderer = state.currentPart.flatMap { PageRenderer(url: $0.pdfURL) }
-            displayedPageIndex = -1
+            displayedPageIndex = ReadingPageView.unconfiguredPage
+            configureMargins(partID: state.currentPart?.id)
+            needsScrollToPage = true
         }
         guard let renderer else { return }
 
@@ -281,12 +338,19 @@ final class ReadingPageViewController: UIViewController {
         let stage = state.stageMode
         if stage != displayedStage {
             displayedStage = stage
-            displayedPageIndex = -1   // force page image refresh
+            displayedPageIndex = ReadingPageView.unconfiguredPage   // force page image refresh
             view.backgroundColor = stage ? UIColor(hex: 0x0A0908) : UIColor(hex: 0xF2EFE8)
             gutterView.backgroundColor = stage ? UIColor(hex: 0x25211C) : UIColor(hex: 0xE0DBD1)
             for page in [leftPage, rightPage] {
                 page.backgroundColor = stage ? UIColor(hex: 0x0A0908) : UIColor(hex: 0xFFFDF8)
                 page.layer.borderColor = (stage ? UIColor(hex: 0x25211C) : UIColor(hex: 0xE0DBD1)).cgColor
+            }
+            // The same paper as the page. A margin shaded like a desk reads
+            // as scenery; blank paper reads as somewhere to write, which is
+            // the entire reason it is there.
+            for margin in [marginLeftView, marginBottomView] {
+                margin.backgroundColor = stage ? UIColor(hex: 0x0A0908) : UIColor(hex: 0xFFFDF8)
+                margin.layer.borderColor = (stage ? UIColor(hex: 0x25211C) : UIColor(hex: 0xE0DBD1)).cgColor
             }
         }
 
@@ -297,7 +361,8 @@ final class ReadingPageViewController: UIViewController {
 
         if state.pageIndex != displayedPageIndex || state.pagesPerView != displayedPagesPerView {
             let direction = state.pageIndex >= displayedPageIndex ? 1 : -1
-            let firstDisplay = displayedPageIndex == -1 || state.pagesPerView != displayedPagesPerView
+            let firstDisplay = displayedPageIndex == ReadingPageView.unconfiguredPage
+                || state.pagesPerView != displayedPagesPerView
             displayedPageIndex = state.pageIndex
             displayedPagesPerView = state.pagesPerView
             updatePages(renderer: renderer, animated: !firstDisplay, direction: direction)
@@ -312,15 +377,17 @@ final class ReadingPageViewController: UIViewController {
         spreadHeightLimit.constant = margin
 
         if !annotating {
+            // Perform is the page: no panning, and never parked on the desk.
             scrollView.setZoomScale(1, animated: false)
-            scrollView.setContentOffset(.zero, animated: false)
+            scrollToPage(animated: false)
             leftPage.canvas.resignFirstResponder()
             rightPage.canvas.resignFirstResponder()
             becomeFirstResponder()
         }
         scrollView.pinchGestureRecognizer?.isEnabled = annotating
-        // Panning a zoomed page is Study-only; in Perform a stray drag must
-        // never shift the page a player is reading from.
+        // Panning is Study-only: it is how you reach the shared margins, and
+        // in Perform a stray drag must never shift the page a player is
+        // reading from.
         scrollView.panGestureRecognizer.isEnabled = annotating
     }
 
@@ -341,8 +408,26 @@ final class ReadingPageViewController: UIViewController {
 
     private func applyToolState() {
         let tool = appState.currentPKTool()
-        leftPage.apply(tool: tool)
-        rightPage.apply(tool: tool)
+        inkViews.forEach { $0.apply(tool: tool) }
+    }
+
+    /// The margins are configured once per part and never again — that is the
+    /// whole point of them. Their coordinate spaces are fixed (the bottom one
+    /// is always two pages wide) so that rotating the iPad rescales the ink
+    /// rather than reflowing it onto different notes.
+    private func configureMargins(partID: UUID?) {
+        guard let renderer else { return }
+        let page = renderer.pageSize
+        marginLeftView.configure(
+            partID: partID,
+            pageIndex: AnnotationLayers.marginLeftIndex,
+            pdfSize: CGSize(width: page.width * Tokens.marginWidthFraction, height: page.height)
+        )
+        marginBottomView.configure(
+            partID: partID,
+            pageIndex: AnnotationLayers.marginBottomIndex,
+            pdfSize: CGSize(width: page.width * 2, height: page.height * Tokens.marginHeightFraction)
+        )
     }
 
     /// Push the part's layer state onto both pages. Idempotent by design —
@@ -350,36 +435,28 @@ final class ReadingPageViewController: UIViewController {
     private func applyLayerState() {
         let active = appState.activeLayer
         let visible = appState.visibleLayers
-        leftPage.setLayers(active: active, visible: visible)
-        rightPage.setLayers(active: active, visible: visible)
+        inkViews.forEach { $0.setLayers(active: active, visible: visible) }
     }
 
     /// Single owner of the canvases' input gate: the pencil draws in Study.
     private func applyInputMode() {
-        leftPage.annotationEnabled = appState.annotating
-        rightPage.annotationEnabled = appState.annotating
+        inkViews.forEach { $0.annotationEnabled = appState.annotating }
     }
 
     private func updateAspect(renderer: PageRenderer) {
-        let pageAspect = renderer.pageSize.width / max(renderer.pageSize.height, 1)
-        let perView = appState.pagesPerView
-        let multiplier: CGFloat
-        if perView == 2 {
-            // Approximate: gutter is negligible relative to page width.
-            multiplier = pageAspect * 2
-        } else {
-            multiplier = pageAspect
-        }
+        let multiplier = renderer.pageSize.width / max(renderer.pageSize.height, 1)
 
         if let existing = aspectConstraint, abs(existing.multiplier - multiplier) < 0.001 {
-            applySpreadLayout(perView: perView)
+            applySpreadLayout(perView: appState.pagesPerView)
             return
         }
         aspectConstraint?.isActive = false
-        aspectConstraint = spreadContainer.widthAnchor.constraint(
-            equalTo: spreadContainer.heightAnchor, multiplier: multiplier)
+        // On the page itself: the container's size falls out of the page plus
+        // its margins, so an aspect on the container would fight them.
+        aspectConstraint = leftPage.widthAnchor.constraint(
+            equalTo: leftPage.heightAnchor, multiplier: multiplier)
         aspectConstraint?.isActive = true
-        applySpreadLayout(perView: perView)
+        applySpreadLayout(perView: appState.pagesPerView)
     }
 
     private func applySpreadLayout(perView: Int) {
@@ -398,7 +475,7 @@ final class ReadingPageViewController: UIViewController {
 
     private func updatePages(renderer: PageRenderer, animated: Bool, direction: Int) {
         let state = appState!
-        let height = max(spreadContainer.bounds.height, view.bounds.height - 52)
+        let height = max(leftPage.bounds.height, view.bounds.height - Tokens.readingControlMargin * 2)
         let stage = state.stageMode
 
         let apply = { [weak self] in
@@ -513,6 +590,10 @@ final class ReadingPageViewController: UIViewController {
 
     @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
         guard scrollView.zoomScale <= 1.01 else { return }
+        // In Study a horizontal drag moves the paper to reach the margin, so
+        // it cannot also turn the page. Edge taps, the pedal and the scrubber
+        // still turn in both modes; swipe stays a Perform gesture.
+        guard !appState.annotating else { return }
         turn(gesture.direction == .left ? 1 : -1, hapticAllowed: false)
     }
 
