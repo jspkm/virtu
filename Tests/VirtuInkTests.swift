@@ -936,4 +936,53 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(scroll.contentOffset.y, -scroll.contentInset.top, accuracy: 2,
                        "returning to Perform did not re-park at full bleed")
     }
+
+    /// A turn must never move the paper. Perform panning is meant to be off —
+    /// "a stray drag must never shift the page a player is reading from" — but
+    /// the lock was written as `panGestureRecognizer.isEnabled = false`, and
+    /// UIScrollView owns that recognizer and re-enables it. The turn swipe then
+    /// dragged the spread one page-width sideways onto the invisible right
+    /// margin, so every page after the first read as blank paper on the stand.
+    func testPerformModeLocksTheScroll() throws {
+        let bundle = Bundle(for: ReadingPageViewController.self)
+        let pdfURL = try XCTUnwrap(bundle.url(forResource: "test-score", withExtension: "pdf"))
+        let stored = "\(UUID().uuidString).pdf"
+        try FileManager.default.copyItem(
+            at: pdfURL, to: Part.storageDirectory.appendingPathComponent(stored))
+
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.currentPart = Part(name: "test", pdfFileName: stored, pageCount: 6)
+
+        let vc = ReadingPageViewController()
+        vc.appState = state
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1032, height: 1376))
+        window.rootViewController = vc
+        window.isHidden = false
+        window.layoutIfNeeded()
+
+        func settle() {
+            vc.view.setNeedsLayout()
+            window.layoutIfNeeded()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        }
+        settle()
+
+        let scroll = vc.testScrollView
+        XCTAssertFalse(scroll.isScrollEnabled,
+                       "Perform left the scroll live: a turn swipe drags the page off screen")
+
+        // A turn is where it used to come undone.
+        state.turn(1)
+        vc.syncFromState()
+        settle()
+        XCTAssertFalse(scroll.isScrollEnabled, "a turn re-opened the Perform scroll lock")
+        XCTAssertEqual(scroll.contentOffset.x, -scroll.contentInset.left, accuracy: 2,
+                       "the page is no longer parked in the viewport after a turn")
+
+        // Study is the mode that reaches the margins, so it must pan.
+        state.readingMode = .study
+        vc.syncFromState()
+        settle()
+        XCTAssertTrue(scroll.isScrollEnabled, "Study cannot reach the shared margins")
+    }
 }

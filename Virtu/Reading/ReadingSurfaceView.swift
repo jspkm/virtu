@@ -83,6 +83,13 @@ final class ReadingPageViewController: UIViewController {
 
     private enum Zone { case left, center, right }
 
+    #if DEBUG
+    /// Test hook. The Perform-mode scroll lock is only observable on the scroll
+    /// view itself, and it is the guard that keeps a turn from dragging the
+    /// page off screen.
+    var testScrollView: UIScrollView { scrollView }
+    #endif
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -424,7 +431,14 @@ final class ReadingPageViewController: UIViewController {
         // Panning is Study-only: it is how you reach the shared margins, and
         // in Perform a stray drag must never shift the page a player is
         // reading from.
-        scrollView.panGestureRecognizer.isEnabled = annotating
+        //
+        // This has to be `isScrollEnabled`, not `panGestureRecognizer.isEnabled`.
+        // UIScrollView owns that recognizer and re-enables it behind us, so the
+        // lock silently came undone: in Perform a turn swipe both turned the
+        // page AND dragged the paper a full page-width sideways, parking the
+        // viewport over the (invisible) right margin. The score read as blank
+        // from page 2 on, which is the worst possible failure on a stand.
+        scrollView.isScrollEnabled = annotating
         updateMarginVisibility()
     }
 
