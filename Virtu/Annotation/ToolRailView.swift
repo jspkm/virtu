@@ -17,12 +17,15 @@ struct ToolRailView: View {
         (.eraser, "eraser", "Eraser"),
     ]
 
-    private let inks: [(UInt32, String)] = [
-        (AppState.graphiteHex, "Graphite"),
-        (0xC0392B, "Red"),
-        (0x2B3E5E, "Blue"),
-        (0x2D6A3F, "Green"),
-    ]
+    /// Which slot the musician is re-colouring, if any. Identifiable so it can
+    /// drive a sheet.
+    @State private var recolouring: PaletteSlot?
+
+    private struct PaletteSlot: Identifiable {
+        let index: Int
+        let tool: AppState.AnnotationTool
+        var id: String { "\(tool.rawValue)-\(index)" }
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -71,10 +74,10 @@ struct ToolRailView: View {
 
             divider
 
-            ForEach(inks, id: \.0) { hex, label in
-                inkSwatch(hex: hex, label: label)
+            let palette = state.palette(for: state.tool)
+            ForEach(Array(palette.enumerated()), id: \.offset) { slot, hex in
+                inkSwatch(slot: slot, hex: hex)
             }
-            customInkSwatch
 
             divider
 
@@ -88,6 +91,13 @@ struct ToolRailView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(theme.accent.opacity(0.15), lineWidth: 1)
         )
+        .sheet(item: $recolouring) { slot in
+            InkColorPicker(
+                initial: state.palette(for: slot.tool)[slot.index],
+                onPick: { hex in state.setPaletteSlot(slot.index, to: hex, for: slot.tool) }
+            )
+            .ignoresSafeArea()
+        }
     }
 
     private func close() {
@@ -167,34 +177,6 @@ struct ToolRailView: View {
             }
     }
 
-    /// The fifth colour: whatever the musician wants. Sits with the presets
-    /// rather than inside the pencil options, because a colour is a colour —
-    /// there is no reason four of them live in one place and the rest in
-    /// another.
-    private var customInkSwatch: some View {
-        let current = state.toolColors[state.tool] ?? AppState.graphiteHex
-        let isCustom = state.tool != .eraser && !inks.contains { $0.0 == current }
-        return ColorPicker(
-            "Choose colour",
-            selection: Binding(
-                get: { Color(hex: current) },
-                set: { newValue in
-                    guard state.tool != .eraser else { return }
-                    state.toolColors[state.tool] = newValue.hexValue
-                }
-            ),
-            supportsOpacity: false
-        )
-        .labelsHidden()
-        .frame(width: 26, height: 26)
-        .overlay(
-            Circle()
-                .stroke(theme.accent, lineWidth: isCustom ? 2 : 0)
-                .padding(-4)
-        )
-        .accessibilityLabel("Choose colour")
-    }
-
     private var divider: some View {
         Rectangle()
             .fill(theme.line2)
@@ -202,25 +184,42 @@ struct ToolRailView: View {
             .padding(.vertical, 2)
     }
 
-    private func inkSwatch(hex: UInt32, label: String) -> some View {
+    /// Tap to draw with it, hold to change what it holds.
+    ///
+    /// The first slot is the tool's own colour — graphite for the pencil,
+    /// yellow for the highlighter — and it does not move. The other two are
+    /// the musician's, and they are per tool: the highlighter's greens are not
+    /// the pencil's, because a wash and a line want different colours.
+    private func inkSwatch(slot: Int, hex: UInt32) -> some View {
         let isSelected = (state.toolColors[state.tool] ?? 0) == hex && state.tool != .eraser
-        return Button {
-            Haptics.selection()
-            if state.tool != .eraser {
+        let isFixed = slot == AppState.fixedSlot
+        return Circle()
+            .fill(Color(hex: hex))
+            .frame(width: 26, height: 26)
+            .overlay(
+                Circle()
+                    .stroke(theme.accent, lineWidth: isSelected ? 2 : 0)
+                    .padding(-4)
+            )
+            .contentShape(Circle())
+            .onTapGesture {
+                guard state.tool != .eraser else { return }
+                Haptics.selection()
                 state.toolColors[state.tool] = hex
             }
-        } label: {
-            Circle()
-                .fill(Color(hex: hex))
-                .frame(width: 26, height: 26)
-                .overlay(
-                    Circle()
-                        .stroke(theme.accent, lineWidth: isSelected ? 2 : 0)
-                        .padding(-4)
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
+            .onLongPressGesture(minimumDuration: 0.4) {
+                guard !isFixed, state.tool != .eraser else { return }
+                Haptics.rigid()
+                recolouring = PaletteSlot(index: slot, tool: state.tool)
+            }
+            .accessibilityElement()
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(isFixed ? "Ink, fixed" : "Ink \(slot + 1)")
+            .accessibilityHint(isFixed ? "" : "Double tap and hold to change this colour")
+            .accessibilityAction(named: "Change colour") {
+                guard !isFixed, state.tool != .eraser else { return }
+                recolouring = PaletteSlot(index: slot, tool: state.tool)
+            }
     }
 }
 
@@ -445,4 +444,43 @@ extension Notification.Name {
     static let virtuRedo = Notification.Name("virtuRedo")
     static let virtuClearHighlights = Notification.Name("virtuClearHighlights")
     static let virtuClearSpread = Notification.Name("virtuClearSpread")
+}
+
+// MARK: - Ink colour picker
+
+/// The system colour picker, presented directly rather than behind a SwiftUI
+/// `ColorPicker` swatch. Holding a swatch is already the gesture; making the
+/// musician tap a second control to get the picker open would waste it.
+private struct InkColorPicker: UIViewControllerRepresentable {
+    let initial: UInt32
+    let onPick: (UInt32) -> Void
+
+    func makeUIViewController(context: Context) -> UIColorPickerViewController {
+        let picker = UIColorPickerViewController()
+        picker.selectedColor = UIColor(hex: initial)
+        // Ink is opaque; the highlighter's translucency comes from the render
+        // path, not from the colour the musician chose.
+        picker.supportsAlpha = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ picker: UIColorPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    final class Coordinator: NSObject, UIColorPickerViewControllerDelegate {
+        let onPick: (UInt32) -> Void
+        init(onPick: @escaping (UInt32) -> Void) { self.onPick = onPick }
+
+        func colorPickerViewController(
+            _ picker: UIColorPickerViewController,
+            didSelect color: UIColor, continuously: Bool
+        ) {
+            // Live, so the swatch tracks the wheel as it moves. hexValue lives
+            // on Color, and it is the one place the wide-gamut value the picker
+            // hands back gets clamped into the ink model's 0xRRGGBB.
+            onPick(Color(uiColor: color).hexValue)
+        }
+    }
 }

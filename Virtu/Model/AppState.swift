@@ -117,9 +117,56 @@ final class AppState {
     }
     var toolColors: [AnnotationTool: UInt32] = [
         .pencil: AppState.graphiteHex,
-        .highlighter: 0xE8A33D,
+        .highlighter: AppState.highlighterYellowHex,
     ] {
         didSet { persistToolSettings() }
+    }
+
+    // MARK: - Ink palettes
+    //
+    // Three swatches per ink tool, and the pencil's three are not the
+    // highlighter's three: a highlighter wants washes, a pencil wants ink.
+    //
+    // The first slot of each is FIXED. It is the colour the tool is for —
+    // graphite for the pencil, yellow for the highlighter — and a musician who
+    // never touches the other two should never be able to lose it. The other
+    // two are the musician's own, changed by holding the swatch, and they
+    // persist.
+
+    /// Slot 0 of every palette, and the only slot that cannot be re-coloured.
+    static let fixedSlot = 0
+
+    static let highlighterYellowHex: UInt32 = 0xE8A33D
+
+    static let defaultPalettes: [AnnotationTool: [UInt32]] = [
+        //                fixed                red      ink blue
+        .pencil: [AppState.graphiteHex, 0xC0392B, 0x2563C7],
+        //                fixed yellow    bright green  faint sky
+        .highlighter: [AppState.highlighterYellowHex, 0x7FBF3F, 0x5FB8DE],
+    ]
+
+    var toolPalettes: [AnnotationTool: [UInt32]] = AppState.defaultPalettes {
+        didSet { persistToolSettings() }
+    }
+
+    /// The swatches to offer for a tool. Lasso and eraser carry no colour of
+    /// their own, so they show the pencil's row rather than making the rail
+    /// change height when you pick them up.
+    func palette(for tool: AnnotationTool) -> [UInt32] {
+        toolPalettes[tool] ?? toolPalettes[.pencil] ?? AppState.defaultPalettes[.pencil]!
+    }
+
+    /// Re-colour one slot. Slot 0 is the tool's own colour and refuses.
+    func setPaletteSlot(_ index: Int, to hex: UInt32, for tool: AnnotationTool) {
+        guard index != AppState.fixedSlot,
+              var slots = toolPalettes[tool], slots.indices.contains(index) else { return }
+        let wasActive = toolColors[tool] == slots[index]
+        slots[index] = hex
+        toolPalettes[tool] = slots
+        // Re-colouring the swatch you are drawing with changes the ink in your
+        // hand too. Anything else means picking the colour then picking it
+        // again to use it.
+        if wasActive { toolColors[tool] = hex }
     }
 
     /// Which of the four nibs is selected. Index 1 is the long-standing
@@ -176,6 +223,8 @@ final class AppState {
         defaults.set(nibIndex, forKey: "nibIndex")
         let colors = Dictionary(uniqueKeysWithValues: toolColors.map { ($0.key.rawValue, $0.value) })
         defaults.set(colors, forKey: "toolColors")
+        let palettes = Dictionary(uniqueKeysWithValues: toolPalettes.map { ($0.key.rawValue, $0.value) })
+        defaults.set(palettes, forKey: "toolPalettes")
     }
 
     private func restoreToolSettings() {
@@ -193,6 +242,19 @@ final class AppState {
         if let stored = defaults.dictionary(forKey: "toolColors") as? [String: UInt32] {
             for (key, hex) in stored {
                 if let toolKey = AnnotationTool(rawValue: key) { toolColors[toolKey] = hex }
+            }
+        }
+        if let stored = defaults.dictionary(forKey: "toolPalettes") as? [String: [UInt32]] {
+            for (key, slots) in stored {
+                guard let toolKey = AnnotationTool(rawValue: key),
+                      let fresh = AppState.defaultPalettes[toolKey],
+                      slots.count == fresh.count else { continue }
+                // The fixed slot is restored from the defaults, never from the
+                // store: a build that changes a tool's own colour must move it
+                // for everyone, not just for a fresh install.
+                var restored = slots
+                restored[AppState.fixedSlot] = fresh[AppState.fixedSlot]
+                toolPalettes[toolKey] = restored
             }
         }
     }

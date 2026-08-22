@@ -1106,4 +1106,71 @@ final class VirtuInkTests: XCTestCase {
         settle()
         XCTAssertTrue(scroll.isScrollEnabled, "Study cannot reach the shared margins")
     }
+
+    // MARK: - Ink palettes
+
+    /// Three swatches per tool, the first of which is the tool's own colour and
+    /// cannot be lost.
+    func testPaletteFirstSlotIsFixed() {
+        let state = AppState(defaults: Self.scratchDefaults())
+
+        XCTAssertEqual(state.palette(for: .pencil).count, 3)
+        XCTAssertEqual(state.palette(for: .pencil)[0], AppState.graphiteHex)
+        XCTAssertEqual(state.palette(for: .highlighter)[0], AppState.highlighterYellowHex)
+
+        state.setPaletteSlot(AppState.fixedSlot, to: 0x00FF00, for: .pencil)
+        XCTAssertEqual(state.palette(for: .pencil)[0], AppState.graphiteHex,
+                       "the pencil's own graphite was overwritten")
+        state.setPaletteSlot(AppState.fixedSlot, to: 0x00FF00, for: .highlighter)
+        XCTAssertEqual(state.palette(for: .highlighter)[0], AppState.highlighterYellowHex,
+                       "the highlighter's own yellow was overwritten")
+
+        // Out of range must not crash or grow the palette.
+        state.setPaletteSlot(9, to: 0x00FF00, for: .pencil)
+        XCTAssertEqual(state.palette(for: .pencil).count, 3)
+    }
+
+    /// The highlighter's colours are its own. A wash and a line want different
+    /// colours, so re-colouring one tool must not reach the other.
+    func testHighlighterKeepsItsOwnPalette() {
+        let state = AppState(defaults: Self.scratchDefaults())
+        XCTAssertNotEqual(state.palette(for: .pencil), state.palette(for: .highlighter))
+
+        let pencilBefore = state.palette(for: .pencil)
+        state.setPaletteSlot(1, to: 0x123456, for: .highlighter)
+        XCTAssertEqual(state.palette(for: .highlighter)[1], 0x123456)
+        XCTAssertEqual(state.palette(for: .pencil), pencilBefore,
+                       "re-colouring the highlighter moved the pencil's swatch")
+    }
+
+    /// Re-colouring the swatch you are drawing with changes the ink in your
+    /// hand, rather than making you pick it a second time.
+    func testRecolouringTheActiveSwatchChangesTheInk() {
+        let state = AppState(defaults: Self.scratchDefaults())
+        let red = state.palette(for: .pencil)[1]
+        state.tool = .pencil
+        state.toolColors[.pencil] = red
+
+        state.setPaletteSlot(1, to: 0x123456, for: .pencil)
+        XCTAssertEqual(state.toolColors[.pencil], 0x123456)
+
+        // An inactive slot leaves the ink alone.
+        state.setPaletteSlot(2, to: 0xABCDEF, for: .pencil)
+        XCTAssertEqual(state.toolColors[.pencil], 0x123456)
+    }
+
+    /// A chosen colour survives a cold launch; the fixed slot comes from the
+    /// build, so changing it in a release moves it for everyone.
+    func testPaletteSurvivesRelaunchButTheFixedSlotComesFromTheBuild() {
+        let store = Self.scratchDefaults()
+        let first = AppState(defaults: store)
+        first.setPaletteSlot(2, to: 0x336699, for: .pencil)
+        first.setPaletteSlot(1, to: 0x66AA22, for: .highlighter)
+
+        let second = AppState(defaults: store)
+        XCTAssertEqual(second.palette(for: .pencil)[2], 0x336699)
+        XCTAssertEqual(second.palette(for: .highlighter)[1], 0x66AA22)
+        XCTAssertEqual(second.palette(for: .pencil)[0], AppState.graphiteHex)
+        XCTAssertEqual(second.palette(for: .highlighter)[0], AppState.highlighterYellowHex)
+    }
 }
