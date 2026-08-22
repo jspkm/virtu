@@ -68,6 +68,7 @@ struct ExportButton: View {
                 // Visible layers only, bottom-up: what you exported is what you
                 // were looking at. A hidden layer is hidden from the stand
                 // partner you send this to as well.
+                drawClippings(partID: part.id, pageIndex: pageIdx)
                 let layers = part.visibleLayerIndices.compactMap {
                     journal.load(partID: part.id, pageIndex: pageIdx, layer: $0)
                 }
@@ -82,6 +83,14 @@ struct ExportButton: View {
         try? data.write(to: url)
         exportedURL = url
         showShareSheet = true
+    }
+}
+
+/// Clippings render under the ink on export, exactly as they display: the
+/// excerpt taped to the page, written over.
+private func drawClippings(partID: UUID, pageIndex: Int) {
+    for clipping in ClippingStore.shared.clippings(partID: partID, pageIndex: pageIndex) {
+        ClippingStore.shared.image(for: clipping)?.draw(in: clipping.rect)
     }
 }
 
@@ -105,8 +114,10 @@ private extension ExportButton {
             let sheet = layers.compactMap {
                 journal.load(partID: part.id, pageIndex: slot, layer: $0)
             }
-            guard sheet.contains(where: { !$0.strokes.isEmpty }) else { continue }
+            let clippings = ClippingStore.shared.clippings(partID: part.id, pageIndex: slot)
+            guard sheet.contains(where: { !$0.strokes.isEmpty }) || !clippings.isEmpty else { continue }
             context.beginPage(withBounds: CGRect(origin: .zero, size: size), pageInfo: [:])
+            drawClippings(partID: part.id, pageIndex: slot)
             InkRenderer.draw(sheet, in: context.cgContext)
         }
     }

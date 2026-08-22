@@ -94,6 +94,11 @@ final class ReadingPageViewController: UIViewController {
 
     private var lastDrawnPage: ReadingPageView?
 
+    /// The clipping in flight: copied, not yet dropped. Lives on the spread
+    /// container so a single drag can carry it from a score page onto the
+    /// Right Page.
+    private var floatingClipping: UIImageView?
+
     // Corner peek
     private var peekCard: UIImageView?
     private var pressStart: TimeInterval = 0
@@ -270,6 +275,9 @@ final class ReadingPageViewController: UIViewController {
                 self?.lastDrawnPage = used
                 used.canvas.becomeFirstResponder()
             }
+            page.onRegionCopied = { [weak self] source, rect, image in
+                self?.floatClipping(from: source, rect: rect, image: image)
+            }
             spreadContainer.addSubview(page)
         }
         marginRightView.isMarginSurface = true
@@ -443,6 +451,7 @@ final class ReadingPageViewController: UIViewController {
                 || state.pagesPerView != displayedPagesPerView
             displayedPageIndex = state.pageIndex
             displayedPagesPerView = state.pagesPerView
+            discardFloatingClipping()
             updatePages(renderer: renderer, animated: !firstDisplay, direction: direction)
         }
     }
@@ -493,7 +502,11 @@ final class ReadingPageViewController: UIViewController {
 
     private func applyToolState() {
         let tool = appState.currentPKTool()
-        inkViews.forEach { $0.apply(tool: tool) }
+        let copyArmed = appState.tool == .lasso && appState.lassoMode == .copy
+        inkViews.forEach {
+            $0.apply(tool: tool)
+            $0.copyModeArmed = copyArmed
+        }
     }
 
     /// One Right Page per spread: the sheet beside score pages 1 and 2 is not
@@ -610,6 +623,89 @@ final class ReadingPageViewController: UIViewController {
         } else if let now = renderer.imageNow(at: index, height: height, stage: stage) {
             pageView.imageView.image = now
         }
+    }
+
+    // MARK: - Clippings (lasso > Copy)
+
+    /// The copied region lifts off the page as a floating card. Drag it with
+    /// finger or pencil; let go over any writable surface and it is taped
+    /// down there — score page or Right Page. Let go over nothing and it
+    /// stays floating. Double-tap discards it.
+    private func floatClipping(from source: ReadingPageView, rect: CGRect, image: UIImage) {
+        discardFloatingClipping()
+
+        let card = UIImageView(image: image)
+        card.frame = source.convert(rect, to: spreadContainer)
+        card.isUserInteractionEnabled = true
+        card.layer.shadowColor = UIColor.black.cgColor
+        card.layer.shadowOpacity = 0.28
+        card.layer.shadowRadius = 10
+        card.layer.shadowOffset = CGSize(width: 0, height: 4)
+        card.layer.borderColor = UIColor(hex: 0xB33F26).cgColor
+        card.layer.borderWidth = 1.5
+
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleClippingPan(_:)))
+        card.addGestureRecognizer(pan)
+        let discard = UITapGestureRecognizer(target: self, action: #selector(handleClippingDiscard))
+        discard.numberOfTapsRequired = 2
+        card.addGestureRecognizer(discard)
+
+        spreadContainer.addSubview(card)
+        floatingClipping = card
+        Haptics.rigid()
+        UIView.animate(withDuration: 0.15) {
+            card.transform = CGAffineTransform(scaleX: 1.03, y: 1.03)
+        }
+    }
+
+    @objc private func handleClippingPan(_ gesture: UIPanGestureRecognizer) {
+        guard let card = floatingClipping else { return }
+        let translation = gesture.translation(in: spreadContainer)
+        card.center = CGPoint(x: card.center.x + translation.x, y: card.center.y + translation.y)
+        gesture.setTranslation(.zero, in: spreadContainer)
+        guard gesture.state == .ended || gesture.state == .cancelled else { return }
+        dropClipping(card)
+    }
+
+    @objc private func handleClippingDiscard() {
+        guard let card = floatingClipping else { return }
+        floatingClipping = nil
+        UIView.animate(withDuration: 0.12, animations: {
+            card.alpha = 0
+            card.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        }, completion: { _ in card.removeFromSuperview() })
+    }
+
+    /// Tape it down wherever it was released. The target is whichever page
+    /// view contains the card's centre; released over none, it keeps
+    /// floating so the drag can continue.
+    private func dropClipping(_ card: UIImageView) {
+        guard let image = card.image else { return }
+        let center = card.center
+        // Which visible page view holds the centre — every ink view is a
+        // direct sibling of the card inside spreadContainer.
+        let hit = inkViews.first { !$0.isHidden && $0.frame.contains(center) }
+        guard let page = hit, let partID = appState.currentPart?.id,
+              page.pageIndex != ReadingPageView.unconfiguredPage else { return }
+
+        let frameInPage = spreadContainer.convert(card.frame, to: page)
+        let scale = page.bounds.width / max(page.pdfSize.width, 1)
+        guard scale > 0 else { return }
+        let pdfRect = CGRect(
+            x: frameInPage.origin.x / scale, y: frameInPage.origin.y / scale,
+            width: frameInPage.width / scale, height: frameInPage.height / scale)
+
+        ClippingStore.shared.add(
+            partID: partID, pageIndex: page.pageIndex, rect: pdfRect, image: image)
+        floatingClipping = nil
+        card.removeFromSuperview()
+        page.refreshClippings()
+        Haptics.medium()
+    }
+
+    private func discardFloatingClipping() {
+        floatingClipping?.removeFromSuperview()
+        floatingClipping = nil
     }
 
     // MARK: - Turns

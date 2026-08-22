@@ -30,6 +30,7 @@
 		708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */; };
 		72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD13E0C987E87F6A734F83AD /* SeedData.swift */; };
 		9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */; };
+		A4A2CBF0020A8D0A6075B4FC /* ClippingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794D29A636F8848C35B6F8A7 /* ClippingStore.swift */; };
 		A5EB9096F149A58F0A5DE512 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */; };
 		AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322133D65AC57D316B417AE6 /* BottomChromeView.swift */; };
 		ACE6812A629D83B1B7FC8D2F /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */; };
@@ -86,6 +87,7 @@
 		6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationLayer.swift; sourceTree = "<group>"; };
 		717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Archivo-Medium.ttf"; sourceTree = "<group>"; };
 		7689CD2217ABC90444CE5FA6 /* ReadingSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingSurfaceView.swift; sourceTree = "<group>"; };
+		794D29A636F8848C35B6F8A7 /* ClippingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClippingStore.swift; sourceTree = "<group>"; };
 		81EF906636FFFD955E6DB75F /* Virtu.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Virtu.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		83471927DB01F93DF16A84E1 /* Newsreader-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Medium.ttf"; sourceTree = "<group>"; };
 		90C7C9F1985034FF10DC84BC /* ImportMetadataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportMetadataSheet.swift; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 		80D56EE1B0827CFFC5B54A66 /* Annotation */ = {
 			isa = PBXGroup;
 			children = (
+				794D29A636F8848C35B6F8A7 /* ClippingStore.swift */,
 				FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */,
 				05D9A4179A4BCF3C4AE5FDB3 /* StampLibrary.swift */,
 				F0949CFF42733FEA2237BD8B /* ToolRailView.swift */,
@@ -360,6 +363,7 @@
 				9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */,
 				346B69C299F9034E95BF180C /* AppState.swift in Sources */,
 				AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */,
+				A4A2CBF0020A8D0A6075B4FC /* ClippingStore.swift in Sources */,
 				20A38EA95E0DA46FFDEAF6D4 /* ExportButton.swift in Sources */,
 				CE4DD27EEF5913CB02A4F007 /* Haptics.swift in Sources */,
 				BA27E822B5C6857D63BAEFB0 /* ImportMetadataSheet.swift in Sources */,

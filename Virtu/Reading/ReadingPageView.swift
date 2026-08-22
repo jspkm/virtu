@@ -150,6 +150,25 @@ final class ReadingPageView: UIView {
     /// what makes pen-up change nothing: there is only one stroke, ever.
     private var armedInking: PKInkingTool?
 
+    // MARK: - Copy mode (lasso > Copy)
+    //
+    // The marquee never goes near PencilKit: while copy is armed the canvas's
+    // drawing recognizer is off and the pencil observer feeds a dashed
+    // rectangle instead of wet ink. What gets copied is what is on screen —
+    // engraving and committed ink together.
+    var copyModeArmed = false {
+        didSet {
+            guard copyModeArmed != oldValue else { return }
+            applyInputGate()
+            if !copyModeArmed { clearMarquee() }
+        }
+    }
+    /// The finished marquee, handed up with its snapshot. View-space rect.
+    var onRegionCopied: ((ReadingPageView, CGRect, UIImage) -> Void)?
+    private var marqueeStart: CGPoint?
+    private var marqueeCurrent: CGPoint?
+    private let marqueeLayer = CAShapeLayer()
+
     private var displayScale: CGFloat {
         guard bounds.width > 0, pdfSize.width > 0 else { return 0 }
         return bounds.width / pdfSize.width
@@ -198,6 +217,13 @@ final class ReadingPageView: UIView {
             wetView.leadingAnchor.constraint(equalTo: leadingAnchor),
             wetView.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
+
+        marqueeLayer.fillColor = UIColor(hex: 0xB33F26).withAlphaComponent(0.06).cgColor
+        marqueeLayer.strokeColor = UIColor(hex: 0xB33F26).cgColor
+        marqueeLayer.lineWidth = 1.5
+        marqueeLayer.lineDashPattern = [5, 4]
+        marqueeLayer.isHidden = true
+        layer.addSublayer(marqueeLayer)
 
         let observer = PencilObserverRecognizer()
         observer.cancelsTouchesInView = false
@@ -313,12 +339,25 @@ final class ReadingPageView: UIView {
     // MARK: - The ink gesture (ours, not PencilKit's)
 
     func inkGestureBegan(_ samples: [PencilObserverRecognizer.Sample]) {
+        if copyModeArmed {
+            guard annotationEnabled, let point = samples.last?.location else { return }
+            marqueeStart = point
+            marqueeCurrent = point
+            updateMarquee()
+            return
+        }
         guard annotationEnabled, wetActive, armedInking != nil else { return }
         onCanvasUsed?(self)
         wetView.begin(ink: wetInk, baseWidth: wetBaseWidth, samples: samples)
     }
 
     func inkGestureMoved(_ samples: [PencilObserverRecognizer.Sample], predicted: [PencilObserverRecognizer.Sample] = []) {
+        if copyModeArmed {
+            guard marqueeStart != nil, let point = samples.last?.location else { return }
+            marqueeCurrent = point
+            updateMarquee()
+            return
+        }
         guard annotationEnabled, wetActive, armedInking != nil else { return }
         wetView.append(samples: samples, predicted: predicted)
     }
@@ -327,6 +366,22 @@ final class ReadingPageView: UIView {
     /// Same points, same renderer — the swap is pixel-identical, so there is
     /// no blink and nothing to snap.
     func inkGestureEnded() {
+        if copyModeArmed {
+            defer { clearMarquee() }
+            guard let start = marqueeStart, let end = marqueeCurrent else { return }
+            let rect = CGRect(
+                x: min(start.x, end.x), y: min(start.y, end.y),
+                width: abs(end.x - start.x), height: abs(end.y - start.y)
+            ).intersection(bounds)
+            if rect.width < 8 || rect.height < 8 {
+                // A tap, not a marquee: on a committed clipping it unpins it.
+                removeClipping(at: end)
+                return
+            }
+            let image = snapshot(of: rect)
+            onRegionCopied?(self, rect, image)
+            return
+        }
         defer { clearWet() }
         guard annotationEnabled, wetActive, armedInking != nil else { return }
         let scale = displayScale
@@ -356,6 +411,62 @@ final class ReadingPageView: UIView {
 
     private func clearWet() {
         wetView.clear()
+    }
+
+    private func updateMarquee() {
+        guard let start = marqueeStart, let current = marqueeCurrent else { return }
+        let rect = CGRect(
+            x: min(start.x, current.x), y: min(start.y, current.y),
+            width: abs(current.x - start.x), height: abs(current.y - start.y)
+        )
+        marqueeLayer.isHidden = false
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        marqueeLayer.path = UIBezierPath(rect: rect).cgPath
+        CATransaction.commit()
+    }
+
+    private func clearMarquee() {
+        marqueeStart = nil
+        marqueeCurrent = nil
+        marqueeLayer.isHidden = true
+        marqueeLayer.path = nil
+    }
+
+    /// What is on screen inside the rect: paper, engraving, committed ink.
+    /// Composed from the two image layers directly, so the marquee itself and
+    /// PencilKit's (near-invisible) canvas never leak into the copy.
+    private func snapshot(of rect: CGRect) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: rect.size)
+        return renderer.image { ctx in
+            UIColor(hex: 0xFFFDF8).setFill()
+            ctx.fill(CGRect(origin: .zero, size: rect.size))
+            ctx.cgContext.translateBy(x: -rect.origin.x, y: -rect.origin.y)
+            if !imageView.isHidden, let page = imageView.image {
+                page.draw(in: bounds)
+            }
+            if let ink = inkView.image {
+                ink.draw(in: bounds)
+            }
+        }
+    }
+
+    /// Re-composites committed ink and clippings. Called after a drop lands
+    /// on this page or a clipping is removed from it.
+    func refreshClippings() {
+        renderInkFallback()
+    }
+
+    private func removeClipping(at point: CGPoint) {
+        let scale = displayScale
+        guard scale > 0, let partID, pageIndex != Self.unconfiguredPage else { return }
+        let pdfPoint = CGPoint(x: point.x / scale, y: point.y / scale)
+        let hit = ClippingStore.shared.clippings(partID: partID, pageIndex: pageIndex)
+            .last { $0.rect.contains(pdfPoint) }
+        guard let hit else { return }
+        ClippingStore.shared.remove(partID: partID, clippingID: hit.id)
+        Haptics.rigid()
+        renderInkFallback()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -424,8 +535,8 @@ final class ReadingPageView: UIView {
         let live = annotationEnabled && canInk
         // PencilKit draws nothing of ours any more: its recognizer runs only
         // for the tools whose interaction it still owns (eraser, lasso).
-        canvas.drawingGestureRecognizer.isEnabled = live && armedInking == nil
-        canvas.isUserInteractionEnabled = live
+        canvas.drawingGestureRecognizer.isEnabled = live && armedInking == nil && !copyModeArmed
+        canvas.isUserInteractionEnabled = live && !copyModeArmed
     }
 
     private(set) var toolAssignments = 0
@@ -583,8 +694,29 @@ final class ReadingPageView: UIView {
     /// iPadOS 26.x — verified on both simulator and hardware (strokes journal
     /// correctly but never appear). InkRenderer is the display path everywhere.
     private func renderInkFallback() {
-        inkView.image = InkRenderer.image(
+        let ink = InkRenderer.image(
             for: visibleDrawings, pdfSize: pdfSize, displayScale: displayScale)
+        inkView.image = compositedWithClippings(ink)
+    }
+
+    /// Clippings sit under the ink — you can still write over the excerpt you
+    /// taped in, exactly as you would over the engraving.
+    private func compositedWithClippings(_ ink: UIImage?) -> UIImage? {
+        guard let partID, pageIndex != Self.unconfiguredPage else { return ink }
+        let clippings = ClippingStore.shared.clippings(partID: partID, pageIndex: pageIndex)
+        guard !clippings.isEmpty else { return ink }
+        let scale = displayScale
+        guard scale > 0, bounds.width > 0, bounds.height > 0 else { return ink }
+        let renderer = UIGraphicsImageRenderer(bounds: bounds)
+        return renderer.image { _ in
+            for clipping in clippings {
+                guard let image = ClippingStore.shared.image(for: clipping) else { continue }
+                image.draw(in: CGRect(
+                    x: clipping.x * scale, y: clipping.y * scale,
+                    width: clipping.width * scale, height: clipping.height * scale))
+            }
+            ink?.draw(in: bounds)
+        }
     }
 
     override func layoutSubviews() {

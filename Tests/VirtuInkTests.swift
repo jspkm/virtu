@@ -1173,4 +1173,92 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(second.palette(for: .pencil)[0], AppState.graphiteHex)
         XCTAssertEqual(second.palette(for: .highlighter)[0], AppState.highlighterYellowHex)
     }
+
+    // MARK: - Tool options (eraser mode, highlighter height, lasso mode)
+
+    /// The area eraser is the default — a real eraser rubs out what it
+    /// touches — and the old remove-the-whole-marking behaviour is the option.
+    func testEraserDefaultsToAreaAndMapsToTheRightPKTool() {
+        let state = AppState(defaults: Self.scratchDefaults())
+        XCTAssertEqual(state.eraserMode, .area)
+
+        state.tool = .eraser
+        let area = state.currentPKTool() as? PKEraserTool
+        // PencilKit normalizes a width-carrying bitmap eraser to
+        // .fixedWidthBitmap and clamps the tip to its floor (16.4pt). What
+        // matters: it erases AREA, not whole strokes, at the smallest tip
+        // the platform allows.
+        XCTAssertNotEqual(area?.eraserType, .vector,
+                          "area mode handed PencilKit a whole-stroke eraser")
+        let width = area?.width ?? 0
+        XCTAssertGreaterThan(width, 0)
+        XCTAssertLessThan(width, 20, "the area tip is no longer the smallest available")
+
+        state.eraserMode = .stroke
+        let stroke = state.currentPKTool() as? PKEraserTool
+        XCTAssertEqual(stroke?.eraserType, .vector)
+    }
+
+    /// Four heights; the default is the second (double the original), and the
+    /// armed tool actually wears the chosen width.
+    func testHighlighterHeightsAndDefault() {
+        let state = AppState(defaults: Self.scratchDefaults())
+        XCTAssertEqual(AppState.highlighterWidths, [14, 28, 42, 56])
+        XCTAssertEqual(state.highlighterWidthIndex, 1)
+        XCTAssertEqual(state.highlighterWidth, 28)
+
+        state.tool = .highlighter
+        state.highlighterWidthIndex = 3
+        let tool = state.currentPKTool() as? PKInkingTool
+        XCTAssertEqual(tool?.width ?? 0, 56, accuracy: 0.5)
+    }
+
+    /// Move stays the lasso default. Every mode choice survives a relaunch.
+    func testToolOptionsSurviveRelaunch() {
+        let store = Self.scratchDefaults()
+        let first = AppState(defaults: store)
+        XCTAssertEqual(first.lassoMode, .move)
+        first.eraserMode = .stroke
+        first.highlighterWidthIndex = 2
+        first.lassoMode = .copy
+
+        let second = AppState(defaults: store)
+        XCTAssertEqual(second.eraserMode, .stroke)
+        XCTAssertEqual(second.highlighterWidthIndex, 2)
+        XCTAssertEqual(second.lassoMode, .copy)
+    }
+
+    // MARK: - Clippings
+
+    /// A clipping persists to its page slot, renders back, and dies with the
+    /// part. The stroke journal is never involved.
+    func testClippingRoundTripAndDelete() throws {
+        let partID = UUID()
+        let store = ClippingStore.shared
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 20))
+        let image = renderer.image { ctx in
+            UIColor.red.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 40, height: 20))
+        }
+
+        let rect = CGRect(x: 100, y: 200, width: 80, height: 40)
+        let added = try XCTUnwrap(store.add(partID: partID, pageIndex: 2, rect: rect, image: image))
+        XCTAssertEqual(store.clippings(partID: partID, pageIndex: 2).count, 1)
+        XCTAssertTrue(store.clippings(partID: partID, pageIndex: 3).isEmpty,
+                      "the clipping leaked onto another page")
+        XCTAssertEqual(store.clippings(partID: partID, pageIndex: 2).first?.rect, rect)
+        XCTAssertNotNil(store.image(for: added))
+
+        // A Right Page slot holds clippings too — that is the point.
+        let rpSlot = AnnotationLayers.rightPageIndex(spread: 0)
+        store.add(partID: partID, pageIndex: rpSlot, rect: rect, image: image)
+        XCTAssertEqual(store.clippings(partID: partID, pageIndex: rpSlot).count, 1)
+
+        store.remove(partID: partID, clippingID: added.id)
+        XCTAssertTrue(store.clippings(partID: partID, pageIndex: 2).isEmpty)
+
+        store.deleteAll(partID: partID)
+        XCTAssertTrue(store.all(partID: partID).isEmpty)
+    }
 }

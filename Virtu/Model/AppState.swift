@@ -175,6 +175,45 @@ final class AppState {
         didSet { persistToolSettings() }
     }
 
+    /// How the eraser takes ink off the page.
+    /// `area` rubs out only what the tip actually touches — a real eraser —
+    /// and is the default. `stroke` removes the whole marking on contact,
+    /// which was the old behaviour and is now the option.
+    enum EraserMode: String, CaseIterable {
+        case area, stroke
+    }
+    var eraserMode: EraserMode = .area {
+        didSet { persistToolSettings() }
+    }
+    /// The rubbing tip. Asked for at ~5 points — a real eraser's precision —
+    /// but PencilKit clamps a bitmap eraser to its own floor (16.4pt,
+    /// measured), and normalizes the type to `.fixedWidthBitmap`. So this is
+    /// the smallest tip the platform will give us; the constant records what
+    /// we ask for, the test records what we get.
+    static let areaEraserWidth: CGFloat = 5
+
+    /// The four highlighter heights. Index 0 is the original 14pt wash;
+    /// the default is one step up — a phrase-wide band, not a text underline.
+    static let highlighterWidths: [CGFloat] = [14, 28, 42, 56]
+    var highlighterWidthIndex: Int = 1 {
+        didSet { persistToolSettings() }
+    }
+    var highlighterWidth: CGFloat {
+        AppState.highlighterWidths[
+            min(max(highlighterWidthIndex, 0), AppState.highlighterWidths.count - 1)]
+    }
+
+    /// What the lasso does with what it catches.
+    /// `move` is PencilKit's own selection-and-drag, unchanged. `copy` clips a
+    /// region — ink AND engraving — into a floating snapshot the musician can
+    /// drop anywhere, the Right Page included.
+    enum LassoMode: String, CaseIterable {
+        case move, copy
+    }
+    var lassoMode: LassoMode = .move {
+        didSet { persistToolSettings() }
+    }
+
     /// The four nibs. Fixed, and deliberately not per-style: deriving the
     /// ladder from each ink type's own range made the thickness shift under
     /// you when you changed line style, which is not something a nib does.
@@ -221,6 +260,9 @@ final class AppState {
         defaults.set(tool.rawValue, forKey: "tool")
         defaults.set(strokeStyle.rawValue, forKey: "strokeStyle")
         defaults.set(nibIndex, forKey: "nibIndex")
+        defaults.set(eraserMode.rawValue, forKey: "eraserMode")
+        defaults.set(highlighterWidthIndex, forKey: "highlighterWidthIndex")
+        defaults.set(lassoMode.rawValue, forKey: "lassoMode")
         let colors = Dictionary(uniqueKeysWithValues: toolColors.map { ($0.key.rawValue, $0.value) })
         defaults.set(colors, forKey: "toolColors")
         let palettes = Dictionary(uniqueKeysWithValues: toolPalettes.map { ($0.key.rawValue, $0.value) })
@@ -238,6 +280,15 @@ final class AppState {
         }
         if defaults.object(forKey: "nibIndex") != nil {
             nibIndex = defaults.integer(forKey: "nibIndex")
+        }
+        if let raw = defaults.string(forKey: "eraserMode"), let value = EraserMode(rawValue: raw) {
+            eraserMode = value
+        }
+        if defaults.object(forKey: "highlighterWidthIndex") != nil {
+            highlighterWidthIndex = defaults.integer(forKey: "highlighterWidthIndex")
+        }
+        if let raw = defaults.string(forKey: "lassoMode"), let value = LassoMode(rawValue: raw) {
+            lassoMode = value
         }
         if let stored = defaults.dictionary(forKey: "toolColors") as? [String: UInt32] {
             for (key, hex) in stored {
@@ -430,13 +481,19 @@ final class AppState {
     func currentPKTool() -> PKTool {
         switch tool {
         case .eraser:
-            return PKEraserTool(.vector)
+            switch eraserMode {
+            case .area: return PKEraserTool(.bitmap, width: AppState.areaEraserWidth)
+            case .stroke: return PKEraserTool(.vector)
+            }
         case .lasso:
+            // Copy mode never reaches PencilKit — the reading surface runs its
+            // own marquee when it is armed — but the canvas still holds a
+            // lasso so nothing inks if a touch does slip through.
             return PKLassoTool()
         case .pencil:
             return PKInkingTool(strokeStyle.inkType, color: inkColor(alpha: 0.95), width: pencilWidth)
         case .highlighter:
-            return PKInkingTool(.marker, color: inkColor(alpha: stageMode ? 0.20 : 0.28), width: 14)
+            return PKInkingTool(.marker, color: inkColor(alpha: stageMode ? 0.20 : 0.28), width: highlighterWidth)
         }
     }
 
