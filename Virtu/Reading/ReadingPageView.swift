@@ -172,9 +172,16 @@ final class ReadingPageView: UIView {
     /// Pencil touched this page while copy mode is armed — the controller
     /// uses it to drop any floating copy that is still up.
     var onCopyPencilDown: (() -> Void)?
+    /// A placed clipping was deep-pressed back off the page: image and its
+    /// current rect in view space, ready to float again.
+    var onClippingLifted: ((ReadingPageView, UIImage, CGRect) -> Void)?
     private var marqueeStart: CGPoint?
     private var marqueeCurrent: CGPoint?
     private let marqueeLayer = CAShapeLayer()
+    /// Deep-press tracking: a stationary hold (or hard pencil force) over a
+    /// placed clipping lifts it for another move.
+    private var copyHoldItem: DispatchWorkItem?
+    private var copyDidLift = false
 
     private var displayScale: CGFloat {
         guard bounds.width > 0, pdfSize.width > 0 else { return 0 }
@@ -350,9 +357,18 @@ final class ReadingPageView: UIView {
         NotificationCenter.default.post(name: .virtuPencilOnPage, object: nil)
         if copyModeArmed {
             guard annotationEnabled, let point = samples.last?.location else { return }
+            // Any floating copy gets PLACED by this touch — never lost.
             onCopyPencilDown?()
             marqueeStart = point
             marqueeCurrent = point
+            copyDidLift = false
+            // Deep press: hold (or press hard) on a placed clipping and it
+            // lifts off the page for another move.
+            if clippingHit(at: point) != nil {
+                let item = DispatchWorkItem { [weak self] in self?.performLift(at: point) }
+                copyHoldItem = item
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: item)
+            }
             updateMarquee()
             return
         }
@@ -363,7 +379,21 @@ final class ReadingPageView: UIView {
 
     func inkGestureMoved(_ samples: [PencilObserverRecognizer.Sample], predicted: [PencilObserverRecognizer.Sample] = []) {
         if copyModeArmed {
-            guard marqueeStart != nil, let point = samples.last?.location else { return }
+            guard !copyDidLift, let start = marqueeStart,
+                  let point = samples.last?.location else { return }
+            let moved = hypot(point.x - start.x, point.y - start.y)
+            if moved > 8 {
+                // It is a marquee, not a press.
+                copyHoldItem?.cancel()
+                copyHoldItem = nil
+            } else if copyHoldItem != nil,
+                      samples.contains(where: { $0.force > 0.85 }) {
+                // A hard press does not have to wait out the timer.
+                copyHoldItem?.cancel()
+                copyHoldItem = nil
+                performLift(at: start)
+                return
+            }
             marqueeCurrent = point
             updateMarquee()
             return
@@ -378,16 +408,16 @@ final class ReadingPageView: UIView {
     func inkGestureEnded() {
         if copyModeArmed {
             defer { clearMarquee() }
-            guard let start = marqueeStart, let end = marqueeCurrent else { return }
+            copyHoldItem?.cancel()
+            copyHoldItem = nil
+            guard !copyDidLift, let start = marqueeStart, let end = marqueeCurrent else { return }
             let rect = CGRect(
                 x: min(start.x, end.x), y: min(start.y, end.y),
                 width: abs(end.x - start.x), height: abs(end.y - start.y)
             ).intersection(bounds)
-            if rect.width < 8 || rect.height < 8 {
-                // A tap, not a marquee: on a committed clipping it unpins it.
-                removeClipping(at: end)
-                return
-            }
+            // A tap is just a tap: placing and lifting are the explicit
+            // operations, so nothing destructive hides behind a small touch.
+            guard rect.width >= 8, rect.height >= 8 else { return }
             let image = snapshot(of: rect)
             onRegionCopied?(self, rect, image)
             return
@@ -467,16 +497,30 @@ final class ReadingPageView: UIView {
         renderInkFallback()
     }
 
-    private func removeClipping(at point: CGPoint) {
+    /// The placed clipping under a view-space point, topmost first.
+    func clippingHit(at point: CGPoint) -> Clipping? {
         let scale = displayScale
-        guard scale > 0, let partID, pageIndex != Self.unconfiguredPage else { return }
+        guard scale > 0, let partID, pageIndex != Self.unconfiguredPage else { return nil }
         let pdfPoint = CGPoint(x: point.x / scale, y: point.y / scale)
-        let hit = ClippingStore.shared.clippings(partID: partID, pageIndex: pageIndex)
+        return ClippingStore.shared.clippings(partID: partID, pageIndex: pageIndex)
             .last { $0.rect.contains(pdfPoint) }
-        guard let hit else { return }
+    }
+
+    /// Deep press landed: the clipping comes off the page and floats again.
+    private func performLift(at point: CGPoint) {
+        copyHoldItem = nil
+        guard let partID, let hit = clippingHit(at: point),
+              let image = ClippingStore.shared.image(for: hit) else { return }
+        copyDidLift = true
+        clearMarquee()
+        let scale = displayScale
+        let viewRect = CGRect(
+            x: hit.x * scale, y: hit.y * scale,
+            width: hit.width * scale, height: hit.height * scale)
         ClippingStore.shared.remove(partID: partID, clippingID: hit.id)
-        Haptics.rigid()
         renderInkFallback()
+        Haptics.medium()
+        onClippingLifted?(self, image, viewRect)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }

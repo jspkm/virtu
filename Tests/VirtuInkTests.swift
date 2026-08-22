@@ -1302,4 +1302,29 @@ final class VirtuInkTests: XCTestCase {
         part.layerCount = 1
         XCTAssertEqual(part.visibleLayerIndices, [1, 2, 3])
     }
+
+    /// Deep-press support: a placed clipping must be findable under a point,
+    /// in view space, topmost first — that hit is what a hold lifts.
+    func testClippingHitTest() throws {
+        let partID = UUID()
+        let pdfSize = CGSize(width: 200, height: 400)
+        let page = ReadingPageView(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+        page.configure(partID: partID, pageIndex: 0, pdfSize: pdfSize)
+        page.layoutIfNeeded()
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10))
+        let image = renderer.image { ctx in
+            UIColor.blue.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+        }
+        // PDF-space rect 50,100 60x40; display scale is 2, so its view-space
+        // home is 100,200 120x80.
+        let added = try XCTUnwrap(ClippingStore.shared.add(
+            partID: partID, pageIndex: 0,
+            rect: CGRect(x: 50, y: 100, width: 60, height: 40), image: image))
+        defer { ClippingStore.shared.deleteAll(partID: partID) }
+
+        XCTAssertEqual(page.clippingHit(at: CGPoint(x: 160, y: 240))?.id, added.id)
+        XCTAssertNil(page.clippingHit(at: CGPoint(x: 30, y: 30)),
+                     "a point outside every clipping still hit one")
+    }
 }

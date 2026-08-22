@@ -107,6 +107,9 @@ final class ReadingPageViewController: UIViewController {
     private var peekTimer: Timer?
 
     private enum Zone { case left, center, right }
+    /// A press that placed (or belonged to) the floating clipping is spent:
+    /// it must not also turn a page or summon chrome.
+    private var pressOwnedByClipping = false
 
     #if DEBUG
     /// Test hook. The Perform-mode scroll lock is only observable on the scroll
@@ -284,12 +287,15 @@ final class ReadingPageViewController: UIViewController {
                 self?.floatClipping(from: source, rect: rect, image: image)
             }
             page.onCopyPencilDown = { [weak self] in
-                // Pencil down outside the floating copy deselects it — by
-                // taping it down where it already sits, so it cannot be lost
-                // by starting the next marquee.
+                // Pencil down outside the floating copy PLACES it where it
+                // sits — the end of the copy-paste action, never a deletion.
+                // (dropClipping keeps it floating if it hangs over no page,
+                // so it cannot be lost either way.)
                 guard let self, let card = self.floatingClipping else { return }
                 self.dropClipping(card)
-                self.discardFloatingClipping()
+            }
+            page.onClippingLifted = { [weak self] source, image, rect in
+                self?.floatClipping(from: source, rect: rect, image: image)
             }
             spreadContainer.addSubview(page)
         }
@@ -642,10 +648,12 @@ final class ReadingPageViewController: UIViewController {
 
     // MARK: - Clippings (lasso > Copy)
 
-    /// The copied region lifts off the page as a floating card. Drag it with
-    /// finger or pencil; let go over any writable surface and it is taped
-    /// down there — score page or Right Page. Let go over nothing and it
-    /// stays floating. Double-tap discards it.
+    /// The copied region lifts off the page as a floating card wearing a
+    /// marching-ants perimeter — selected, exactly like a lasso selection.
+    /// Drag inside it to move it; touch anywhere outside and it is PLACED
+    /// where it sits, which ends the copy-paste action. Deep-press a placed
+    /// clipping (in Copy mode) and the perimeter shimmers again for another
+    /// move. Double-tap a floating one to discard it.
     private func floatClipping(from source: ReadingPageView, rect: CGRect, image: UIImage) {
         discardFloatingClipping()
 
@@ -656,8 +664,7 @@ final class ReadingPageViewController: UIViewController {
         card.layer.shadowOpacity = 0.28
         card.layer.shadowRadius = 10
         card.layer.shadowOffset = CGSize(width: 0, height: 4)
-        card.layer.borderColor = UIColor(hex: 0xB33F26).cgColor
-        card.layer.borderWidth = 1.5
+        addMarchingAnts(to: card)
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handleClippingPan(_:)))
         card.addGestureRecognizer(pan)
@@ -673,13 +680,32 @@ final class ReadingPageViewController: UIViewController {
         }
     }
 
+    /// The lasso's own language: an animated dashed perimeter says
+    /// "selected, in hand" without a single word.
+    private func addMarchingAnts(to card: UIView) {
+        let ants = CAShapeLayer()
+        ants.path = UIBezierPath(rect: card.bounds).cgPath
+        ants.fillColor = nil
+        ants.strokeColor = UIColor(hex: 0xB33F26).cgColor
+        ants.lineWidth = 1.5
+        ants.lineDashPattern = [6, 4]
+        card.layer.addSublayer(ants)
+        let march = CABasicAnimation(keyPath: "lineDashPhase")
+        march.fromValue = 0
+        march.toValue = 10
+        march.duration = 0.45
+        march.repeatCount = .infinity
+        ants.add(march, forKey: "march")
+    }
+
     @objc private func handleClippingPan(_ gesture: UIPanGestureRecognizer) {
         guard let card = floatingClipping else { return }
         let translation = gesture.translation(in: spreadContainer)
         card.center = CGPoint(x: card.center.x + translation.x, y: card.center.y + translation.y)
         gesture.setTranslation(.zero, in: spreadContainer)
-        guard gesture.state == .ended || gesture.state == .cancelled else { return }
-        dropClipping(card)
+        // Lifting the finger does NOT place it: the card stays selected (ants
+        // still marching) so the move can continue. Placing is the explicit
+        // touch outside the selection.
     }
 
     @objc private func handleClippingDiscard() {
@@ -746,6 +772,18 @@ final class ReadingPageViewController: UIViewController {
 
         switch gesture.state {
         case .began:
+            // A floating clipping owns every touch while it is up: outside
+            // places it, inside is the card's own drag/discard. Neither may
+            // also turn a page.
+            if let card = floatingClipping {
+                pressOwnedByClipping = true
+                let inContainer = gesture.location(in: spreadContainer)
+                if !card.frame.contains(inContainer) {
+                    dropClipping(card)
+                }
+                return
+            }
+            pressOwnedByClipping = false
             pressStart = CACurrentMediaTime()
             pressStartPoint = location
             // Screen-anchored on purpose — see the gesture vocabulary at the
@@ -755,6 +793,10 @@ final class ReadingPageViewController: UIViewController {
                 schedulePeek()
             }
         case .ended:
+            if pressOwnedByClipping {
+                pressOwnedByClipping = false
+                return
+            }
             peekTimer?.invalidate()
             let dt = CACurrentMediaTime() - pressStart
             let moved = hypot(location.x - pressStartPoint.x, location.y - pressStartPoint.y) > 12
