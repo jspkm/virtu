@@ -27,7 +27,7 @@ struct MainView: View {
                     case .find:
                         FindStubView()
                     case .tools:
-                        ToolsStubView()
+                        ToolsView()
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -108,17 +108,3 @@ struct FindStubView: View {
     }
 }
 
-struct ToolsStubView: View {
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Text("Tools")
-                .font(VFont.sectionHeading)
-                .foregroundStyle(theme.ink)
-            Text("Debug panel — M1")
-                .font(VFont.metadata)
-                .foregroundStyle(theme.muted)
-        }
-    }
-}

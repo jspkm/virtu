@@ -14,6 +14,7 @@ struct ImportMetadataSheet: View {
     @State private var edition = ""
     @State private var partName = "score"
     @State private var pageCount = 0
+    @State private var estimatedMinutes = ""
 
     var body: some View {
         NavigationStack {
@@ -32,6 +33,13 @@ struct ImportMetadataSheet: View {
                 Section("Part") {
                     TextField("Part name (e.g. cello, piano)", text: $partName)
                     LabeledContent("Pages", value: "\(pageCount)")
+                }
+
+                Section {
+                    TextField("Estimated minutes", text: $estimatedMinutes)
+                        .keyboardType(.numberPad)
+                } footer: {
+                    Text("Guessed from the page count \u{2014} correct it if you know better. Programme entries start from this.")
                 }
             }
             .navigationTitle("Confirm import")
@@ -84,6 +92,34 @@ struct ImportMetadataSheet: View {
                 composer = pdfAuthor
             }
         }
+
+        // Engraved parts rarely carry PDF attributes; the cover page usually
+        // carries everything. First plausible line is the title, and the
+        // composer is typically the line that reads as a name.
+        if title.isEmpty || composer.isEmpty,
+           let firstPageText = doc.page(at: 0)?.string {
+            let lines = firstPageText
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.count >= 3 && $0.count <= 70 }
+            if title.isEmpty, let candidate = lines.first {
+                title = candidate
+            }
+            if composer.isEmpty {
+                // A name-shaped line: two to four capitalised words, no
+                // digits. "Johann Sebastian Bach", "F. Schubert".
+                composer = lines.dropFirst().first { line in
+                    let words = line.split(separator: " ")
+                    guard (2...4).contains(words.count),
+                          line.rangeOfCharacter(from: .decimalDigits) == nil else { return false }
+                    return words.allSatisfy { $0.first?.isUppercase == true }
+                } ?? ""
+            }
+        }
+
+        // About three minutes of music to an engraved page — the seed
+        // repertoire's own ratio. A guess to correct, not a fact.
+        estimatedMinutes = String(max(pageCount * 3, 1))
     }
 
     private func save() {
@@ -93,6 +129,8 @@ struct ImportMetadataSheet: View {
             catalogueNumber: catalogueNumber,
             edition: edition
         )
+
+        work.estimatedMinutes = Int(estimatedMinutes.trimmingCharacters(in: .whitespaces))
 
         let part = Part(
             name: partName,

@@ -7,7 +7,10 @@ struct LibraryView: View {
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Work.lastOpenedAt, order: .reverse) private var works: [Work]
+    // Binned works are the Recycle Bin's business (under Tools), not the
+    // shelf's.
+    @Query(filter: #Predicate<Work> { $0.deletedAt == nil },
+           sort: \Work.lastOpenedAt, order: .reverse) private var works: [Work]
     @Query private var programs: [Program]
 
     @State private var showImporter = false
@@ -21,6 +24,7 @@ struct LibraryView: View {
         let program: Program?
     }
     @State private var setEditorRoute: SetEditorRoute?
+    @State private var workEditorRoute: Work?
 
     private let columns = [
         GridItem(.flexible(), spacing: 20),
@@ -61,6 +65,18 @@ struct LibraryView: View {
                     NextPerformancePanel(program: program) {
                         setEditorRoute = SetEditorRoute(program: program)
                     }
+                    .contextMenu {
+                        Button {
+                            setEditorRoute = SetEditorRoute(program: program)
+                        } label: {
+                            Label("Edit set", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            deleteSet(program)
+                        } label: {
+                            Label("Delete set", systemImage: "trash")
+                        }
+                    }
                     .padding(.bottom, 36)
                 }
 
@@ -80,6 +96,9 @@ struct LibraryView: View {
         }
         .sheet(item: $setEditorRoute) { route in
             ProgramEditorSheet(program: route.program)
+        }
+        .sheet(item: $workEditorRoute) { work in
+            WorkInfoSheet(work: work)
         }
         .alert("Whose shelf is this?", isPresented: $showRename) {
             TextField("Your name", text: $renameDraft)
@@ -212,7 +231,7 @@ struct LibraryView: View {
                 }
             case .programme:
                 ForEach(orderedPrograms) { program in
-                    let group = program.sortedItems.compactMap(\.work)
+                    let group = program.sortedItems.compactMap(\.work).filter { $0.deletedAt == nil }
                     if !group.isEmpty {
                         HStack(spacing: 10) {
                             sectionHeader(
@@ -229,6 +248,18 @@ struct LibraryView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                        }
+                        .contextMenu {
+                            Button {
+                                setEditorRoute = SetEditorRoute(program: program)
+                            } label: {
+                                Label("Edit set", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                deleteSet(program)
+                            } label: {
+                                Label("Delete set", systemImage: "trash")
+                            }
                         }
                         workGrid(group)
                     }
@@ -267,9 +298,32 @@ struct LibraryView: View {
             ForEach(items) { work in
                 WorkCardView(work: work)
                     .onTapGesture { state.openWork(work) }
+                    .contextMenu {
+                        Button {
+                            workEditorRoute = work
+                        } label: {
+                            Label("Edit info", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            binWork(work)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
             }
         }
         .padding(.bottom, 8)
+    }
+
+    /// Soft: the work moves to the Recycle Bin under Tools. Its PDF, ink and
+    /// clippings stay on disk until the bin is emptied.
+    private func binWork(_ work: Work) {
+        work.deletedAt = .now
+        if state.currentWork?.id == work.id {
+            state.currentWork = nil
+            state.currentPart = nil
+        }
+        try? modelContext.save()
     }
 
     private var emptyState: some View {
@@ -299,6 +353,15 @@ struct LibraryView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Deletes only the grouping. The works it pointed at stay on the shelf.
+    private func deleteSet(_ program: Program) {
+        if state.currentProgram?.id == program.id {
+            state.currentProgram = nil
+        }
+        modelContext.delete(program)
+        try? modelContext.save()
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {

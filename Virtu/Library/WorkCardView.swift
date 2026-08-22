@@ -1,5 +1,4 @@
 import SwiftUI
-import PDFKit
 
 struct WorkCardView: View {
     let work: Work
@@ -7,26 +6,9 @@ struct WorkCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Preview area
-            ZStack(alignment: .bottom) {
-                thumbnailView
-                    .opacity(0.9)
-                    .offset(y: -14)
-
-                LinearGradient(
-                    colors: [theme.plate.opacity(0), theme.plate],
-                    startPoint: .init(x: 0.5, y: 0),
-                    endPoint: .init(x: 0.5, y: 1)
-                )
-                .frame(height: 52)
-            }
-            .frame(height: 148)
-            .clipped()
-
-            Rectangle()
-                .fill(theme.line)
-                .frame(height: 1)
-
+            // No engraving preview: at card size every first page is the same
+            // grey smudge, so it spent 148pt saying nothing the title does
+            // not. Title and metadata carry the card.
             // Body
             VStack(alignment: .leading, spacing: 6) {
                 if let part = work.parts.first {
@@ -84,6 +66,9 @@ struct WorkCardView: View {
                 }
             }
             .padding(EdgeInsets(top: 15, leading: 16, bottom: 16, trailing: 16))
+            // A consistent card height keeps grid rows level now that no
+            // preview establishes one.
+            .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
         }
         .background(theme.plate)
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
@@ -98,22 +83,6 @@ struct WorkCardView: View {
         return CGFloat(min(part.furthestPageIndex, part.pageCount - 1)) / CGFloat(part.pageCount - 1)
     }
 
-    @ViewBuilder
-    private var thumbnailView: some View {
-        if let part = work.parts.first,
-           let doc = PDFDocument(url: part.pdfURL),
-           let page = doc.page(at: 0) {
-            let image = page.thumbnail(of: CGSize(width: 210, height: 297), for: .mediaBox)
-            Image(uiImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 210)
-        } else {
-            Rectangle()
-                .fill(theme.wash)
-                .frame(height: 210)
-        }
-    }
 }
 
 extension Date {

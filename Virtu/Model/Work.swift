@@ -11,6 +11,12 @@ final class Work {
     var year: Int?
     var createdAt: Date = Date()
     var lastOpenedAt: Date = Date()
+    /// Soft delete: a binned work sits in the Recycle Bin under Tools until
+    /// the musician empties it. Nothing on disk is touched until then.
+    var deletedAt: Date?
+    /// Autofilled at import (about 3 minutes a page), editable ever after.
+    /// Programme entries start from it instead of a flat guess.
+    var estimatedMinutes: Int?
 
     @Relationship(deleteRule: .cascade, inverse: \Part.work)
     var parts: [Part] = []

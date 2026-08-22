@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		100B9C57804CBE8E27C54C7D /* WorkInfoSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4857AAA8B2A372E09FE82E /* WorkInfoSheet.swift */; };
 		1880CA884974B3513B6ADA8D /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */; };
 		1B6FD8516A9872115F2EF9C7 /* brahms-piano-quartet-1.pdf in Resources */ = {isa = PBXBuildFile; fileRef = C592AD3F6E92ED07B6CCA021 /* brahms-piano-quartet-1.pdf */; };
 		1DFC3947C562A62AD6428B17 /* Archivo-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2A8BCC65EAF4344A2E22E9AB /* Archivo-Regular.ttf */; };
@@ -30,6 +31,7 @@
 		708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */; };
 		72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD13E0C987E87F6A734F83AD /* SeedData.swift */; };
 		9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */; };
+		9EF7B1A93CCF4D405B55ADBD /* ToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F060246D0A7A8DF897914AD4 /* ToolsView.swift */; };
 		A4A2CBF0020A8D0A6075B4FC /* ClippingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794D29A636F8848C35B6F8A7 /* ClippingStore.swift */; };
 		A5EB9096F149A58F0A5DE512 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */; };
 		AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322133D65AC57D316B417AE6 /* BottomChromeView.swift */; };
@@ -82,6 +84,7 @@
 		48236BE2D525BEC327353494 /* Archivo-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Archivo-SemiBold.ttf"; sourceTree = "<group>"; };
 		4C6A925B6EF5984AA6FA81EF /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
 		5AA50A1D670FBCF0E6761048 /* PageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRenderer.swift; sourceTree = "<group>"; };
+		5C4857AAA8B2A372E09FE82E /* WorkInfoSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkInfoSheet.swift; sourceTree = "<group>"; };
 		60526D50DD2CB0AF921C5AA0 /* Newsreader-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Regular.ttf"; sourceTree = "<group>"; };
 		69A78623A24E0FADAD4A486D /* Part.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Part.swift; sourceTree = "<group>"; };
 		6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationLayer.swift; sourceTree = "<group>"; };
@@ -105,6 +108,7 @@
 		E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "bach-cello-suite-1.pdf"; sourceTree = "<group>"; };
 		ECA850179DE9196A71EC1F97 /* WorkCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkCardView.swift; sourceTree = "<group>"; };
 		ECF058F13B694D0B1F08C603 /* schubert-string-quintet.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "schubert-string-quintet.pdf"; sourceTree = "<group>"; };
+		F060246D0A7A8DF897914AD4 /* ToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolsView.swift; sourceTree = "<group>"; };
 		F0949CFF42733FEA2237BD8B /* ToolRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRailView.swift; sourceTree = "<group>"; };
 		F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkRenderer.swift; sourceTree = "<group>"; };
@@ -176,7 +180,9 @@
 				90C7C9F1985034FF10DC84BC /* ImportMetadataSheet.swift */,
 				E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */,
 				AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */,
+				F060246D0A7A8DF897914AD4 /* ToolsView.swift */,
 				ECA850179DE9196A71EC1F97 /* WorkCardView.swift */,
+				5C4857AAA8B2A372E09FE82E /* WorkInfoSheet.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -384,11 +390,13 @@
 				409E3596CFC20BFD1EA7E549 /* StrokeJournal.swift in Sources */,
 				C80C284EC488745603CB03D4 /* Tokens.swift in Sources */,
 				4CC1B5DD903DD3175B501135 /* ToolRailView.swift in Sources */,
+				9EF7B1A93CCF4D405B55ADBD /* ToolsView.swift in Sources */,
 				35AE5F1C6D532F09B648885C /* TopChromeView.swift in Sources */,
 				F0AFEEA9511C612CA50E4A37 /* Typography.swift in Sources */,
 				F4DB76DFF7DE4B549733AB18 /* VirtuApp.swift in Sources */,
 				F571E6D459600442EEAFCAAB /* Work.swift in Sources */,
 				E68050F304A79A25928D4A71 /* WorkCardView.swift in Sources */,
+				100B9C57804CBE8E27C54C7D /* WorkInfoSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

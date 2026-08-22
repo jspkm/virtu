@@ -97,7 +97,7 @@ struct ProgramEditorSheet: View {
                         Menu {
                             ForEach(availableWorks) { work in
                                 Button("\(work.composer) \u{2014} \(work.shortTitle)") {
-                                    entries.append(Entry(work: work, minutes: 20))
+                                    entries.append(Entry(work: work, minutes: work.estimatedMinutes ?? 20))
                                 }
                             }
                         } label: {
