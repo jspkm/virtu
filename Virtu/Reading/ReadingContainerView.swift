@@ -152,12 +152,8 @@ private struct ReadingControlsView: View {
             HStack(spacing: Tokens.readingControlSpacing) {
                 Spacer()
 
-                // Share joins the row rather than sitting off in the top
-                // chrome: one place to look for anything that is not the page.
-                if state.chromeVisible {
-                    ExportButton()
-                }
-
+                // No share here: the stand is for reading. Sharing lives on
+                // the long-press menus in the Library.
                 ReadingIconButton(systemName: "books.vertical", label: "Library") {
                     Haptics.selection()
                     state.destination = .library

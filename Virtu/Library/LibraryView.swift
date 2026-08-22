@@ -25,6 +25,7 @@ struct LibraryView: View {
     }
     @State private var setEditorRoute: SetEditorRoute?
     @State private var workEditorRoute: Work?
+    @State private var shareURL: URL?
 
     private let columns = [
         GridItem(.flexible(), spacing: 20),
@@ -69,12 +70,18 @@ struct LibraryView: View {
                         Button {
                             setEditorRoute = SetEditorRoute(program: program)
                         } label: {
-                            Label("Edit set", systemImage: "pencil")
+                            Label("Edit", systemImage: "pencil")
                         }
+                        Button {
+                            shareURL = ScoreExporter.annotatedPDF(program: program)
+                        } label: {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                        Divider()
                         Button(role: .destructive) {
                             deleteSet(program)
                         } label: {
-                            Label("Delete set", systemImage: "trash")
+                            Label("Delete", systemImage: "trash")
                         }
                     }
                     .padding(.bottom, 36)
@@ -99,6 +106,9 @@ struct LibraryView: View {
         }
         .sheet(item: $workEditorRoute) { work in
             WorkInfoSheet(work: work)
+        }
+        .sheet(item: $shareURL) { url in
+            ShareSheet(items: [url])
         }
         .alert("Whose shelf is this?", isPresented: $showRename) {
             TextField("Your name", text: $renameDraft)
@@ -246,12 +256,18 @@ struct LibraryView: View {
                             Button {
                                 setEditorRoute = SetEditorRoute(program: program)
                             } label: {
-                                Label("Edit set", systemImage: "pencil")
+                                Label("Edit", systemImage: "pencil")
                             }
+                            Button {
+                                shareURL = ScoreExporter.annotatedPDF(program: program)
+                            } label: {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
+                            Divider()
                             Button(role: .destructive) {
                                 deleteSet(program)
                             } label: {
-                                Label("Delete set", systemImage: "trash")
+                                Label("Delete", systemImage: "trash")
                             }
                         }
                         workGrid(group)
@@ -295,8 +311,14 @@ struct LibraryView: View {
                         Button {
                             workEditorRoute = work
                         } label: {
-                            Label("Edit info", systemImage: "pencil")
+                            Label("Edit", systemImage: "pencil")
                         }
+                        Button {
+                            shareURL = ScoreExporter.annotatedPDF(work: work)
+                        } label: {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                        Divider()
                         Button(role: .destructive) {
                             binWork(work)
                         } label: {

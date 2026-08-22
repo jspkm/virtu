@@ -1356,4 +1356,50 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertNil(page.clippingHit(at: CGPoint(x: 30, y: 30)),
                      "a point outside every clipping still hit one")
     }
+
+    /// The area eraser is ours (PencilKit's bitmap eraser rubs against what
+    /// PencilKit rendered, which on 26.x is nothing). A rub through the
+    /// middle of a stroke must split it — two survivors, a gap where the tip
+    /// went — and one that misses must change nothing.
+    ///
+    /// Seeded at displayScale 1 (frame == pdfSize) like the other canvas-
+    /// pipeline tests: PKDrawing.transformed(using:) is a no-op on the 26.x
+    /// SIMULATOR, so a scale-2 seed stores view coordinates and the test
+    /// would measure that OS bug, not the eraser.
+    func testAreaEraserSplitsAStrokeWhereTheTipTouches() throws {
+        let partID = UUID()
+        let size = CGSize(width: 400, height: 800)
+        let page = ReadingPageView(frame: CGRect(origin: .zero, size: size))
+        page.configure(partID: partID, pageIndex: 0, pdfSize: size)
+        page.setLayers(active: 1, visible: [1, 2, 3])
+        page.layoutIfNeeded()
+
+        page.canvas.drawing = makeDrawing([
+            makeStroke(from: CGPoint(x: 40, y: 200), to: CGPoint(x: 360, y: 200))
+        ])
+        page.canvasViewDrawingDidChange(page.canvas)
+        waitForJournal()
+        let before = try XCTUnwrap(StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: 1))
+        XCTAssertEqual(before.strokes.count, 1)
+
+        // A miss: rub far below the stroke.
+        page.testAreaErase(at: [CGPoint(x: 200, y: 600)])
+        waitForJournal()
+        let missed = try XCTUnwrap(StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: 1))
+        XCTAssertEqual(missed.strokes.count, 1, "a rub that touched nothing changed the drawing")
+
+        // A hit: rub through the middle.
+        page.testAreaErase(at: [CGPoint(x: 200, y: 200)])
+        waitForJournal()
+        let after = try XCTUnwrap(StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: 1))
+        XCTAssertEqual(after.strokes.count, 2, "the rub should split the stroke into two survivors")
+
+        // The gap is where the tip went: no surviving point near the rub.
+        for stroke in after.strokes {
+            for p in stroke.path.interpolatedPoints(by: .distance(1.0)) {
+                XCTAssertGreaterThan(abs(p.location.x - 200), 1.5,
+                                     "ink survived directly under the eraser tip")
+            }
+        }
+    }
 }

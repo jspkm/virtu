@@ -537,10 +537,12 @@ final class ReadingPageViewController: UIViewController {
     private func applyToolState() {
         let tool = appState.currentPKTool()
         let copyArmed = appState.tool == .lasso && appState.lassoMode == .copy
+        let areaErase = appState.tool == .eraser && appState.eraserMode == .area
         inkViews.forEach {
             // Order matters: apply() decides whether a lasso DISPLAY session
             // starts, and that decision reads copyModeArmed.
             $0.copyModeArmed = copyArmed
+            $0.areaEraserArmed = areaErase
             $0.apply(tool: tool)
         }
     }

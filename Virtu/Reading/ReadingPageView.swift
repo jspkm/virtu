@@ -183,6 +183,26 @@ final class ReadingPageView: UIView {
     private var copyHoldItem: DispatchWorkItem?
     private var copyDidLift = false
 
+    // MARK: - Area eraser (ours)
+    //
+    // PencilKit's bitmap eraser erases against what PencilKit has RENDERED —
+    // and on iPadOS 26.x it does not reliably render programmatically-set
+    // drawings, so on hardware the tool rubbed against a blank layer and
+    // erased nothing. The same OS bug that made the ink pipeline ours makes
+    // the area eraser ours: pencil samples in, stroke segments within the
+    // tip's radius out, live, through the same renderer as everything else.
+    var areaEraserArmed = false {
+        didSet {
+            guard areaEraserArmed != oldValue else { return }
+            applyInputGate()
+        }
+    }
+    /// The visible tip, in view points. Small — precision is the entire
+    /// reason to reach for the area eraser.
+    static let areaEraseTipRadius: CGFloat = 6
+    private var eraseSessionBefore: PKDrawing?
+    private var eraseSessionChanged = false
+
     private var displayScale: CGFloat {
         guard bounds.width > 0, pdfSize.width > 0 else { return 0 }
         return bounds.width / pdfSize.width
@@ -356,6 +376,13 @@ final class ReadingPageView: UIView {
     func inkGestureBegan(_ samples: [PencilObserverRecognizer.Sample]) {
         // Any pencil landing on a page dismisses whatever tool panel is out.
         NotificationCenter.default.post(name: .virtuPencilOnPage, object: nil)
+        if areaEraserArmed {
+            guard annotationEnabled, canInk else { return }
+            eraseSessionBefore = activeDrawing
+            eraseSessionChanged = false
+            eraseArea(at: samples.map(\.location))
+            return
+        }
         if copyModeArmed {
             guard annotationEnabled, let point = samples.last?.location else { return }
             // Any floating copy gets PLACED by this touch — never lost.
@@ -379,6 +406,11 @@ final class ReadingPageView: UIView {
     }
 
     func inkGestureMoved(_ samples: [PencilObserverRecognizer.Sample], predicted: [PencilObserverRecognizer.Sample] = []) {
+        if areaEraserArmed {
+            guard eraseSessionBefore != nil else { return }
+            eraseArea(at: samples.map(\.location))
+            return
+        }
         if copyModeArmed {
             guard !copyDidLift, let start = marqueeStart,
                   let point = samples.last?.location else { return }
@@ -400,6 +432,10 @@ final class ReadingPageView: UIView {
     /// Same points, same renderer — the swap is pixel-identical, so there is
     /// no blink and nothing to snap.
     func inkGestureEnded() {
+        if areaEraserArmed {
+            finishAreaErase()
+            return
+        }
         if copyModeArmed {
             defer { clearMarquee() }
             copyHoldItem?.cancel()
@@ -517,6 +553,89 @@ final class ReadingPageView: UIView {
         onClippingLifted?(self, image, viewRect)
     }
 
+    /// Rub out only what the tip touches. Each pencil sample removes the
+    /// stroke segments within the tip's radius; what survives is rebuilt as
+    /// strokes of the same ink, so a line can be split in the middle exactly
+    /// the way a real eraser splits graphite. Live — the ink disappears
+    /// under the tip, not at pen-up.
+    private func eraseArea(at viewPoints: [CGPoint]) {
+        let scale = displayScale
+        guard scale > 0, !viewPoints.isEmpty else { return }
+        let pts = viewPoints.map { CGPoint(x: $0.x / scale, y: $0.y / scale) }
+        let radius = Self.areaEraseTipRadius / scale
+
+        var result: [PKStroke] = []
+        var changed = false
+        for stroke in activeDrawing.strokes {
+            let reach = stroke.renderBounds.insetBy(dx: -radius, dy: -radius)
+            guard pts.contains(where: { reach.contains($0) }) else {
+                result.append(stroke)
+                continue
+            }
+            // Dense samples so the cut lands where the tip is, not at the
+            // nearest sparse control point.
+            let sampled = Array(stroke.path.interpolatedPoints(by: .distance(1.5)))
+            var runs: [[PKStrokePoint]] = []
+            var run: [PKStrokePoint] = []
+            var strokeTouched = false
+            for p in sampled {
+                let hit = pts.contains {
+                    hypot($0.x - p.location.x, $0.y - p.location.y)
+                        <= radius + p.size.width / 2
+                }
+                if hit {
+                    strokeTouched = true
+                    if run.count > 1 { runs.append(run) }
+                    run = []
+                } else {
+                    run.append(p)
+                }
+            }
+            if run.count > 1 { runs.append(run) }
+
+            guard strokeTouched else {
+                result.append(stroke)
+                continue
+            }
+            changed = true
+            for seg in runs {
+                result.append(PKStroke(
+                    ink: stroke.ink,
+                    path: PKStrokePath(controlPoints: seg, creationDate: Date())))
+            }
+        }
+        guard changed else { return }
+        eraseSessionChanged = true
+        // Mid-rub: mutate and re-render only. Undo and the journal get ONE
+        // entry for the whole rub, at pen-up.
+        layerDrawings[activeLayer] = PKDrawing(strokes: result)
+        renderInkFallback()
+    }
+
+    private func finishAreaErase() {
+        defer {
+            eraseSessionBefore = nil
+            eraseSessionChanged = false
+        }
+        guard eraseSessionChanged, let before = eraseSessionBefore else { return }
+        let final = activeDrawing
+        // setMaster registers undo against what it finds — hand it the
+        // pre-rub drawing so one undo restores the whole rub.
+        layerDrawings[activeLayer] = before
+        setMaster(final, registerUndo: true)
+    }
+
+    #if DEBUG
+    var testActiveDrawing: PKDrawing { activeDrawing }
+    /// Test hook: one complete rub, began through pen-up.
+    func testAreaErase(at viewPoints: [CGPoint]) {
+        eraseSessionBefore = activeDrawing
+        eraseSessionChanged = false
+        eraseArea(at: viewPoints)
+        finishAreaErase()
+    }
+    #endif
+
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func configure(partID: UUID?, pageIndex: Int, pdfSize: CGSize) {
@@ -583,8 +702,9 @@ final class ReadingPageView: UIView {
         let live = annotationEnabled && canInk
         // PencilKit draws nothing of ours any more: its recognizer runs only
         // for the tools whose interaction it still owns (eraser, lasso).
-        canvas.drawingGestureRecognizer.isEnabled = live && armedInking == nil && !copyModeArmed
-        canvas.isUserInteractionEnabled = live && !copyModeArmed
+        canvas.drawingGestureRecognizer.isEnabled =
+            live && armedInking == nil && !copyModeArmed && !areaEraserArmed
+        canvas.isUserInteractionEnabled = live && !copyModeArmed && !areaEraserArmed
     }
 
     /// A lasso DISPLAY session runs only for Move-mode lasso, and only once a
