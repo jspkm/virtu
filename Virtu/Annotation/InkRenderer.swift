@@ -17,11 +17,17 @@ enum InkRenderer {
     // so the mark on the page matches the swatch that promised it — by
     // construction, not by keeping two sets of constants in agreement.
 
-    /// Dotted: round caps on a near-zero dash length give circular dots whose
-    /// diameter is the nib width, spaced about a dot apart.
+    /// The third style is DASHED — line, space, line — not dots (2026-08-22;
+    /// the name stays "dotted" because the enum's rawValue and the .pen
+    /// carrier ride inside persisted strokes). Dash about three nibs long,
+    /// gap about two, so the line reads as a line that breathes rather than
+    /// a string of beads.
     static func dottedGeometry(nib: CGFloat) -> (width: CGFloat, dash: [CGFloat]) {
+        // The renderer strokes with ROUND caps, which grow each dash by a
+        // nib and eat the same out of each gap — these numbers are chosen
+        // net of that: on the page a dash reads ~3.6 nibs, a gap ~2.
         let w = max(nib, 1.2)
-        return (w, [0.01, max(w * 2.1, 1.2)])
+        return (w, [max(w * 2.6, 3.5), max(w * 3.0, 4.0)])
     }
 
     /// Fine dotted: smaller dots, same rhythm. "Finer" means a smaller dot,

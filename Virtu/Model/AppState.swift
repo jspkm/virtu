@@ -52,7 +52,8 @@ final class AppState {
             switch self {
             case .solid: "Solid"
             case .calligraphic: "Calligraphic"
-            case .dotted: "Dotted"
+            // The case keeps its stored name; what it draws is dashes.
+            case .dotted: "Dashed"
             case .fineDotted: "Fine dotted"
             }
         }

@@ -335,7 +335,10 @@ private struct PencilOptionsPanel: View {
             Haptics.selection()
             state.strokeStyle = style
         } label: {
-            StyleSampleLine(style: style, color: theme.ink, nib: state.pencilWidth)
+            // Static, always at the second nib: the swatch is a picture of
+            // the STYLE, and redrawing it at every nib change made the whole
+            // flyout wobble each time a thickness was picked.
+            StyleSampleLine(style: style, color: theme.ink, nib: AppState.nibWidths[1])
                 .frame(width: 44, height: 36)
                 .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 7))
@@ -370,15 +373,32 @@ private struct StyleSampleLine: View {
                 context.stroke(path, with: .color(color),
                                style: .init(lineWidth: nib, lineCap: .round))
             case .calligraphic:
-                // A swell, the way a nib loads and lifts.
-                var swell = Path()
-                swell.move(to: CGPoint(x: 5, y: y))
-                swell.addQuadCurve(
-                    to: CGPoint(x: size.width - 5, y: y),
-                    control: CGPoint(x: size.width / 2, y: y - 3))
-                context.stroke(swell, with: .color(color),
-                               style: .init(lineWidth: nib * 1.15, lineCap: .round))
+                // A written "s"-stroke, segment by segment, each at the width
+                // the italic nib itself would give that direction — the same
+                // nibFactor the renderer uses on the page, so the swatch is a
+                // genuine specimen, not a fattened line.
+                let x0: CGFloat = 6, x1 = size.width - 6
+                let amp: CGFloat = size.height * 0.22
+                let steps = 24
+                let pts: [CGPoint] = (0...steps).map { i in
+                    let t = CGFloat(i) / CGFloat(steps)
+                    return CGPoint(
+                        x: x0 + t * (x1 - x0),
+                        y: y - amp * sin(t * .pi * 2))
+                }
+                for i in 1...steps {
+                    let a = pts[i - 1], b = pts[i]
+                    let angle = atan2(b.y - a.y, b.x - a.x)
+                    var seg = Path()
+                    seg.move(to: a)
+                    seg.addLine(to: b)
+                    context.stroke(seg, with: .color(color), style: .init(
+                        lineWidth: nib * InkRenderer.nibFactor(angle: angle),
+                        lineCap: .round))
+                }
             case .dotted:
+                // Round caps, same as the renderer — the swatch must be the
+                // mark, pill-ended dashes and all.
                 let g = InkRenderer.dottedGeometry(nib: nib)
                 context.stroke(path, with: .color(color),
                                style: .init(lineWidth: g.width, lineCap: .round, dash: g.dash))
