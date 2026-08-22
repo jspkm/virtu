@@ -119,18 +119,6 @@ struct LibraryView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Repertoire")
-                    .font(VFont.eyebrow)
-                    .foregroundStyle(theme.accent)
-                    .textCase(.uppercase)
-                    .tracking(1.5)
-
-                Spacer()
-
-                sortChips
-            }
-
             Button {
                 renameDraft = state.shelfName
                 showRename = true
@@ -162,25 +150,28 @@ struct LibraryView: View {
         return parts.joined(separator: " ")
     }
 
-    private var sortChips: some View {
-        HStack(spacing: 8) {
-            ForEach(AppState.LibrarySort.allCases, id: \.self) { sort in
-                let active = state.librarySort == sort
-                Button {
-                    withAnimation(.easeOut(duration: 0.18)) { state.librarySort = sort }
-                } label: {
-                    Text(sort.label)
-                        .font(VFont.control)
-                        .foregroundStyle(active ? theme.paper : theme.muted)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(active ? AnyShapeStyle(theme.ink) : AnyShapeStyle(Color.clear))
-                        .overlay(Capsule().stroke(active ? Color.clear : theme.line2, lineWidth: 1))
-                        .clipShape(Capsule())
+    /// One control instead of three chips: the shelf's order, behind a menu.
+    /// Recently played is the default; the checkmark travels with the choice.
+    private var orderMenu: some View {
+        Menu {
+            Picker("Order", selection: Binding(
+                get: { state.librarySort },
+                set: { newValue in
+                    withAnimation(.easeOut(duration: 0.18)) { state.librarySort = newValue }
                 }
-                .buttonStyle(.plain)
+            )) {
+                ForEach(AppState.LibrarySort.allCases, id: \.self) { sort in
+                    Text(sort.label).tag(sort)
+                }
             }
+        } label: {
+            Label("Order", systemImage: "arrow.up.arrow.down")
+                .font(VFont.control)
+                .foregroundStyle(theme.muted)
         }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Order: \(state.librarySort.label)")
     }
 
     // MARK: - All works
@@ -197,6 +188,8 @@ struct LibraryView: View {
             Text("\(works.count)")
                 .font(VFont.catalogueNumber)
                 .foregroundStyle(theme.faint)
+            orderMenu
+
             Button {
                 showImporter = true
             } label: {
