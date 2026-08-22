@@ -85,9 +85,14 @@ enum Tokens {
     // Library instead and navigated away. Which is what "cannot switch modes
     // with a finger" actually was. The gap between targets is now empty
     // screen: a near miss does nothing, and doing nothing is recoverable.
-    static let readingControlIcon = CGSize(width: 34, height: 44)
-    static let readingControlGlyph: CGFloat = 17
-    static let readingControlSpacing: CGFloat = 8
+    // 34x44 hit fine with a pencil tip and badly with a finger — a fingertip
+    // pad is ~18pt across and lands with real scatter, so the target is now
+    // a full 52x56 with the same empty-screen gap between neighbours. The
+    // glyphs grew with it, and they wear the translucent Repertoire red so
+    // the extra size does not cost the page underneath.
+    static let readingControlIcon = CGSize(width: 52, height: 56)
+    static let readingControlGlyph: CGFloat = 23
+    static let readingControlSpacing: CGFloat = 10
 
     /// Lifts the row clear of the very bottom edge, which iPadOS reserves for
     /// its own gesture.

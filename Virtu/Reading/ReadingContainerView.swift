@@ -63,16 +63,11 @@ struct ReadingContainerView: View {
         }
     }
 
-    /// Study recesses the page slightly onto the "desk" and frames it with a
-    /// hairline accent stroke — the always-visible mode signal.
+    /// The page, both modes. The recess-and-accent-frame mode signal is gone:
+    /// stacked with the page's own border it read as a nest of lines around
+    /// the score, and the tool rail already says which mode you are in.
     private var readingSurface: some View {
         ReadingSurfaceView()
-            .scaleEffect(state.annotating ? 0.985 : 1.0)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(theme.accent.opacity(state.annotating ? (state.stageMode ? 0.5 : 0.35) : 0), lineWidth: 1.5)
-                    .padding(4)
-            )
             .animation(Self.settle, value: state.annotating)
             .ignoresSafeArea(edges: state.annotating ? [] : .all)
     }
@@ -210,7 +205,9 @@ private struct ReadingIconButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(configuration.isPressed ? theme.accent : theme.ink)
+            // The Repertoire red, translucent: big enough to hit with a
+            // finger, quiet enough that the system under it stays readable.
+            .foregroundStyle(theme.accent.opacity(configuration.isPressed ? 0.95 : 0.55))
             .frame(
                 width: Tokens.readingControlIcon.width,
                 height: Tokens.readingControlIcon.height

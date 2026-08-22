@@ -159,9 +159,13 @@ final class ReadingPageView: UIView {
         super.init(frame: frame)
 
         backgroundColor = UIColor(hex: 0xFFFDF8)
-        layer.borderWidth = 1
+        // Score pages draw no border of their own: an engraved page already
+        // has margins, and a drawn frame around it stacked into a nest of
+        // lines at every screen edge. Only the Right Page keeps an edge (see
+        // isMarginSurface) — it floats beside the score as a distinct sheet.
+        layer.borderWidth = 0
         layer.borderColor = UIColor(hex: 0xE0DBD1).cgColor
-        layer.cornerRadius = 4
+        layer.cornerRadius = 0
         clipsToBounds = true
 
         imageView.contentMode = .scaleAspectFit
@@ -404,7 +408,8 @@ final class ReadingPageView: UIView {
     var isMarginSurface = false {
         didSet {
             imageView.isHidden = isMarginSurface
-            layer.cornerRadius = isMarginSurface ? 2 : 4
+            layer.cornerRadius = isMarginSurface ? 2 : 0
+            layer.borderWidth = isMarginSurface ? 1 : 0
         }
     }
 

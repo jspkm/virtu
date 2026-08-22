@@ -69,17 +69,14 @@ struct NavRailButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: iconName)
-                    .font(.system(size: 20, weight: .regular))
-                Text(destination.rawValue.capitalized)
-                    .font(VFont.railLabel)
-                    .textCase(.uppercase)
-                    .tracking(0.4)
-            }
-            .foregroundStyle(isActive ? theme.railInk : theme.railFaint)
-            .frame(width: 56)
-            .padding(.vertical, 8)
+            // Icon only: the words under every icon made the rail read as a
+            // settings screen. The icons carry it; accessibility keeps the
+            // names.
+            Image(systemName: iconName)
+                .font(.system(size: 21, weight: .regular))
+                .foregroundStyle(isActive ? theme.railInk : theme.railFaint)
+                .frame(width: 56, height: 40)
+                .padding(.vertical, 6)
             .background(
                 isActive
                     ? Color.white.opacity(0.10)
@@ -88,12 +85,13 @@ struct NavRailButton: View {
             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.button))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(destination.rawValue.capitalized)
     }
 
     private var iconName: String {
         switch destination {
         case .library: "books.vertical"
-        case .score: "pencil"
+        case .score: "music.note.list"
         case .find: "magnifyingglass"
         case .tools: "metronome"
         }
@@ -109,19 +107,14 @@ struct NavRailToggle: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .regular))
-                Text(label)
-                    .font(VFont.railLabel)
-                    .textCase(.uppercase)
-                    .tracking(0.4)
-            }
-            .foregroundStyle(theme.railFaint)
-            .frame(width: 56)
-            .padding(.vertical, 8)
+            Image(systemName: icon)
+                .font(.system(size: 21, weight: .regular))
+                .foregroundStyle(theme.railFaint)
+                .frame(width: 56, height: 40)
+                .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
