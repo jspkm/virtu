@@ -323,7 +323,13 @@ final class AppState {
     /// Exactly three, for every part, always.
     var layerCount: Int { AnnotationLayers.max }
 
-    var activeLayer: Int { currentPart?.activeLayerIndex ?? AnnotationLayers.first }
+    /// Clamped: a part persisted under the old ten-layer cap can carry an
+    /// activeLayerIndex the three-layer world cannot ink on — unclamped, the
+    /// pencil goes silently dead.
+    var activeLayer: Int {
+        min(max(currentPart?.activeLayerIndex ?? AnnotationLayers.first,
+                AnnotationLayers.first), AnnotationLayers.max)
+    }
 
     var visibleLayers: [Int] { currentPart?.visibleLayerIndices ?? [AnnotationLayers.first] }
 
@@ -391,7 +397,12 @@ final class AppState {
     /// Gig-day flow: open the whole set. Page turns run across pieces — the
     /// last page of one work turns into the first page of the next.
     func openProgram(_ program: Program) {
-        let parts = program.sortedItems.compactMap { $0.work?.parts.first }
+        // Binned works are off the stand too: opening a set must not
+        // resurrect something the musician deleted.
+        let parts = program.sortedItems
+            .compactMap(\.work)
+            .filter { $0.deletedAt == nil }
+            .compactMap { $0.parts.first }
         guard let first = parts.first else { return }
         currentProgram = program
         programParts = parts

@@ -31,7 +31,8 @@ struct ProgramEditorSheet: View {
 
     private var availableWorks: [Work] {
         let used = Set(entries.map { $0.work.id })
-        return allWorks.filter { !used.contains($0.id) }
+        // A binned work cannot be programmed.
+        return allWorks.filter { !used.contains($0.id) && $0.deletedAt == nil }
     }
 
     private var totalMinutes: Int {

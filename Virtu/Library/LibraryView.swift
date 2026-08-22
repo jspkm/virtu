@@ -407,8 +407,10 @@ private struct NextPerformancePanel: View {
     @Environment(\.theme) private var theme
 
     private var playableItems: [(Int, ProgramItem, Work)] {
+        // Binned works stay binned: not in the carousel, not in the count,
+        // not openable from here.
         program.sortedItems.enumerated().compactMap { idx, item in
-            item.work.map { (idx, item, $0) }
+            item.work.flatMap { $0.deletedAt == nil ? (idx, item, $0) : nil }
         }
     }
 

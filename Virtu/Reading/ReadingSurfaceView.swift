@@ -105,6 +105,11 @@ final class ReadingPageViewController: UIViewController {
     /// container so a single drag can carry it from a score page onto the
     /// Right Page.
     private var floatingClipping: UIImageView?
+    /// Where a LIFTED clipping came from. While it floats, the store no
+    /// longer holds it — so anything that clears the card without placing it
+    /// (page turn, rotation, mode change) must put it back here rather than
+    /// destroy the only copy.
+    private var liftedOrigin: (partID: UUID, pageIndex: Int, rect: CGRect, image: UIImage)?
 
     // Corner peek
     private var peekCard: UIImageView?
@@ -153,16 +158,6 @@ final class ReadingPageViewController: UIViewController {
         ) { [weak self] _ in
             guard let self, self.appState.annotating else { return }
             (self.lastDrawnPage ?? self.leftPage).canvas.undoManager?.redo()
-        }
-        NotificationCenter.default.addObserver(
-            forName: .virtuClearHighlights, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.clearVisibleStrokes { $0.ink.inkType == .marker }
-        }
-        NotificationCenter.default.addObserver(
-            forName: .virtuClearSpread, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.clearVisibleStrokes { _ in true }
         }
     }
 
@@ -302,7 +297,16 @@ final class ReadingPageViewController: UIViewController {
                 self.dropClipping(card)
             }
             page.onClippingLifted = { [weak self] source, image, rect in
-                self?.floatClipping(from: source, rect: rect, image: image)
+                guard let self else { return }
+                let scale = source.bounds.width / max(source.pdfSize.width, 1)
+                if let partID = self.appState.currentPart?.id, scale > 0 {
+                    self.liftedOrigin = (
+                        partID, source.pageIndex,
+                        CGRect(x: rect.origin.x / scale, y: rect.origin.y / scale,
+                               width: rect.width / scale, height: rect.height / scale),
+                        image)
+                }
+                self.floatClipping(from: source, rect: rect, image: image)
             }
             spreadContainer.addSubview(page)
         }
@@ -485,12 +489,13 @@ final class ReadingPageViewController: UIViewController {
                 || state.pagesPerView != displayedPagesPerView
             displayedPageIndex = state.pageIndex
             displayedPagesPerView = state.pagesPerView
-            discardFloatingClipping()
+            settleFloatingClipping()
             updatePages(renderer: renderer, animated: !firstDisplay, direction: direction)
         }
     }
 
     private func applyModeChange(annotating: Bool) {
+        settleFloatingClipping()
         if !annotating {
             scrollView.setZoomScale(1, animated: false)
             leftPage.canvas.resignFirstResponder()
@@ -676,7 +681,7 @@ final class ReadingPageViewController: UIViewController {
     /// clipping (in Copy mode) and the perimeter shimmers again for another
     /// move. Double-tap a floating one to discard it.
     private func floatClipping(from source: ReadingPageView, rect: CGRect, image: UIImage) {
-        discardFloatingClipping()
+        settleFloatingClipping()
 
         let card = UIImageView(image: image)
         card.frame = source.convert(rect, to: spreadContainer)
@@ -760,14 +765,34 @@ final class ReadingPageViewController: UIViewController {
         ClippingStore.shared.add(
             partID: partID, pageIndex: page.pageIndex, rect: pdfRect, image: image)
         floatingClipping = nil
+        liftedOrigin = nil
         card.removeFromSuperview()
         page.refreshClippings()
         Haptics.medium()
     }
 
+    /// Clear the card WITHOUT losing anything: a lifted clipping goes back to
+    /// the page it came from; a fresh copy simply evaporates (its source is
+    /// still on the page). This is what page turns, rotation and mode changes
+    /// call — never a destroy.
+    private func settleFloatingClipping() {
+        defer {
+            floatingClipping?.removeFromSuperview()
+            floatingClipping = nil
+            liftedOrigin = nil
+        }
+        guard floatingClipping != nil, let origin = liftedOrigin else { return }
+        ClippingStore.shared.add(
+            partID: origin.partID, pageIndex: origin.pageIndex,
+            rect: origin.rect, image: origin.image)
+        inkViews.first { $0.pageIndex == origin.pageIndex }?.refreshClippings()
+    }
+
+    /// The deliberate destroy — double-tap only.
     private func discardFloatingClipping() {
         floatingClipping?.removeFromSuperview()
         floatingClipping = nil
+        liftedOrigin = nil
     }
 
     // MARK: - Turns
@@ -890,15 +915,6 @@ final class ReadingPageViewController: UIViewController {
 
 
     // MARK: - Scoped erase
-
-    private func clearVisibleStrokes(_ shouldRemove: @escaping (PKStroke) -> Bool) {
-        guard appState.annotating else { return }
-        for page in [leftPage, rightPage] where !page.isHidden {
-            page.removeStrokes(where: shouldRemove)
-            lastDrawnPage = page
-        }
-        Haptics.rigid()
-    }
 
     // MARK: - Corner Peek
 

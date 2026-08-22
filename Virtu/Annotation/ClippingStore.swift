@@ -109,13 +109,6 @@ final class ClippingStore {
         }
     }
 
-    /// Every clipping on one page slot — the clear-spread path.
-    func removeAll(partID: UUID, pageIndex: Int) {
-        for clipping in clippings(partID: partID, pageIndex: pageIndex) {
-            remove(partID: partID, clippingID: clipping.id)
-        }
-    }
-
     /// Everything the part owns — the delete-work path.
     func deleteAll(partID: UUID) {
         let list = all(partID: partID)

@@ -487,8 +487,6 @@ extension Notification.Name {
     static let virtuPencilOnPage = Notification.Name("virtuPencilOnPage")
     static let virtuUndo = Notification.Name("virtuUndo")
     static let virtuRedo = Notification.Name("virtuRedo")
-    static let virtuClearHighlights = Notification.Name("virtuClearHighlights")
-    static let virtuClearSpread = Notification.Name("virtuClearSpread")
 }
 
 // MARK: - Highlighter options
@@ -546,7 +544,9 @@ private struct EraserOptionsPanel: View {
         VStack(spacing: 8) {
             // Icons only, like the nib dots: the dashed eraser rubs out just
             // what it touches, the solid one takes the whole marking. Both
-            // work on any ink — writing, highlight, all of it.
+            // work on any ink — writing, highlight, all of it. The bulk
+            // clears that used to hide in a context menu are REMOVED, by
+            // decision (2026-08-22), not relocated.
             modeIcon(.area, icon: "eraser.line.dashed")
             modeIcon(.stroke, icon: "eraser.fill")
         }

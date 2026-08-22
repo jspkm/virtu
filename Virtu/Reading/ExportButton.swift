@@ -87,15 +87,15 @@ enum ScoreExporter {
             InkRenderer.draw(layers, in: cgContext)
         }
 
-        appendRightPages(part: part, journal: journal, context: context)
+        appendRightPages(part: part, doc: doc, journal: journal, context: context)
     }
 
     /// The Right Pages, in spread order, each at the size it was written at.
     /// A spread nobody wrote on is skipped rather than shipped blank.
     private static func appendRightPages(
-        part: Part, journal: StrokeJournal, context: UIGraphicsPDFRendererContext
+        part: Part, doc: PDFDocument, journal: StrokeJournal, context: UIGraphicsPDFRendererContext
     ) {
-        guard let firstPage = PDFDocument(url: part.pdfURL)?.page(at: 0) else { return }
+        guard let firstPage = doc.page(at: 0) else { return }
         let page = firstPage.bounds(for: .mediaBox).size
         let size = CGSize(width: page.width * Tokens.marginWidthFraction, height: page.height)
         let layers = part.visibleLayerIndices

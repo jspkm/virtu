@@ -1402,4 +1402,56 @@ final class VirtuInkTests: XCTestCase {
             }
         }
     }
+
+    /// A lasso-moved stroke lives at path ⊗ transform. The eraser must
+    /// hit-test in transformed space and bake the transform into survivors —
+    /// or a moved stroke cannot be erased at its visible position, and a
+    /// nicked one snaps its survivors back to the pre-move position.
+    func testAreaEraserRespectsAMovedStrokesTransform() throws {
+        let partID = UUID()
+        let size = CGSize(width: 400, height: 800)
+        let page = ReadingPageView(frame: CGRect(origin: .zero, size: size))
+        page.configure(partID: partID, pageIndex: 0, pdfSize: size)
+        page.setLayers(active: 1, visible: [1, 2, 3])
+        page.layoutIfNeeded()
+
+        // A stroke drawn at y=100, then lasso-moved down 100pt.
+        var moved = makeStroke(from: CGPoint(x: 40, y: 100), to: CGPoint(x: 360, y: 100))
+        moved.transform = CGAffineTransform(translationX: 0, y: 100)
+        page.canvas.drawing = PKDrawing(strokes: [moved])
+        page.canvasViewDrawingDidChange(page.canvas)
+        waitForJournal()
+
+        // Rub where the stroke VISIBLY is (y=200). Must split it.
+        page.testAreaErase(at: [CGPoint(x: 200, y: 200)])
+        waitForJournal()
+        let after = try XCTUnwrap(StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: 1))
+        XCTAssertEqual(after.strokes.count, 2,
+                       "the eraser missed a stroke that was lasso-moved under the tip")
+
+        // Survivors stay at the MOVED position (y≈200), not the pre-move one.
+        for stroke in after.strokes {
+            for p in stroke.path.interpolatedPoints(by: .distance(2.0)) {
+                let visible = p.location.applying(stroke.transform)
+                XCTAssertEqual(visible.y, 200, accuracy: 2,
+                               "an erased stroke's survivors snapped back to the pre-move position")
+            }
+        }
+    }
+
+    /// A page turn mid-lasso-session must end the session, or the new page
+    /// arrives with its ink layer hidden behind a blank PencilKit canvas.
+    func testPageRekeyEndsTheLassoSession() {
+        let page = ReadingPageView(frame: CGRect(x: 0, y: 0, width: 200, height: 300))
+        page.configure(partID: UUID(), pageIndex: 0, pdfSize: CGSize(width: 200, height: 300))
+        page.apply(tool: PKLassoTool())
+        page.testBeginLassoInteraction()
+        XCTAssertTrue(page.inkView.isHidden)
+
+        // The turn: same part, next page.
+        page.configure(partID: nil, pageIndex: 1, pdfSize: CGSize(width: 200, height: 300))
+        XCTAssertFalse(page.inkView.isHidden,
+                       "a page turn stranded the ink layer hidden behind a blank canvas")
+        XCTAssertLessThan(page.canvas.alpha, 0.05)
+    }
 }

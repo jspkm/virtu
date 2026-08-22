@@ -267,7 +267,7 @@ final class ReadingPageView: UIView {
         observer.onBegan = { [weak self] samples in self?.inkGestureBegan(samples) }
         observer.onMoved = { [weak self] real, predicted in self?.inkGestureMoved(real, predicted: predicted) }
         observer.onEnded = { [weak self] in self?.inkGestureEnded() }
-        observer.onCancelled = { [weak self] in self?.clearWet() }
+        observer.onCancelled = { [weak self] in self?.pencilGestureCancelled() }
         addGestureRecognizer(observer)
     }
 
@@ -483,6 +483,20 @@ final class ReadingPageView: UIView {
         wetView.clear()
     }
 
+    /// The system took the touch back (notification pull, palm cancel).
+    /// Every mode must land in a consistent state: a half-done rub becomes
+    /// one committed, undoable edit rather than an unpersisted mutation; a
+    /// marquee and any pending lift simply stop.
+    private func pencilGestureCancelled() {
+        clearWet()
+        copyHoldItem?.cancel()
+        copyHoldItem = nil
+        clearMarquee()
+        if eraseSessionBefore != nil {
+            finishAreaErase()
+        }
+    }
+
     private func updateMarquee() {
         guard let start = marqueeStart, let current = marqueeCurrent else { return }
         let rect = CGRect(
@@ -572,6 +586,12 @@ final class ReadingPageView: UIView {
                 result.append(stroke)
                 continue
             }
+            // A lasso-moved stroke lives at path ⊗ transform — the path alone
+            // is its PRE-move position. Hit-test in transformed space and
+            // BAKE the transform into anything rebuilt, or a nicked stroke's
+            // survivors snap back to where it was before the move (and a
+            // moved stroke can be impossible to erase at all).
+            let transform = stroke.transform
             // Dense samples so the cut lands where the tip is, not at the
             // nearest sparse control point.
             let sampled = Array(stroke.path.interpolatedPoints(by: .distance(1.5)))
@@ -579,8 +599,9 @@ final class ReadingPageView: UIView {
             var run: [PKStrokePoint] = []
             var strokeTouched = false
             for p in sampled {
+                let where_ = p.location.applying(transform)
                 let hit = pts.contains {
-                    hypot($0.x - p.location.x, $0.y - p.location.y)
+                    hypot($0.x - where_.x, $0.y - where_.y)
                         <= radius + p.size.width / 2
                 }
                 if hit {
@@ -599,9 +620,16 @@ final class ReadingPageView: UIView {
             }
             changed = true
             for seg in runs {
+                let baked = seg.map { p in
+                    PKStrokePoint(
+                        location: p.location.applying(transform),
+                        timeOffset: p.timeOffset, size: p.size,
+                        opacity: p.opacity, force: p.force,
+                        azimuth: p.azimuth, altitude: p.altitude)
+                }
                 result.append(PKStroke(
                     ink: stroke.ink,
-                    path: PKStrokePath(controlPoints: seg, creationDate: Date())))
+                    path: PKStrokePath(controlPoints: baked, creationDate: Date())))
             }
         }
         guard changed else { return }
@@ -642,6 +670,9 @@ final class ReadingPageView: UIView {
         self.pdfSize = pdfSize
 
         guard partID != self.partID || pageIndex != self.pageIndex else { return }
+        // A page turn mid-lasso-session would otherwise strand the new page
+        // with its ink layer hidden and a blank PencilKit canvas on top.
+        endLassoSession()
         self.partID = partID
         self.pageIndex = pageIndex
 
@@ -664,6 +695,9 @@ final class ReadingPageView: UIView {
         activeLayer = active
         visibleLayers = visible
 
+        // A layer change ends any lasso session first — the rebuild below
+        // must hand display back to the ink layer, not to a blank canvas.
+        endLassoSession()
         // EVERY layer change goes through the nuclear handoff, visibility
         // included. Re-rendering only our ink layer was not enough: PencilKit
         // is still lighting the strokes it drew interactively, so hiding a
@@ -743,6 +777,14 @@ final class ReadingPageView: UIView {
         beginLassoInteractionIfNeeded()
     }
     #endif
+
+    /// Force-exit: used where continuing the session would strand a hidden
+    /// ink layer (page re-key, layer change, gesture cancel).
+    private func endLassoSession() {
+        guard isLassoSession else { return }
+        lassoInteracted = false
+        syncLassoSession()
+    }
 
     private func beginLassoInteractionIfNeeded() {
         guard lastAppliedTool is PKLassoTool, !copyModeArmed, !lassoInteracted else { return }
