@@ -134,9 +134,10 @@ struct LibraryView: View {
                 showRename = true
             } label: {
                 Text(state.shelfTitle)
-                    .font(VFont.screenTitle)
-                    .foregroundStyle(theme.ink)
-                    .tracking(-0.6)
+                    .font(VFont.screenEyebrow)
+                    .foregroundStyle(theme.accent)
+                    .textCase(.uppercase)
+                    .tracking(1.5)
             }
             .buttonStyle(.plain)
 

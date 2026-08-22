@@ -23,10 +23,11 @@ struct ToolsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Recycle Bin")
-                    .font(VFont.screenTitle)
-                    .foregroundStyle(theme.ink)
-                    .tracking(-0.6)
+                Text("Recycle bin")
+                    .font(VFont.screenEyebrow)
+                    .foregroundStyle(theme.accent)
+                    .textCase(.uppercase)
+                    .tracking(1.5)
                     .padding(.bottom, 6)
 
                 Text(binned.isEmpty

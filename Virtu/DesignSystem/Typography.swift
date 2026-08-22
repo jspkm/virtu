@@ -41,6 +41,10 @@ enum VFont {
     static let nowPlayingTitle = serif(17)
 
     static let eyebrow = sans(10.5, weight: .semibold)
+    /// Screen titles ("Your shelf", "Recycle bin"): the eyebrow's voice — 
+    /// uppercase accent sans — a step larger, replacing the 38pt serif that
+    /// out-shouted every page it sat on.
+    static let screenEyebrow = sans(13, weight: .semibold)
     static let railLabel = sans(9.5, weight: .medium)
     static let panelLabel = sans(10.5, weight: .semibold)
     static let control = sans(13, weight: .medium)
