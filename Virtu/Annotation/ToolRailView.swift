@@ -21,6 +21,16 @@ struct ToolRailView: View {
         case color(slot: Int, tool: AppState.AnnotationTool)
     }
 
+    /// The tool whose palette the swatch row shows and edits. Eraser and
+    /// lasso carry no colour, so with either armed the row stands in for the
+    /// pencil — and editing it edits the PENCIL's palette, never a palette
+    /// that does not exist. (That non-existent palette was the bug: with the
+    /// lasso armed, the colour grid opened against `.lasso`, and every tap
+    /// hit `setPaletteSlot`'s guard and died silently.)
+    private var paletteTool: AppState.AnnotationTool {
+        state.tool == .highlighter ? .highlighter : .pencil
+    }
+
     private let tools: [(AppState.AnnotationTool, String, String)] = [
         (.pencil, "pencil.tip", "Pencil"),
         (.highlighter, "highlighter", "Highlighter"),
@@ -56,6 +66,12 @@ struct ToolRailView: View {
         .frame(maxHeight: .infinity)
         .transition(.move(edge: .trailing).combined(with: .opacity))
         .animation(.timingCurve(0.32, 0.72, 0, 1, duration: 0.22), value: activePanel)
+        // Pencil down on the page = back to work: any open options panel gets
+        // out of the way without asking for a second tap.
+        .onReceive(NotificationCenter.default.publisher(for: .virtuPencilOnPage)) { _ in
+            guard activePanel != nil else { return }
+            close()
+        }
     }
 
     private var rail: some View {
@@ -76,7 +92,7 @@ struct ToolRailView: View {
 
             divider
 
-            let palette = state.palette(for: state.tool)
+            let palette = state.palette(for: paletteTool)
             ForEach(Array(palette.enumerated()), id: \.offset) { slot, hex in
                 inkSwatch(slot: slot, hex: hex)
             }
@@ -186,14 +202,16 @@ struct ToolRailView: View {
             .padding(.vertical, 2)
     }
 
-    /// Tap to draw with it, hold to change what it holds.
+    /// Tap to draw with it. Tap it again once it is armed — or hold it — to
+    /// change what it holds. The re-tap mirrors the tool buttons' grammar,
+    /// and it means changing a colour never depends on a long-press landing.
     ///
     /// The first slot is the tool's own colour — graphite for the pencil,
     /// yellow for the highlighter — and it does not move. The other two are
     /// the musician's, and they are per tool: the highlighter's greens are not
     /// the pencil's, because a wash and a line want different colours.
     private func inkSwatch(slot: Int, hex: UInt32) -> some View {
-        let isSelected = (state.toolColors[state.tool] ?? 0) == hex && state.tool != .eraser
+        let isSelected = (state.toolColors[paletteTool] ?? 0) == hex
         let isFixed = slot == AppState.fixedSlot
         return Circle()
             .fill(Color(hex: hex))
@@ -203,24 +221,28 @@ struct ToolRailView: View {
                     .stroke(theme.accent, lineWidth: isSelected ? 2 : 0)
                     .padding(-4)
             )
-            .contentShape(Circle())
+            .frame(width: 40, height: 34)   // the hit target a finger needs
+            .contentShape(Rectangle())
             .onTapGesture {
-                guard state.tool != .eraser else { return }
                 Haptics.selection()
-                state.toolColors[state.tool] = hex
+                if isSelected, !isFixed {
+                    activePanel = .color(slot: slot, tool: paletteTool)
+                } else {
+                    state.toolColors[paletteTool] = hex
+                }
             }
             .onLongPressGesture(minimumDuration: 0.4) {
-                guard !isFixed, state.tool != .eraser else { return }
+                guard !isFixed else { return }
                 Haptics.rigid()
-                activePanel = .color(slot: slot, tool: state.tool)
+                activePanel = .color(slot: slot, tool: paletteTool)
             }
             .accessibilityElement()
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel(isFixed ? "Ink, fixed" : "Ink \(slot + 1)")
             .accessibilityHint(isFixed ? "" : "Double tap and hold to change this colour")
             .accessibilityAction(named: "Change colour") {
-                guard !isFixed, state.tool != .eraser else { return }
-                activePanel = .color(slot: slot, tool: state.tool)
+                guard !isFixed else { return }
+                activePanel = .color(slot: slot, tool: paletteTool)
             }
     }
 }
@@ -362,38 +384,10 @@ private struct LayerStackView: View {
 
     var body: some View {
         VStack(spacing: 3) {
-            Text("Layer")
-                .font(.system(size: 8, weight: .medium))
-                .foregroundStyle(theme.muted)
-                .textCase(.uppercase)
-                .tracking(0.6)
-                .padding(.bottom, 2)
-
-            // Ten layers would otherwise push the toolbar past the height of
-            // an iPad mini in landscape.
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 3) {
-                    ForEach(1...max(state.layerCount, 1), id: \.self) { index in
-                        layerRow(index)
-                    }
-                }
-            }
-            .frame(maxHeight: 214)
-            .fixedSize(horizontal: false, vertical: state.layerCount < 6)
-
-            if state.canAddLayer {
-                Button {
-                    Haptics.selection()
-                    state.addLayer()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(theme.muted)
-                        .frame(width: 48, height: 22)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Add layer")
+            // Three layers, always — no label, no adding. The numbers are the
+            // control; the eye appears only on layers that are showing.
+            ForEach(1...AnnotationLayers.max, id: \.self) { index in
+                layerRow(index)
             }
         }
     }
@@ -423,15 +417,24 @@ private struct LayerStackView: View {
             .accessibilityLabel("Layer \(index)")
             .accessibilityAddTraits(isActive ? [.isSelected] : [])
 
+            // A hidden layer shows NO eye at all — absence is the off state.
+            // The button stays, full size, so the spot you tap to bring it
+            // back is the spot the eye vanished from.
             Button {
                 Haptics.selection()
                 state.toggleLayerVisibility(index)
             } label: {
-                Image(systemName: isVisible ? "eye" : "eye.slash")
-                    .font(.system(size: 11))
-                    .foregroundStyle(isVisible ? theme.muted : theme.faint)
-                    .frame(width: 26, height: 32)
-                    .contentShape(Rectangle())
+                Group {
+                    if isVisible {
+                        Image(systemName: "eye")
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.muted)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(width: 26, height: 32)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(isVisible ? "Hide layer \(index)" : "Show layer \(index)")
@@ -442,6 +445,8 @@ private struct LayerStackView: View {
 }
 
 extension Notification.Name {
+    /// Posted by the reading surface the moment a pencil touches a page.
+    static let virtuPencilOnPage = Notification.Name("virtuPencilOnPage")
     static let virtuUndo = Notification.Name("virtuUndo")
     static let virtuRedo = Notification.Name("virtuRedo")
     static let virtuClearHighlights = Notification.Name("virtuClearHighlights")
@@ -500,24 +505,15 @@ private struct EraserOptionsPanel: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            modeRow(.area, icon: "eraser", label: "Erase touched area")
-            modeRow(.stroke, icon: "eraser.fill", label: "Erase whole marking")
-
-            Rectangle()
-                .fill(theme.line2)
-                .frame(height: 1)
-                .padding(.vertical, 6)
-
-            actionRow(icon: "highlighter", label: "Clear highlighter on spread") {
-                NotificationCenter.default.post(name: .virtuClearHighlights, object: nil)
-            }
-            actionRow(icon: "trash", label: "Clear this spread", destructive: true) {
-                NotificationCenter.default.post(name: .virtuClearSpread, object: nil)
-            }
+        VStack(spacing: 8) {
+            // Icons only, like the nib dots: the dashed eraser rubs out just
+            // what it touches, the solid one takes the whole marking. Both
+            // work on any ink — writing, highlight, all of it.
+            modeIcon(.area, icon: "eraser.line.dashed")
+            modeIcon(.stroke, icon: "eraser.fill")
         }
-        .padding(12)
-        .frame(width: 236)
+        .padding(.vertical, 12)
+        .frame(width: 44)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
@@ -526,58 +522,26 @@ private struct EraserOptionsPanel: View {
         )
     }
 
-    private func modeRow(_ mode: AppState.EraserMode, icon: String, label: String) -> some View {
+    private func modeIcon(_ mode: AppState.EraserMode, icon: String) -> some View {
         let isSelected = state.eraserMode == mode
         return Button {
             Haptics.selection()
             state.eraserMode = mode
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                Text(label)
-                    .font(VFont.control)
-                Spacer()
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(theme.accent)
-                }
-            }
-            .foregroundStyle(isSelected ? theme.ink : theme.muted)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
-            .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 7))
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(isSelected ? theme.accent : theme.muted)
+                .frame(width: 30, height: 30)
+                .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(theme.accent, lineWidth: isSelected ? 1.5 : 0)
+                )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private func actionRow(
-        icon: String, label: String, destructive: Bool = false, action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            Haptics.rigid()
-            action()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                Text(label)
-                    .font(VFont.control)
-                Spacer()
-            }
-            .foregroundStyle(destructive ? Color(hex: 0xC0392B) : theme.muted)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(mode == .area ? "Erase touched area" : "Erase whole marking")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 
@@ -591,19 +555,14 @@ private struct LassoOptionsPanel: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            modeRow(.move, icon: "lasso", label: "Move selection")
-            modeRow(.copy, icon: "doc.on.doc", label: "Copy region")
-
-            Text("Copy clips anything on the page — your ink and the engraving — and drops it anywhere, the Right Page included.")
-                .font(VFont.metadata)
-                .foregroundStyle(theme.faint)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 10)
-                .padding(.top, 4)
+        VStack(spacing: 8) {
+            // Lasso moves; the doubled sheet copies. Copy clips anything on
+            // the page and drops it anywhere, the Right Page included.
+            modeIcon(.move, icon: "lasso")
+            modeIcon(.copy, icon: "doc.on.doc")
         }
-        .padding(12)
-        .frame(width: 236)
+        .padding(.vertical, 12)
+        .frame(width: 44)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
@@ -612,34 +571,26 @@ private struct LassoOptionsPanel: View {
         )
     }
 
-    private func modeRow(_ mode: AppState.LassoMode, icon: String, label: String) -> some View {
+    private func modeIcon(_ mode: AppState.LassoMode, icon: String) -> some View {
         let isSelected = state.lassoMode == mode
         return Button {
             Haptics.selection()
             state.lassoMode = mode
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                Text(label)
-                    .font(VFont.control)
-                Spacer()
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(theme.accent)
-                }
-            }
-            .foregroundStyle(isSelected ? theme.ink : theme.muted)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 9)
-            .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 7))
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(isSelected ? theme.accent : theme.muted)
+                .frame(width: 30, height: 30)
+                .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(theme.accent, lineWidth: isSelected ? 1.5 : 0)
+                )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel(mode == .move ? "Move selection" : "Copy region")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 

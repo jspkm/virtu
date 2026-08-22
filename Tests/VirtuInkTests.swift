@@ -1261,4 +1261,45 @@ final class VirtuInkTests: XCTestCase {
         store.deleteAll(partID: partID)
         XCTAssertTrue(store.all(partID: partID).isEmpty)
     }
+
+    // MARK: - 2026-08-22 regressions
+
+    /// Copy mode must keep the ink layer lit. The lasso DISPLAY session hides
+    /// inkView so PencilKit can render a Move drag — but the ink layer is
+    /// also where clippings composite, so entering that session in Copy mode
+    /// made every dropped clipping vanish the moment the lasso re-applied.
+    func testCopyModeNeverHidesTheInkLayer() {
+        let page = ReadingPageView(frame: CGRect(x: 0, y: 0, width: 200, height: 300))
+
+        // Move-mode lasso: PencilKit owns display, ink layer hides.
+        page.copyModeArmed = false
+        page.apply(tool: PKLassoTool())
+        XCTAssertTrue(page.inkView.isHidden, "Move-mode lasso should hand display to PencilKit")
+
+        // Copy-mode lasso: our marquee, our display — ink layer stays.
+        page.copyModeArmed = true
+        XCTAssertFalse(page.inkView.isHidden, "copy mode hid the layer that shows the clippings")
+
+        // Back to Move without the tool changing: session resumes.
+        page.copyModeArmed = false
+        XCTAssertTrue(page.inkView.isHidden)
+
+        // Leaving the lasso entirely restores the ink layer.
+        page.copyModeArmed = true
+        page.apply(tool: PKInkingTool(.pencil, color: .black, width: 3))
+        page.copyModeArmed = false
+        XCTAssertFalse(page.inkView.isHidden)
+    }
+
+    /// Three layers, always — for every part, with no adding.
+    func testExactlyThreeLayersAlways() {
+        XCTAssertEqual(AnnotationLayers.max, 3)
+        let state = AppState(defaults: Self.scratchDefaults())
+        XCTAssertEqual(state.layerCount, 3, "layer count must not depend on the part")
+
+        // A part whose stored layerCount predates the cap still shows three.
+        let part = Part(name: "test", pdfFileName: "x.pdf", pageCount: 1)
+        part.layerCount = 1
+        XCTAssertEqual(part.visibleLayerIndices, [1, 2, 3])
+    }
 }

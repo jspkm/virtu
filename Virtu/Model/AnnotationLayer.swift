@@ -5,9 +5,10 @@ import UIKit
 /// Layer limits. Ink itself lives in `StrokeJournal`, not in SwiftData — this
 /// is only the vocabulary shared by the model, the reading surface and the UI.
 enum AnnotationLayers {
-    /// Tentative cap. Ten is far past what anyone has asked for at a stand,
-    /// which is the point: the ceiling should never be the thing you notice.
-    static let max = 10
+    /// Three, always, for every part — decided 2026-08-22. Ten was headroom
+    /// nobody asked for, and it pushed the rail past an iPad mini's height.
+    /// Three exist from the start; there is no adding and no removing.
+    static let max = 3
     static let first = 1
 
     // The Right Page belongs to a SPREAD — not to the part, and not to a

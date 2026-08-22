@@ -29,9 +29,11 @@ final class Part {
         !hiddenLayerIndices.contains(index)
     }
 
-    /// Visible layers in composite order — layer 1 at the bottom.
+    /// Visible layers in composite order — layer 1 at the bottom. Every part
+    /// has exactly AnnotationLayers.max layers; layerCount is a legacy field
+    /// kept only so existing stores load.
     var visibleLayerIndices: [Int] {
-        (1...max(layerCount, 1)).filter(isLayerVisible)
+        (1...AnnotationLayers.max).filter(isLayerVisible)
     }
 
     var work: Work?

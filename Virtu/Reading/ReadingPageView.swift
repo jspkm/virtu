@@ -161,10 +161,17 @@ final class ReadingPageView: UIView {
             guard copyModeArmed != oldValue else { return }
             applyInputGate()
             if !copyModeArmed { clearMarquee() }
+            // The ink layer carries the clippings, so copy mode must keep it
+            // lit. Entering copy while a lasso display session is up ends the
+            // session; leaving copy with the lasso still armed re-enters it.
+            syncLassoSession()
         }
     }
     /// The finished marquee, handed up with its snapshot. View-space rect.
     var onRegionCopied: ((ReadingPageView, CGRect, UIImage) -> Void)?
+    /// Pencil touched this page while copy mode is armed — the controller
+    /// uses it to drop any floating copy that is still up.
+    var onCopyPencilDown: (() -> Void)?
     private var marqueeStart: CGPoint?
     private var marqueeCurrent: CGPoint?
     private let marqueeLayer = CAShapeLayer()
@@ -339,8 +346,11 @@ final class ReadingPageView: UIView {
     // MARK: - The ink gesture (ours, not PencilKit's)
 
     func inkGestureBegan(_ samples: [PencilObserverRecognizer.Sample]) {
+        // Any pencil landing on a page dismisses whatever tool panel is out.
+        NotificationCenter.default.post(name: .virtuPencilOnPage, object: nil)
         if copyModeArmed {
             guard annotationEnabled, let point = samples.last?.location else { return }
+            onCopyPencilDown?()
             marqueeStart = point
             marqueeCurrent = point
             updateMarquee()
@@ -539,6 +549,23 @@ final class ReadingPageView: UIView {
         canvas.isUserInteractionEnabled = live && !copyModeArmed
     }
 
+    /// A lasso DISPLAY session runs only for Move-mode lasso: PencilKit's
+    /// layer owns the screen while it renders the selection and drag. Copy
+    /// mode is lasso-armed but PencilKit never sees it — the ink layer (which
+    /// also carries the clippings) must stay lit.
+    private func syncLassoSession() {
+        let shouldRun = lastAppliedTool is PKLassoTool && !copyModeArmed
+        guard shouldRun != isLassoSession else { return }
+        isLassoSession = shouldRun
+        // Session: hide the ink layer so old positions can't ghost under
+        // PencilKit's live drag. Leaving: normalize and hand back.
+        inkView.isHidden = shouldRun
+        if !shouldRun {
+            rebuildCanvas()
+            canvasNormalizations += 1
+        }
+    }
+
     private(set) var toolAssignments = 0
     private var appliedToolKey = ""
     private var lastAppliedTool: PKTool?
@@ -564,18 +591,7 @@ final class ReadingPageView: UIView {
         lastAppliedTool = tool
         canvas.tool = tool
 
-        let enteringLasso = tool is PKLassoTool
-        if enteringLasso != isLassoSession {
-            isLassoSession = enteringLasso
-            // Lasso session: PencilKit's layer owns display (it renders the
-            // selection and drag live); hide the ink layer so old positions
-            // can't ghost. Leaving lasso: normalize and hand back.
-            inkView.isHidden = enteringLasso
-            if !enteringLasso {
-                rebuildCanvas()
-                canvasNormalizations += 1
-            }
-        }
+        syncLassoSession()
 
         armedInking = tool as? PKInkingTool
         if let inking = armedInking {

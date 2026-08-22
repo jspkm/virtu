@@ -220,6 +220,11 @@ final class ReadingPageViewController: UIViewController {
 
     private func setupScrollView() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        // Writing means a hand ON the glass. One contact — a palm heel, the
+        // side of the writing hand — must never move the paper, or every
+        // marking lands somewhere other than where it was aimed. Reaching the
+        // Right Page is a deliberate TWO-finger drag.
+        scrollView.panGestureRecognizer.minimumNumberOfTouches = 2
         scrollView.minimumZoomScale = 1
         scrollView.maximumZoomScale = 4
         scrollView.bouncesZoom = false
@@ -277,6 +282,14 @@ final class ReadingPageViewController: UIViewController {
             }
             page.onRegionCopied = { [weak self] source, rect, image in
                 self?.floatClipping(from: source, rect: rect, image: image)
+            }
+            page.onCopyPencilDown = { [weak self] in
+                // Pencil down outside the floating copy deselects it — by
+                // taping it down where it already sits, so it cannot be lost
+                // by starting the next marquee.
+                guard let self, let card = self.floatingClipping else { return }
+                self.dropClipping(card)
+                self.discardFloatingClipping()
             }
             spreadContainer.addSubview(page)
         }
@@ -504,8 +517,10 @@ final class ReadingPageViewController: UIViewController {
         let tool = appState.currentPKTool()
         let copyArmed = appState.tool == .lasso && appState.lassoMode == .copy
         inkViews.forEach {
-            $0.apply(tool: tool)
+            // Order matters: apply() decides whether a lasso DISPLAY session
+            // starts, and that decision reads copyModeArmed.
             $0.copyModeArmed = copyArmed
+            $0.apply(tool: tool)
         }
     }
 

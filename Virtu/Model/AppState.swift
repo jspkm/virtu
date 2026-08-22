@@ -319,7 +319,8 @@ final class AppState {
     // find at a rehearsal rather than a desk.
     var layerRevision: Int = 0
 
-    var layerCount: Int { currentPart?.layerCount ?? 1 }
+    /// Exactly three, for every part, always.
+    var layerCount: Int { AnnotationLayers.max }
 
     var activeLayer: Int { currentPart?.activeLayerIndex ?? AnnotationLayers.first }
 
@@ -332,14 +333,14 @@ final class AppState {
     /// Make a layer active. A hidden layer cannot be the active one — marking
     /// into ink you cannot see is never what anyone meant.
     func activateLayer(_ index: Int) {
-        guard let part = currentPart, (1...part.layerCount).contains(index) else { return }
+        guard let part = currentPart, (1...AnnotationLayers.max).contains(index) else { return }
         part.activeLayerIndex = index
         part.hiddenLayerIndices.removeAll { $0 == index }
         layerRevision += 1
     }
 
     func toggleLayerVisibility(_ index: Int) {
-        guard let part = currentPart, (1...part.layerCount).contains(index) else { return }
+        guard let part = currentPart, (1...AnnotationLayers.max).contains(index) else { return }
         if part.isLayerVisible(index) {
             part.hiddenLayerIndices.append(index)
             // Hiding the layer you are marking on would leave the pencil
@@ -353,17 +354,6 @@ final class AppState {
         }
         layerRevision += 1
     }
-
-    @discardableResult
-    func addLayer() -> Int? {
-        guard let part = currentPart, part.layerCount < AnnotationLayers.max else { return nil }
-        part.layerCount += 1
-        part.activeLayerIndex = part.layerCount
-        layerRevision += 1
-        return part.layerCount
-    }
-
-    var canAddLayer: Bool { layerCount < AnnotationLayers.max }
 
     var theme: Theme {
         stageMode ? .stage : .light
