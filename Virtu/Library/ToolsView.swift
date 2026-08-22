@@ -23,13 +23,6 @@ struct ToolsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Tools")
-                    .font(VFont.eyebrow)
-                    .foregroundStyle(theme.accent)
-                    .textCase(.uppercase)
-                    .tracking(1.5)
-                    .padding(.bottom, 9)
-
                 Text("Recycle Bin")
                     .font(VFont.screenTitle)
                     .foregroundStyle(theme.ink)

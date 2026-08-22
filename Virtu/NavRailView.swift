@@ -85,7 +85,12 @@ struct NavRailButton: View {
             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.button))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(destination.rawValue.capitalized)
+        .accessibilityLabel(accessibilityName)
+    }
+
+    private var accessibilityName: String {
+        // The tools destination IS the Recycle Bin today; say so.
+        destination == .tools ? "Recycle Bin" : destination.rawValue.capitalized
     }
 
     private var iconName: String {
@@ -93,7 +98,7 @@ struct NavRailButton: View {
         case .library: "books.vertical"
         case .score: "music.note.list"
         case .find: "magnifyingglass"
-        case .tools: "metronome"
+        case .tools: "trash"
         }
     }
 }
