@@ -807,7 +807,25 @@ looks exactly like a crash. **Set `totalCostLimit` alongside the count.**
 > **Export** emits one sheet per spread that has ink, in spread order, at the end.
 > Untouched spreads are skipped rather than shipped blank.
 >
-> Unchanged by this amendment: D1's geometry (height from the score, width from the paper
+> **Turning the score while the Right Page is showing — DECIDED 2026-08-21: leave it.**
+> The edge turn zones are measured in screen space (`handlePress`, `location.x < width * 0.2`
+> / `> width * 0.8`), so they are anchored to the glass rather than to the score. Parked,
+> the two coincide. Dragged aside, they do not: at full scroll the Right Page fills the
+> viewport and *both* turn zones sit over the musician's own notes, where an edge tap still
+> turns the score. `handleSwipe` refuses to turn in Study, so there is no swipe fallback
+> there either.
+>
+> The considered alternative was anchoring the zones to `pagesGuide` and re-parking the
+> spread on every turn, which makes the gesture mean one thing in every scroll position.
+> It was **rejected as not worth its cost**: it removes any tap that turns once the score
+> is scrolled away, and the behaviour is coherent to a musician who has met it once. The
+> corners stay in the same place on the glass, whatever is under them.
+>
+> Recorded so a later design pass does not rediscover the inconsistency and "fix" it
+> without seeing the trade. Related and still live: the same `zoomScale <= 1.01` guard
+> silently disables turning while zoomed, for the same underlying reason.
+>
+> > Unchanged by this amendment: D1's geometry (height from the score, width from the paper
 > proportion), D2's print rules, and the fact that the Right Page is a Page rather than a
 > margin. Still open: D1's landscape width is not built (the sheet is still pinned to one
 > score-page width in both orientations), the coordinate-system question at "The Right Page

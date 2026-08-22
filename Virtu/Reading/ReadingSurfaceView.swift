@@ -33,6 +33,22 @@ struct ReadingSurfaceView: UIViewControllerRepresentable {
 ///  - three-finger single tap   -> redo (Study only)
 ///  - center tap                -> toggle chrome (Study only; nothing in Perform)
 ///  - arrows/page keys/space    -> turn (Bluetooth pedals present as keyboards)
+///
+/// The edge zones are anchored to the SCREEN, not to the score, and that is a
+/// decision rather than an oversight. Decided 2026-08-21, keep it.
+///
+/// While the score is parked the two coincide, so an edge tap lands on the
+/// edge of the page. Once the paper is dragged aside to reach the Right Page
+/// they come apart: at full scroll the Right Page fills the viewport, so both
+/// turn zones sit over the musician's own notes and an edge tap still turns
+/// the score. Anchoring the zones to the score instead (`pagesGuide` converted
+/// into view space) would make the gesture mean one thing everywhere — but it
+/// also means that once the score is scrolled away there is no tap that turns
+/// at all, and the fix was judged not to pay for itself.
+///
+/// So: the corners are always in the same place on the glass, whatever is
+/// underneath them. If you are about to "fix" this, that is the thing being
+/// traded away.
 final class ReadingPageViewController: UIViewController {
     var appState: AppState!
 
@@ -621,6 +637,8 @@ final class ReadingPageViewController: UIViewController {
         case .began:
             pressStart = CACurrentMediaTime()
             pressStartPoint = location
+            // Screen-anchored on purpose — see the gesture vocabulary at the
+            // top of this file before changing it to the score's frame.
             pressZone = location.x < width * 0.2 ? .left : (location.x > width * 0.8 ? .right : .center)
             if pressZone == .right {
                 schedulePeek()
