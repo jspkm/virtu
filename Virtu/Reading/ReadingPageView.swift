@@ -603,6 +603,13 @@ final class ReadingPageView: UIView {
         // Session: hide the ink layer so old positions can't ghost under
         // PencilKit's live drag. Leaving: normalize and hand back.
         inkView.isHidden = shouldRun
+        // The canvas is visible ONLY inside the session. It used to go
+        // opaque the moment the lasso was ARMED — and on hardware PencilKit
+        // does paint programmatically-set strokes, so its rendering sat at
+        // full strength over ours and every marking shifted slightly the
+        // instant the tool was picked up.
+        canvasAlphaForTool = shouldRun ? 1 : 0.02
+        canvas.alpha = canvasAlphaForTool
         if !shouldRun {
             lassoInteracted = false
             rebuildCanvas()
@@ -665,7 +672,10 @@ final class ReadingPageView: UIView {
             wetActive = false
             clearWet()
         }
-        canvasAlphaForTool = tool is PKLassoTool ? 1 : 0.02
+        // Alpha rides with the SESSION (see syncLassoSession), never with the
+        // armed tool: a lasso in the hand looks like any other tool until it
+        // actually selects something.
+        canvasAlphaForTool = isLassoSession ? 1 : 0.02
         canvas.alpha = canvasAlphaForTool
         applyInputGate()
     }

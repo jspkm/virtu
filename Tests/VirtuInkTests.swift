@@ -889,9 +889,16 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertLessThan(alpha, 0.1, "PencilKit's layer can flash its own opinion of committed ink")
         XCTAssertGreaterThan(alpha, 0.011, "an alpha this low stops hit-testing — input dies")
 
+        // The lasso joins the rule at ARM time (2026-08-22: an armed lasso's
+        // opaque canvas double-drew PencilKit's rendering over ours, shifting
+        // every marking slightly). Full strength arrives only with the
+        // session, when a lasso gesture actually begins.
         state.tool = .lasso
         page.apply(tool: state.currentPKTool())
-        XCTAssertEqual(page.canvas.alpha, 1, "lasso: PencilKit renders the selection — it must be visible")
+        XCTAssertLessThan(page.canvas.alpha, 0.1,
+                          "an armed-but-idle lasso lit PencilKit's layer over committed ink")
+        page.testBeginLassoInteraction()
+        XCTAssertEqual(page.canvas.alpha, 1, "lasso session: PencilKit renders the selection — it must be visible")
     }
 
     func testLivePreviewIsTheChosenStyleFromTheFirstMillimetre() throws {
@@ -1283,10 +1290,14 @@ final class VirtuInkTests: XCTestCase {
         page.apply(tool: PKLassoTool())
         XCTAssertFalse(page.inkView.isHidden,
                        "picking up the lasso restyled the page before it touched anything")
+        XCTAssertLessThan(page.canvas.alpha, 0.05,
+                          "arming the lasso lit PencilKit's layer — its rendering double-draws over ours")
 
         // The first lasso gesture hands display to PencilKit.
         page.testBeginLassoInteraction()
         XCTAssertTrue(page.inkView.isHidden, "a lasso gesture should hand display to PencilKit")
+        XCTAssertEqual(page.canvas.alpha, 1, accuracy: 0.01,
+                       "the session needs PencilKit's layer at full strength for the drag")
 
         // Copy-mode lasso: our marquee, our display — ink layer stays.
         page.copyModeArmed = true
