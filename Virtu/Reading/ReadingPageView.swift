@@ -172,14 +172,14 @@ final class ReadingPageView: UIView {
     /// Pencil touched this page while copy mode is armed — the controller
     /// uses it to drop any floating copy that is still up.
     var onCopyPencilDown: (() -> Void)?
-    /// A placed clipping was deep-pressed back off the page: image and its
+    /// A placed clipping was long-pressed back off the page: image and its
     /// current rect in view space, ready to float again.
     var onClippingLifted: ((ReadingPageView, UIImage, CGRect) -> Void)?
     private var marqueeStart: CGPoint?
     private var marqueeCurrent: CGPoint?
     private let marqueeLayer = CAShapeLayer()
-    /// Deep-press tracking: a stationary hold (or hard pencil force) over a
-    /// placed clipping lifts it for another move.
+    /// Long-press tracking: a stationary hold over a placed clipping lifts
+    /// it for another move.
     private var copyHoldItem: DispatchWorkItem?
     private var copyDidLift = false
 
@@ -362,8 +362,8 @@ final class ReadingPageView: UIView {
             marqueeStart = point
             marqueeCurrent = point
             copyDidLift = false
-            // Deep press: hold (or press hard) on a placed clipping and it
-            // lifts off the page for another move.
+            // Long-press a placed clipping and it lifts off the page for
+            // another move.
             if clippingHit(at: point) != nil {
                 let item = DispatchWorkItem { [weak self] in self?.performLift(at: point) }
                 copyHoldItem = item
@@ -383,16 +383,9 @@ final class ReadingPageView: UIView {
                   let point = samples.last?.location else { return }
             let moved = hypot(point.x - start.x, point.y - start.y)
             if moved > 8 {
-                // It is a marquee, not a press.
+                // It is a marquee, not a long-press.
                 copyHoldItem?.cancel()
                 copyHoldItem = nil
-            } else if copyHoldItem != nil,
-                      samples.contains(where: { $0.force > 0.85 }) {
-                // A hard press does not have to wait out the timer.
-                copyHoldItem?.cancel()
-                copyHoldItem = nil
-                performLift(at: start)
-                return
             }
             marqueeCurrent = point
             updateMarquee()
@@ -506,7 +499,7 @@ final class ReadingPageView: UIView {
             .last { $0.rect.contains(pdfPoint) }
     }
 
-    /// Deep press landed: the clipping comes off the page and floats again.
+    /// The long-press landed: the clipping comes off the page and floats again.
     private func performLift(at point: CGPoint) {
         copyHoldItem = nil
         guard let partID, let hit = clippingHit(at: point),

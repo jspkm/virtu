@@ -651,7 +651,7 @@ final class ReadingPageViewController: UIViewController {
     /// The copied region lifts off the page as a floating card wearing a
     /// marching-ants perimeter — selected, exactly like a lasso selection.
     /// Drag inside it to move it; touch anywhere outside and it is PLACED
-    /// where it sits, which ends the copy-paste action. Deep-press a placed
+    /// where it sits, which ends the copy-paste action. Long-press a placed
     /// clipping (in Copy mode) and the perimeter shimmers again for another
     /// move. Double-tap a floating one to discard it.
     private func floatClipping(from source: ReadingPageView, rect: CGRect, image: UIImage) {
