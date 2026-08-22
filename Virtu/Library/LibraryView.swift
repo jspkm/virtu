@@ -390,47 +390,72 @@ private struct NextPerformancePanel: View {
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
 
+    private var playableItems: [(Int, ProgramItem, Work)] {
+        program.sortedItems.enumerated().compactMap { idx, item in
+            item.work.map { (idx, item, $0) }
+        }
+    }
+
     var body: some View {
-        HStack(spacing: 0) {
-            // Left block: what and when
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Next performance")
-                    .font(VFont.eyebrow)
-                    .foregroundStyle(theme.accent)
-                    .textCase(.uppercase)
-                    .tracking(1.5)
-                HStack(spacing: 9) {
-                    Text(program.name)
-                        .font(VFont.sectionHeading)
-                        .foregroundStyle(theme.ink)
-                    Button(action: onEdit) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 13))
-                            .foregroundStyle(theme.faint)
-                            .frame(width: 32, height: 32)
-                            .contentShape(Rectangle())
+        // Two rows, so the programme never squeezes the score titles: what
+        // and when on top, the scores below in a carousel that scrolls when
+        // the shelf is narrower than the set.
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 0) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Next performance")
+                        .font(VFont.eyebrow)
+                        .foregroundStyle(theme.accent)
+                        .textCase(.uppercase)
+                        .tracking(1.5)
+                    HStack(spacing: 9) {
+                        Text(program.name)
+                            .font(VFont.sectionHeading)
+                            .foregroundStyle(theme.ink)
+                        Button(action: onEdit) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 13))
+                                .foregroundStyle(theme.faint)
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Edit set")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Edit set")
+                    if let date = program.date {
+                        Text(date.performanceDateTime)
+                            .font(VFont.catalogueNumber)
+                            .foregroundStyle(theme.muted)
+                    }
                 }
-                if let date = program.date {
-                    Text(date.performanceDateTime)
-                        .font(VFont.catalogueNumber)
-                        .foregroundStyle(theme.muted)
+
+                Spacer(minLength: 16)
+
+                Button {
+                    state.openProgram(program)
+                } label: {
+                    VStack(spacing: 4) {
+                        Text("Open set")
+                            .font(VFont.control)
+                        Text("\(program.totalMinutes) min")
+                            .font(VFont.metadata)
+                            .opacity(0.7)
+                        Text("\(playableItems.count) score\(playableItems.count == 1 ? "" : "s")")
+                            .font(VFont.metadata)
+                            .opacity(0.7)
+                    }
+                    .foregroundStyle(theme.paper)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 16)
+                    .background(theme.ink)
+                    .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card - 4))
                 }
+                .buttonStyle(.plain)
             }
-            .frame(width: 220, alignment: .leading)
-            .padding(.trailing, 24)
 
-            Rectangle()
-                .fill(theme.line2)
-                .frame(width: 1)
-                .padding(.vertical, 4)
-
-            // Programme cards in order
-            HStack(spacing: 12) {
-                ForEach(Array(program.sortedItems.enumerated()), id: \.element.id) { idx, item in
-                    if let work = item.work {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(playableItems, id: \.1.id) { idx, item, work in
                         Button {
                             state.openWork(work)
                         } label: {
@@ -442,13 +467,14 @@ private struct NextPerformancePanel: View {
                                     .font(VFont.workTitle)
                                     .foregroundStyle(theme.ink)
                                     .lineLimit(1)
-                                    .minimumScaleFactor(0.75)
                                 Text("\(work.composer.split(separator: " ").last.map(String.init) ?? work.composer) \u{00B7} \(item.durationMinutes) min")
                                     .font(VFont.metadata)
                                     .foregroundStyle(theme.muted)
                             }
                             .padding(14)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            // Wide enough that a title reads; never squeezed —
+                            // the carousel absorbs the overflow instead.
+                            .frame(minWidth: 180, alignment: .leading)
                             .background(theme.plate)
                             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card - 4))
                             .overlay(
@@ -460,27 +486,6 @@ private struct NextPerformancePanel: View {
                     }
                 }
             }
-            .padding(.leading, 24)
-
-            // Open the whole set
-            Button {
-                state.openProgram(program)
-            } label: {
-                VStack(spacing: 4) {
-                    Text("Open set")
-                        .font(VFont.control)
-                    Text("\(program.totalMinutes) min")
-                        .font(VFont.metadata)
-                        .opacity(0.7)
-                }
-                .foregroundStyle(theme.paper)
-                .padding(.horizontal, 22)
-                .padding(.vertical, 24)
-                .background(theme.ink)
-                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card - 4))
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 16)
         }
         .padding(20)
         .background(theme.wash)

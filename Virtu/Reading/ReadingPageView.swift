@@ -284,6 +284,7 @@ final class ReadingPageView: UIView {
     @objc private func drawingGestureChanged(_ gesture: UIGestureRecognizer) {
         switch gesture.state {
         case .began:
+            beginLassoInteractionIfNeeded()
             setPencilDown(true)
         case .ended, .cancelled, .failed:
             setPencilDown(false)
@@ -586,21 +587,40 @@ final class ReadingPageView: UIView {
         canvas.isUserInteractionEnabled = live && !copyModeArmed
     }
 
-    /// A lasso DISPLAY session runs only for Move-mode lasso: PencilKit's
-    /// layer owns the screen while it renders the selection and drag. Copy
-    /// mode is lasso-armed but PencilKit never sees it — the ink layer (which
-    /// also carries the clippings) must stay lit.
+    /// A lasso DISPLAY session runs only for Move-mode lasso, and only once a
+    /// lasso gesture has actually begun. Merely ARMING the lasso must change
+    /// nothing on screen: the session swaps display to PencilKit's layer,
+    /// which renders carrier ink types literally — dotted marks turned solid
+    /// the moment the tool was picked up, before it had touched anything.
+    /// Copy mode is lasso-armed but PencilKit never sees it — the ink layer
+    /// (which also carries the clippings) must stay lit.
+    private var lassoInteracted = false
+
     private func syncLassoSession() {
-        let shouldRun = lastAppliedTool is PKLassoTool && !copyModeArmed
+        let shouldRun = lastAppliedTool is PKLassoTool && !copyModeArmed && lassoInteracted
         guard shouldRun != isLassoSession else { return }
         isLassoSession = shouldRun
         // Session: hide the ink layer so old positions can't ghost under
         // PencilKit's live drag. Leaving: normalize and hand back.
         inkView.isHidden = shouldRun
         if !shouldRun {
+            lassoInteracted = false
             rebuildCanvas()
             canvasNormalizations += 1
         }
+    }
+
+    #if DEBUG
+    /// Test hook for the session-entry path a real lasso gesture takes.
+    func testBeginLassoInteraction() {
+        beginLassoInteractionIfNeeded()
+    }
+    #endif
+
+    private func beginLassoInteractionIfNeeded() {
+        guard lastAppliedTool is PKLassoTool, !copyModeArmed, !lassoInteracted else { return }
+        lassoInteracted = true
+        syncLassoSession()
     }
 
     private(set) var toolAssignments = 0
@@ -628,6 +648,10 @@ final class ReadingPageView: UIView {
         lastAppliedTool = tool
         canvas.tool = tool
 
+        // A fresh tool starts with no lasso interaction on record; the
+        // session (if the new tool is the Move lasso) begins at its first
+        // gesture, not here.
+        lassoInteracted = false
         syncLassoSession()
 
         armedInking = tool as? PKInkingTool

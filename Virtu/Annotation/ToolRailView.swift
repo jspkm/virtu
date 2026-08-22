@@ -223,6 +223,20 @@ struct ToolRailView: View {
             )
             .frame(width: 40, height: 34)   // the hit target a finger needs
             .contentShape(Rectangle())
+            .overlay(alignment: .leading) {
+                // The editable swatches carry the same "options live here"
+                // chevron as the tools; the fixed swatch, which opens
+                // nothing, stays bare.
+                if !isFixed {
+                    Image(systemName:
+                        activePanel == .color(slot: slot, tool: paletteTool)
+                            ? "chevron.right" : "chevron.left")
+                        .font(.system(size: 7, weight: .semibold))
+                        .foregroundStyle(theme.muted)
+                        .opacity(0.7)
+                        .padding(.leading, 0)
+                }
+            }
             .onTapGesture {
                 Haptics.selection()
                 if isSelected, !isFixed {
@@ -273,7 +287,7 @@ private struct PencilOptionsPanel: View {
             }
         }
         .padding(.vertical, 12)
-        .frame(width: 44)
+        .frame(width: 56)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
@@ -283,7 +297,9 @@ private struct PencilOptionsPanel: View {
     }
 
     /// Each nib is drawn as a dot at its true relative size — the control
-    /// shows you the mark, not a number describing it.
+    /// shows you the mark, not a number describing it. The TARGET is not the
+    /// dot: the finest nib draws at 3pt, and a 30pt row made picking it a
+    /// coin toss with a finger. Every row is a full 44x40 now.
     private func thicknessDot(index: Int, width: CGFloat) -> some View {
         let isSelected = state.nibIndex == index
         return Button {
@@ -293,13 +309,14 @@ private struct PencilOptionsPanel: View {
             Circle()
                 .fill(theme.ink)
                 .frame(width: width * 2.2, height: width * 2.2)
-                .frame(width: 30, height: 30)
+                .frame(width: 44, height: 40)
                 .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 7))
                 .overlay(
                     RoundedRectangle(cornerRadius: 7)
                         .stroke(theme.accent, lineWidth: isSelected ? 1.5 : 0)
                 )
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Self.nibLabel(width))
@@ -319,13 +336,14 @@ private struct PencilOptionsPanel: View {
             state.strokeStyle = style
         } label: {
             StyleSampleLine(style: style, color: theme.ink, nib: state.pencilWidth)
-                .frame(width: 30, height: 26)
+                .frame(width: 44, height: 36)
                 .background(isSelected ? theme.accent.opacity(0.12) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 7))
                 .overlay(
                     RoundedRectangle(cornerRadius: 7)
                         .stroke(theme.accent, lineWidth: isSelected ? 1.5 : 0)
                 )
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(style.label)

@@ -91,6 +91,13 @@ final class ReadingPageViewController: UIViewController {
     private var aspectConstraint: NSLayoutConstraint?
     private var rightWidthEqual: NSLayoutConstraint!
     private var rightWidthZero: NSLayoutConstraint!
+    /// Extra scroll room past the Right Page. In landscape the content is
+    /// three page-widths against a two-page viewport, so without this the
+    /// sheet could never sit alone — a score page always rode along. One more
+    /// page-width of desk lets the musician park on just their notes.
+    private let rightFocusGuide = UILayoutGuide()
+    private var focusWidthEqual: NSLayoutConstraint!
+    private var focusWidthZero: NSLayoutConstraint!
 
     private var lastDrawnPage: ReadingPageView?
 
@@ -316,9 +323,15 @@ final class ReadingPageViewController: UIViewController {
         gutterView.backgroundColor = UIColor(hex: 0xE0DBD1)
         spreadContainer.addSubview(gutterView)
         spreadContainer.addLayoutGuide(pagesGuide)
+        spreadContainer.addLayoutGuide(rightFocusGuide)
 
         rightWidthEqual = leftPage.widthAnchor.constraint(equalTo: rightPage.widthAnchor)
         rightWidthZero = rightPage.widthAnchor.constraint(equalToConstant: 0)
+        // Desk room = one page + the gutter, exactly what must scroll away
+        // for the sheet to sit flush at the viewport's leading edge.
+        focusWidthEqual = rightFocusGuide.widthAnchor.constraint(
+            equalTo: leftPage.widthAnchor, constant: gutterWidth)
+        focusWidthZero = rightFocusGuide.widthAnchor.constraint(equalToConstant: 0)
 
         // The chain runs margin -> pages -> container edge horizontally, and
         // pages -> margin -> container edge vertically, so the container sizes
@@ -332,10 +345,12 @@ final class ReadingPageViewController: UIViewController {
 
             marginRightView.topAnchor.constraint(equalTo: spreadContainer.topAnchor),
             marginRightView.leadingAnchor.constraint(equalTo: rightPage.trailingAnchor),
-            marginRightView.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
             marginRightView.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
             marginRightView.widthAnchor.constraint(
                 equalTo: leftPage.widthAnchor, multiplier: Tokens.marginWidthFraction),
+
+            rightFocusGuide.leadingAnchor.constraint(equalTo: marginRightView.trailingAnchor),
+            rightFocusGuide.trailingAnchor.constraint(equalTo: spreadContainer.trailingAnchor),
 
             gutterView.topAnchor.constraint(equalTo: leftPage.topAnchor),
             gutterView.bottomAnchor.constraint(equalTo: leftPage.bottomAnchor),
@@ -585,11 +600,15 @@ final class ReadingPageViewController: UIViewController {
         if perView == 2 {
             rightWidthZero.isActive = false
             rightWidthEqual.isActive = true
+            focusWidthZero.isActive = false
+            focusWidthEqual.isActive = true
             gutterView.isHidden = false
             rightPage.isHidden = false
         } else {
             rightWidthEqual.isActive = false
             rightWidthZero.isActive = true
+            focusWidthEqual.isActive = false
+            focusWidthZero.isActive = true
             gutterView.isHidden = true
             rightPage.isHidden = true
         }

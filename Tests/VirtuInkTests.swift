@@ -295,7 +295,11 @@ final class VirtuInkTests: XCTestCase {
 
     func testInkLayerHiddenDuringLassoSession() {
         let page = makePageView()
+        // Arming alone changes nothing (2026-08-22: picking up the lasso used
+        // to restyle dotted marks solid); the session starts at the gesture.
         page.apply(tool: PKLassoTool())
+        XCTAssertFalse(page.inkView.isHidden, "arming the lasso restyled the page before any gesture")
+        page.testBeginLassoInteraction()
         XCTAssertTrue(page.inkView.isHidden, "during a lasso session PencilKit owns the display; a visible ink layer ghosts the pre-move positions")
         page.apply(tool: PKInkingTool(.pencil, color: .black, width: 3))
         XCTAssertFalse(page.inkView.isHidden, "leaving lasso must hand display back to the ink layer")
@@ -319,6 +323,7 @@ final class VirtuInkTests: XCTestCase {
     func testLeavingLassoNormalizesCanvas() {
         let page = makePageView()
         page.apply(tool: PKLassoTool())
+        page.testBeginLassoInteraction()   // the session starts at the gesture
         let before = page.canvasNormalizations
         page.apply(tool: PKInkingTool(.pencil, color: .black, width: 3))
         XCTAssertGreaterThan(page.canvasNormalizations, before, "leaving a lasso session must normalize the canvas to blank PencilKit's layer")
@@ -1271,24 +1276,37 @@ final class VirtuInkTests: XCTestCase {
     func testCopyModeNeverHidesTheInkLayer() {
         let page = ReadingPageView(frame: CGRect(x: 0, y: 0, width: 200, height: 300))
 
-        // Move-mode lasso: PencilKit owns display, ink layer hides.
+        // ARMING the Move lasso changes nothing: the display session — which
+        // hides our dotted-faithful ink layer in favour of PencilKit's
+        // literal rendering — waits for an actual lasso gesture.
         page.copyModeArmed = false
         page.apply(tool: PKLassoTool())
-        XCTAssertTrue(page.inkView.isHidden, "Move-mode lasso should hand display to PencilKit")
+        XCTAssertFalse(page.inkView.isHidden,
+                       "picking up the lasso restyled the page before it touched anything")
+
+        // The first lasso gesture hands display to PencilKit.
+        page.testBeginLassoInteraction()
+        XCTAssertTrue(page.inkView.isHidden, "a lasso gesture should hand display to PencilKit")
 
         // Copy-mode lasso: our marquee, our display — ink layer stays.
         page.copyModeArmed = true
         XCTAssertFalse(page.inkView.isHidden, "copy mode hid the layer that shows the clippings")
 
-        // Back to Move without the tool changing: session resumes.
+        // Back to Move: the session needs a fresh gesture, not just the mode.
         page.copyModeArmed = false
+        XCTAssertFalse(page.inkView.isHidden)
+        page.testBeginLassoInteraction()
         XCTAssertTrue(page.inkView.isHidden)
 
         // Leaving the lasso entirely restores the ink layer.
-        page.copyModeArmed = true
         page.apply(tool: PKInkingTool(.pencil, color: .black, width: 3))
-        page.copyModeArmed = false
         XCTAssertFalse(page.inkView.isHidden)
+
+        // A gesture with the eraser (or any non-lasso tool) starts no session.
+        page.apply(tool: PKEraserTool(.vector))
+        page.testBeginLassoInteraction()
+        XCTAssertFalse(page.inkView.isHidden,
+                       "an eraser gesture must never restyle the page")
     }
 
     /// Three layers, always — for every part, with no adding.
