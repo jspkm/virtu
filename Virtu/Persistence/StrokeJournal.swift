@@ -106,7 +106,13 @@ final class StrokeJournal {
         queue.async { [weak self] in
             guard let self else { return }
             let fm = FileManager.default
-            for pageIndex in 0..<pageCount {
+            // Real pages, then the Right Page beside each spread. Iterating
+            // only 0..<pageCount left every negative slot behind, so deleting
+            // a work orphaned its Right Page ink — and there is one per spread
+            // now, not one per part, so that leak grew with the score.
+            let slots = Array(0..<pageCount)
+                + AnnotationLayers.rightPageIndices(pageCount: pageCount)
+            for pageIndex in slots {
                 try? fm.removeItem(at: self.legacyURL(partID: partID, pageIndex: pageIndex))
                 for layer in AnnotationLayers.first...AnnotationLayers.max {
                     let key = self.storageKey(partID: partID, pageIndex: pageIndex, layer: layer)

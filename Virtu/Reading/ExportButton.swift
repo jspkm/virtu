@@ -15,11 +15,11 @@ struct ExportButton: View {
             showOptions = true
         }
         .confirmationDialog("Share", isPresented: $showOptions, titleVisibility: .hidden) {
-            Button("Share the part") { exportAnnotatedPDF(includeMargins: false) }
-            Button("Share with margin notes") { exportAnnotatedPDF(includeMargins: true) }
+            Button("Share the part") { exportAnnotatedPDF(includeRightPages: false) }
+            Button("Share with Right Pages") { exportAnnotatedPDF(includeRightPages: true) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Margin notes are added as one extra page at the end.")
+            Text("Right Pages are added at the end, in the order they sit beside the music.")
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
@@ -28,11 +28,11 @@ struct ExportButton: View {
         }
     }
 
-    /// The part alone by default. The shared margin is working notes, not
-    /// part of the music — a stand partner expects a clean part at the
-    /// original page size — so it ships only when asked for, and then as a
-    /// single page at the end rather than repeated behind every system.
-    private func exportAnnotatedPDF(includeMargins: Bool) {
+    /// The part alone by default. The Right Pages are working notes, not part
+    /// of the music — a stand partner expects a clean part at the original
+    /// page size — so they ship only when asked for, and then as their own
+    /// sheets at the end rather than repeated behind every system.
+    private func exportAnnotatedPDF(includeRightPages: Bool) {
         guard let part = state.currentPart,
               let doc = PDFDocument(url: part.pdfURL) else { return }
 
@@ -74,8 +74,8 @@ struct ExportButton: View {
                 InkRenderer.draw(layers, in: cgContext)
             }
 
-            if includeMargins {
-                drawMarginPage(part: part, journal: journal, context: context)
+            if includeRightPages {
+                drawRightPages(part: part, journal: journal, context: context)
             }
         }
 
@@ -86,23 +86,29 @@ struct ExportButton: View {
 }
 
 private extension ExportButton {
-    /// One page carrying the margin, at the size it was written at. There is
-    /// no second surface to compose any more: the space under the score is
-    /// scroll headroom and holds no ink.
-    func drawMarginPage(
+    /// The Right Pages, in spread order, each at the size it was written at.
+    /// One per spread now rather than one per part, so a reader can tell which
+    /// stretch of music a sheet belongs to; a spread nobody wrote on is
+    /// skipped rather than shipped blank.
+    ///
+    /// The space under the score contributes nothing: it is scroll headroom
+    /// and holds no ink.
+    func drawRightPages(
         part: Part, journal: StrokeJournal, context: UIGraphicsPDFRendererContext
     ) {
-        let side = part.visibleLayerIndices.compactMap {
-            journal.load(partID: part.id, pageIndex: AnnotationLayers.marginRightIndex, layer: $0)
-        }
-        guard side.contains(where: { !$0.strokes.isEmpty }) else { return }
-
         guard let firstPage = PDFDocument(url: part.pdfURL)?.page(at: 0) else { return }
         let page = firstPage.bounds(for: .mediaBox).size
         let size = CGSize(width: page.width * Tokens.marginWidthFraction, height: page.height)
+        let layers = part.visibleLayerIndices
 
-        context.beginPage(withBounds: CGRect(origin: .zero, size: size), pageInfo: [:])
-        InkRenderer.draw(side, in: context.cgContext)
+        for slot in AnnotationLayers.rightPageIndices(pageCount: part.pageCount) {
+            let sheet = layers.compactMap {
+                journal.load(partID: part.id, pageIndex: slot, layer: $0)
+            }
+            guard sheet.contains(where: { !$0.strokes.isEmpty }) else { continue }
+            context.beginPage(withBounds: CGRect(origin: .zero, size: size), pageInfo: [:])
+            InkRenderer.draw(sheet, in: context.cgContext)
+        }
     }
 }
 

@@ -96,6 +96,9 @@ final class ReadingPageViewController: UIViewController {
     /// the view itself: its type (never a writable surface) and its height.
     var testBottomHeadroom: UIView { bottomHeadroom }
     var testPage: UIView { leftPage }
+    /// Test hook. Which sheet the Right Page is currently showing is only
+    /// visible as the journal slot it was configured with.
+    var testRightPage: ReadingPageView { marginRightView }
     #endif
 
     // MARK: - Lifecycle
@@ -379,7 +382,6 @@ final class ReadingPageViewController: UIViewController {
             rendererPartID = state.currentPart?.id
             renderer = state.currentPart.flatMap { PageRenderer(url: $0.pdfURL) }
             displayedPageIndex = ReadingPageView.unconfiguredPage
-            configureMargins(partID: state.currentPart?.id)
             needsScrollToPage = true
         }
         guard let renderer else { return }
@@ -413,6 +415,11 @@ final class ReadingPageViewController: UIViewController {
         applyInputMode()
         applyLayerState()
         updateAspect(renderer: renderer)
+
+        // The Right Page follows the spread, so it is re-keyed on every sync,
+        // not once per part. configure() early-returns when the slot has not
+        // changed, which is what makes that cheap.
+        configureRightPage(partID: state.currentPart?.id, pageIndex: state.pageIndex)
 
         if state.pageIndex != displayedPageIndex || state.pagesPerView != displayedPagesPerView {
             let direction = state.pageIndex >= displayedPageIndex ? 1 : -1
@@ -473,19 +480,26 @@ final class ReadingPageViewController: UIViewController {
         inkViews.forEach { $0.apply(tool: tool) }
     }
 
-    /// The margin is configured once per part and never again — that is the
-    /// whole point of it. Its coordinate space is fixed, so that rotating the
-    /// iPad rescales the ink rather than reflowing it onto different notes.
-    private func configureMargins(partID: UUID?) {
+    /// One Right Page per spread: the sheet beside score pages 1 and 2 is not
+    /// the sheet beside 3 and 4. It is keyed by spread rather than by page so
+    /// that landscape (which shows both pages of a spread at once) and portrait
+    /// (which shows them one at a time) reach the same sheet — otherwise a note
+    /// written beside page 2 would vanish when the iPad is turned.
+    ///
+    /// Its coordinate space is fixed, so rotating rescales the ink rather than
+    /// reflowing it onto different notes.
+    ///
+    /// Nothing to configure below the score: the headroom holds no ink and owns
+    /// no coordinate space.
+    private func configureRightPage(partID: UUID?, pageIndex: Int) {
         guard let renderer else { return }
         let page = renderer.pageSize
+        let spread = AnnotationLayers.spread(forPage: pageIndex)
         marginRightView.configure(
             partID: partID,
-            pageIndex: AnnotationLayers.marginRightIndex,
+            pageIndex: AnnotationLayers.rightPageIndex(spread: spread),
             pdfSize: CGSize(width: page.width * Tokens.marginWidthFraction, height: page.height)
         )
-        // Nothing to configure below the score: the headroom holds no ink and
-        // owns no coordinate space.
     }
 
     /// Push the part's layer state onto both pages. Idempotent by design —

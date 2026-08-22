@@ -10,20 +10,38 @@ enum AnnotationLayers {
     static let max = 10
     static let first = 1
 
-    // The shared margin belongs to the PART, not to any page: what you write
-    // beside page 1 is still there beside page 5. It needs a slot in the
-    // journal that no real page index can ever take.
-    /// Value kept at -1 through the move from the left edge to the right, so
-    /// anything already written in the margin travels with it.
-    static let marginRightIndex = -1
+    // The Right Page belongs to a SPREAD — not to the part, and not to a
+    // single score page.
+    //
+    // Landscape shows pages 1 and 2 side by side; portrait shows the same two
+    // one at a time. Both have to reach the same sheet, or a note written
+    // beside page 2 in portrait would vanish when the iPad is turned. So the
+    // key is the spread: Right Page 1 beside score pages 1 and 2, Right Page 2
+    // beside 3 and 4. `AppState.goToPage` parity-locks landscape to even page
+    // indices, so halving lands on the same spread from either orientation.
+    // Swift.max, because `max` alone resolves to the layer cap above.
+    static func spread(forPage pageIndex: Int) -> Int { Swift.max(0, pageIndex) / 2 }
 
-    // -2 is retired. It was the bottom margin's journal slot, back when the
-    // space under the score was a writable surface; it is scroll headroom now
-    // and authors nothing. Never reuse the value: journals written before the
-    // change still carry -2 records, and a new feature landing on that slot
-    // would inherit somebody's old scribbles.
+    /// Journal slot for a spread's Right Page. Negative, so it can never
+    /// collide with a real page index, and starting at -10 so it clears the
+    /// two retired slots below.
+    static func rightPageIndex(spread: Int) -> Int { -10 - spread }
 
-    static func isMargin(_ pageIndex: Int) -> Bool { pageIndex < 0 }
+    /// Every Right Page slot a part can own, for bulk work like deletion.
+    static func rightPageIndices(pageCount: Int) -> [Int] {
+        guard pageCount > 0 else { return [] }
+        return (0...spread(forPage: pageCount - 1)).map { rightPageIndex(spread: $0) }
+    }
+
+    // -1 and -2 are retired, and neither value may ever be reused: journals
+    // written before these changes still carry records at both, so a new
+    // feature landing on either slot would inherit somebody's old marks.
+    //   -1  the part-wide shared margin, from when one sheet served the whole
+    //       part rather than one sheet per spread.
+    //   -2  the bottom margin, from when the space under the score was a
+    //       writable surface instead of scroll headroom.
+
+    static func isRightPage(_ pageIndex: Int) -> Bool { pageIndex < 0 }
 }
 
 @Model

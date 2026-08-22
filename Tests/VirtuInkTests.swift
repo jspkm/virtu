@@ -497,36 +497,132 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(saved.strokes.count, 1)
     }
 
-    // MARK: - Shared margins
+    // MARK: - The Right Page
 
-    func testMarginInkBelongsToThePartNotThePage() throws {
-        // The whole promise: write beside page 1, still there beside page 5.
+    /// One Right Page per spread, not one per part and not one per page.
+    /// Right Page 1 sits beside score pages 1 and 2, Right Page 2 beside 3
+    /// and 4.
+    func testRightPageIsKeyedToTheSpread() {
+        XCTAssertEqual(AnnotationLayers.spread(forPage: 0), 0)
+        XCTAssertEqual(AnnotationLayers.spread(forPage: 1), 0, "page 2 left its spread")
+        XCTAssertEqual(AnnotationLayers.spread(forPage: 2), 1)
+        XCTAssertEqual(AnnotationLayers.spread(forPage: 3), 1, "page 4 left its spread")
+
+        XCTAssertNotEqual(AnnotationLayers.rightPageIndex(spread: 0),
+                          AnnotationLayers.rightPageIndex(spread: 1),
+                          "two spreads share one sheet")
+
+        // Slots must stay clear of real pages and of the two retired values,
+        // because journals in the field still hold records at both.
+        var seen = Set<Int>()
+        for spread in 0..<200 {
+            let slot = AnnotationLayers.rightPageIndex(spread: spread)
+            XCTAssertLessThan(slot, 0, "a Right Page slot collided with a real page")
+            XCTAssertNotEqual(slot, -1, "-1 is retired: the old part-wide margin")
+            XCTAssertNotEqual(slot, -2, "-2 is retired: the old bottom margin")
+            XCTAssertTrue(seen.insert(slot).inserted, "slot \(slot) handed out twice")
+        }
+
+        XCTAssertEqual(AnnotationLayers.rightPageIndices(pageCount: 6).count, 3,
+                       "six pages are three spreads, so three Right Pages")
+        XCTAssertEqual(AnnotationLayers.rightPageIndices(pageCount: 5).count, 3,
+                       "an odd last page still has a spread to sit beside")
+        XCTAssertTrue(AnnotationLayers.rightPageIndices(pageCount: 0).isEmpty)
+    }
+
+    /// Turning the iPad must not change which sheet you are writing on.
+    /// Landscape shows pages 1 and 2 at once; portrait shows them one at a
+    /// time. Both reach Right Page 1, or a note written beside page 2 in
+    /// portrait disappears on rotation.
+    func testRotatingKeepsTheSameRightPage() throws {
+        let bundle = Bundle(for: ReadingPageViewController.self)
+        let pdfURL = try XCTUnwrap(bundle.url(forResource: "test-score", withExtension: "pdf"))
+        let stored = "\(UUID().uuidString).pdf"
+        try FileManager.default.copyItem(
+            at: pdfURL, to: Part.storageDirectory.appendingPathComponent(stored))
+
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.currentPart = Part(name: "test", pdfFileName: stored, pageCount: 6)
+        state.readingMode = .study
+
+        let vc = ReadingPageViewController()
+        vc.appState = state
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1032, height: 1376))
+        window.rootViewController = vc
+        window.isHidden = false
+        window.layoutIfNeeded()
+
+        func settle(_ frame: CGRect) {
+            window.frame = frame
+            vc.view.frame = CGRect(origin: .zero, size: frame.size)
+            vc.view.setNeedsLayout()
+            window.layoutIfNeeded()
+            vc.syncFromState()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        }
+        let portrait = CGRect(x: 0, y: 0, width: 1032, height: 1376)
+        let landscape = CGRect(x: 0, y: 0, width: 1376, height: 1032)
+
+        // Portrait on page 2, the right-hand page of spread 1.
+        settle(portrait)
+        state.goToPage(1)
+        settle(portrait)
+        XCTAssertEqual(state.pageIndex, 1, "portrait should sit on page 2")
+        let fromPageTwo = vc.testRightPage.pageIndex
+
+        // Portrait on page 1 — same spread, so the same sheet.
+        state.goToPage(0)
+        settle(portrait)
+        XCTAssertEqual(vc.testRightPage.pageIndex, fromPageTwo,
+                       "pages 1 and 2 do not share a Right Page")
+
+        // Landscape showing both at once — still the same sheet.
+        settle(landscape)
+        XCTAssertEqual(state.pagesPerView, 2, "landscape should show a spread")
+        XCTAssertEqual(vc.testRightPage.pageIndex, fromPageTwo,
+                       "turning the iPad moved the musician to a different sheet")
+
+        // The next spread is a different sheet.
+        state.goToPage(2)
+        settle(landscape)
+        XCTAssertNotEqual(vc.testRightPage.pageIndex, fromPageTwo,
+                          "pages 3 and 4 reuse the sheet from pages 1 and 2")
+        XCTAssertEqual(vc.testRightPage.pageIndex,
+                       AnnotationLayers.rightPageIndex(spread: 1))
+    }
+
+    func testRightPageInkLandsInItsSpreadSlotAndNowhereElse() throws {
         let partID = UUID()
         let pdfSize = CGSize(width: 140, height: 792)
-        let margin = ReadingPageView(frame: CGRect(origin: .zero, size: pdfSize))
+        let slot = AnnotationLayers.rightPageIndex(spread: 0)
+        let sheet = ReadingPageView(frame: CGRect(origin: .zero, size: pdfSize))
         let window = UIWindow(frame: CGRect(origin: .zero, size: pdfSize))
-        window.addSubview(margin)
-        margin.isMarginSurface = true
-        margin.configure(
-            partID: partID, pageIndex: AnnotationLayers.marginRightIndex, pdfSize: pdfSize)
-        margin.layoutIfNeeded()
+        window.addSubview(sheet)
+        sheet.isMarginSurface = true
+        sheet.configure(partID: partID, pageIndex: slot, pdfSize: pdfSize)
+        sheet.layoutIfNeeded()
 
-        margin.canvas.drawing = makeDrawing([
+        sheet.canvas.drawing = makeDrawing([
             makeStroke(from: CGPoint(x: 20, y: 40), to: CGPoint(x: 90, y: 40))
         ])
-        margin.canvasViewDrawingDidChange(margin.canvas)
+        sheet.canvasViewDrawingDidChange(sheet.canvas)
         waitForJournal()
 
         let saved = try XCTUnwrap(StrokeJournal.shared.load(
-            partID: partID, pageIndex: AnnotationLayers.marginRightIndex, layer: AnnotationLayers.first))
+            partID: partID, pageIndex: slot, layer: AnnotationLayers.first))
         XCTAssertEqual(saved.strokes.count, 1)
 
-        // It must not have landed on any real page, at any index.
+        // Not on any real page, and not on the next spread's sheet.
         for page in 0..<6 {
             XCTAssertNil(
                 StrokeJournal.shared.load(partID: partID, pageIndex: page, layer: AnnotationLayers.first),
-                "margin ink leaked onto page \(page)")
+                "Right Page ink leaked onto score page \(page)")
         }
+        XCTAssertNil(StrokeJournal.shared.load(
+            partID: partID,
+            pageIndex: AnnotationLayers.rightPageIndex(spread: 1),
+            layer: AnnotationLayers.first),
+            "ink leaked onto the next spread's Right Page")
     }
 
     /// The space under the score is headroom, not a surface. It used to be a

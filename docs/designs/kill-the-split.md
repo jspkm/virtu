@@ -779,6 +779,40 @@ looks exactly like a crash. **Set `totalCostLimit` alongside the count.**
 | **Right Page** | `-1` | A **full writable Page** belonging to the score. One page wide in portrait, **two page-widths in landscape**. Shared across the part, not per-page. |
 | **Bottom headroom** | (none) | **Not writable.** Pure scroll space, so the score can be pushed up far enough to reach and mark its lowest system. |
 
+> **AMENDED 2026-08-21 by the founder, and built. "Shared across the part" above is
+> superseded: the Right Page exists PER SPREAD.**
+>
+> A single sheet for a whole part was the wrong grain — one sheet cannot carry the
+> working notes for forty pages of music. The unit is the spread, not the part and not
+> the page:
+>
+> | Right Page | sits beside score pages |
+> |---|---|
+> | 1 | 1 and 2 |
+> | 2 | 3 and 4 |
+> | *n* | 2*n*-1 and 2*n* |
+>
+> **Why the spread and not the page.** Landscape shows pages 1 and 2 at once; portrait
+> shows the same two one at a time. Both have to reach the same sheet, or a note written
+> beside page 2 in portrait vanishes when the iPad is turned. `AppState.goToPage` already
+> parity-locks landscape to even page indices, so `pageIndex / 2` lands on the same spread
+> from either orientation.
+>
+> **Journal slots.** `AnnotationLayers.rightPageIndex(spread:)` returns `-10 - spread`.
+> `-1` is now **retired** along with `-2`, and neither may ever be reused: journals in the
+> field still hold records at both, so a future feature landing on either slot would
+> inherit somebody's old marks. Ink written to the old part-wide `-1` slot is orphaned,
+> not migrated — the journal never rewrites stored strokes (`StrokeJournal.swift:96-98`).
+>
+> **Export** emits one sheet per spread that has ink, in spread order, at the end.
+> Untouched spreads are skipped rather than shipped blank.
+>
+> Unchanged by this amendment: D1's geometry (height from the score, width from the paper
+> proportion), D2's print rules, and the fact that the Right Page is a Page rather than a
+> margin. Still open: D1's landscape width is not built (the sheet is still pinned to one
+> score-page width in both orientations), the coordinate-system question at "The Right Page
+> needs a canonical coordinate system" below, and the `margin*` naming throughout.
+
 What the code does today, all of which is wrong against that model:
 - `ReadingSurfaceView.swift:46` — `marginBottomView` is a `ReadingPageView`, the same class
   as a score page, and `:49` puts it in `inkViews`, so it takes tools, layers, pencil input
