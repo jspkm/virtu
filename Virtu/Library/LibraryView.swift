@@ -14,7 +14,15 @@ struct LibraryView: View {
     @Query private var programs: [Program]
 
     @State private var showImporter = false
-    @State private var importedPDFURL: URL?
+    /// The copied PDF plus the name the musician's own file had. The stored
+    /// file is a UUID, so without carrying this the import sheet has nothing
+    /// to fall back on when a PDF declares no title.
+    struct ImportRoute: Identifiable {
+        let id = UUID()
+        let url: URL
+        let originalName: String
+    }
+    @State private var importRoute: ImportRoute?
     @State private var showRename = false
     @State private var renameDraft = ""
     /// Identity-carrying route so the sheet content is rebuilt per invocation
@@ -98,8 +106,8 @@ struct LibraryView: View {
         ) { result in
             handleImport(result)
         }
-        .sheet(item: $importedPDFURL) { url in
-            ImportMetadataSheet(pdfURL: url)
+        .sheet(item: $importRoute) { route in
+            ImportMetadataSheet(pdfURL: route.url, originalName: route.originalName)
         }
         .sheet(item: $setEditorRoute) { route in
             ProgramEditorSheet(program: route.program)
@@ -112,7 +120,7 @@ struct LibraryView: View {
         }
         .alert("Whose shelf is this?", isPresented: $showRename) {
             TextField("Your name", text: $renameDraft)
-            Button("Save") { state.shelfName = renameDraft.trimmingCharacters(in: .whitespaces) }
+            Button("Save") { state.shelfName = renameDraft.trimmed }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your name personalises the library and appears nowhere else.")
@@ -134,10 +142,7 @@ struct LibraryView: View {
                 showRename = true
             } label: {
                 Text(state.shelfTitle)
-                    .font(VFont.screenEyebrow)
-                    .foregroundStyle(theme.accent)
-                    .textCase(.uppercase)
-                    .tracking(1.5)
+                    .screenEyebrow()
             }
             .buttonStyle(.plain)
 
@@ -284,7 +289,7 @@ struct LibraryView: View {
     }
 
     private var composerGroups: [(String, [Work])] {
-        Dictionary(grouping: works) { $0.composer }
+        Dictionary(grouping: works) { $0.composer.isEmpty ? "Unattributed" : $0.composer }
             .sorted { $0.key.split(separator: " ").last ?? "" < $1.key.split(separator: " ").last ?? "" }
     }
 
@@ -389,7 +394,10 @@ struct LibraryView: View {
         let destination = Part.storageDirectory.appendingPathComponent(filename)
         do {
             try FileManager.default.copyItem(at: url, to: destination)
-            importedPDFURL = destination
+            importRoute = ImportRoute(
+                url: destination,
+                originalName: url.deletingPathExtension().lastPathComponent
+            )
         } catch {
             print("Import failed: \(error)")
         }
@@ -506,12 +514,8 @@ private struct NextPerformancePanel: View {
             }
         }
         .padding(20)
-        .background(theme.wash)
-        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card))
-        .overlay(
-            RoundedRectangle(cornerRadius: Tokens.Radius.card)
-                .stroke(theme.line, lineWidth: 1)
-        )
+        // A shade back from the plate: this panel is the stage, not a work.
+        .plateCard(fill: theme.wash)
     }
 }
 

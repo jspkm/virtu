@@ -6,6 +6,82 @@ Everything else deferred by a block lives in that block's "NOT in scope" table.
 
 ---
 
+## Dead persisted state — decide, then migrate
+
+**What:** A dead-code sweep on 2026-08-28 cleared everything unreferenced
+except four things that are **persisted SwiftData schema**, where deleting is
+a migration rather than housekeeping. All four are dead today:
+
+| | State |
+|---|---|
+| `Part.furthestPageIndex` | **Write-only.** `AppState.recordProgress()` still updates it on every turn; nothing reads it. Its only reader was the work card's progress rule, removed 2026-08-28 at the user's request. |
+| `AnnotationLayer` (whole `@Model`) | **Never written.** Ink lives in `StrokeJournal` as files (§8.1); this model's `drawingData`, `pageWidth`, `pageHeight`, `deviceID` are all inert. It survives only in the `Schema` and as `Part.annotationLayers`. |
+| `AnnotationLayer.updatedAt` | Unreferenced even within the dead model. |
+| `Work.year` | Never set, never shown. The import sheet does not ask for it. |
+
+**Why it was left rather than removed:** dropping a stored property discards
+whatever a musician's store already holds. `furthestPageIndex` in particular
+holds real practice history, and if the progress rule ever comes back it
+cannot be recomputed. That is the user's call, not a cleanup's.
+
+**The cost of leaving it:** `recordProgress()` is a write path with no reader,
+which the next person to touch page turns has to prove is safe to disturb, and
+`AnnotationLayer` invites someone to assume ink is in SwiftData when the whole
+integrity story is that it is not.
+
+**Also removed in that sweep, and recoverable from git if wanted:**
+`Virtu/Annotation/StampLibrary.swift` — 242 lines defining a `Stamp` glyph set
+(articulations, fingerings) and a `GlyphPen`, referenced by nothing. Stamps are
+not in the shipped tool rail, so this was speculative work that never landed.
+
+**Trigger:** before the next SwiftData migration, or whenever the progress rule
+is reconsidered.
+
+**Depends on:** deciding whether practice progress returns to the shelf.
+
+---
+
+## The metronome refusal is reversed — amend the PRD
+
+**What:** A metronome now ships, on the Tools screen (`Virtu/Tools/`). The PRD
+refuses it: §6.0(3) marks it **REFUSED**, §5's surface table calls two of
+Tools' three contents refused, and `docs/ROADMAP.md` and the performer vision
+both file metronome/tuner under "commodity clutter." **Those lines are now
+wrong and need amending.**
+
+**Why it was reversed:** 2026-08-27 user feedback from a working musician —
+"can't find metronome/tuner tool." The refusal was reasoned from the premise
+that every pro already owns one; the first musician to actually use Virtu went
+looking for it inside Virtu. The design handoff had never given it up either:
+`Virtu.dc.html` carries a full Tools metronome, and `VFont.bpmPanel` /
+`VFont.bpmTools` have been sitting in the type scale the whole time. What
+shipped follows that handoff exactly, plus a meter picker it lacked.
+
+**Why this is filed here rather than left implicit:** TODOS.md already records
+what the unbuilt-and-unretired seam costs — every future design session
+re-derives the same confusion. A built-but-still-refused metronome is the same
+trap pointing the other way.
+
+**Still open:**
+- The **tuner** is not built. The handoff draws it beside the metronome
+  (an A/442 reference with pitch buttons); the user's ask covered it. It needs
+  a microphone permission string and pitch detection, and was deliberately
+  split out so the metronome could land first.
+- **No running indicator outside Tools.** The click keeps going when you leave
+  the screen — PRD §5 requires exactly that — but nothing anywhere else says
+  so, and there is no way to stop it without walking back to Tools.
+- **No background audio mode.** PRD §10 says the metronome "must survive
+  backgrounding"; `UIBackgroundModes: [audio]` was NOT added, because it is an
+  App Store review surface nobody asked for. The screen is kept awake while it
+  runs, which covers the practice-room case. Decide whether the PRD line meant
+  more than that.
+
+**Trigger:** amend the PRD before the next design session touches Tools.
+
+**Depends on:** nothing.
+
+---
+
 ## macOS as the second platform (iPad first, then macOS)
 
 **What:** Ship Virtu on macOS after iPad. **iPhone is cut, not deferred** — it is not a

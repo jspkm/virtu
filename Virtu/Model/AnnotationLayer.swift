@@ -41,8 +41,6 @@ enum AnnotationLayers {
     //       part rather than one sheet per spread.
     //   -2  the bottom margin, from when the space under the score was a
     //       writable surface instead of scroll headroom.
-
-    static func isRightPage(_ pageIndex: Int) -> Bool { pageIndex < 0 }
 }
 
 @Model

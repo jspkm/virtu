@@ -1,10 +1,10 @@
 import SwiftUI
 import SwiftData
 
-/// The Tools destination. Today it holds one tool: the Recycle Bin. A deleted
-/// work lands here rather than vanishing — nothing on disk is touched until
-/// the musician empties it, explicitly, from this screen.
-struct ToolsView: View {
+/// The Recycle Bin, its own destination. A deleted work lands here rather
+/// than vanishing — nothing on disk is touched until the musician empties it,
+/// explicitly, from this screen.
+struct RecycleBinView: View {
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
@@ -24,10 +24,7 @@ struct ToolsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Recycle bin")
-                    .font(VFont.screenEyebrow)
-                    .foregroundStyle(theme.accent)
-                    .textCase(.uppercase)
-                    .tracking(1.5)
+                    .screenEyebrow()
                     .padding(.bottom, 6)
 
                 Text(binned.isEmpty

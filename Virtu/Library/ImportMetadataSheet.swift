@@ -4,6 +4,9 @@ import PDFKit
 
 struct ImportMetadataSheet: View {
     let pdfURL: URL
+    /// The name of the file the musician picked, before it was copied to a
+    /// UUID. The last resort for a title, and better than an empty card.
+    let originalName: String
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -23,11 +26,21 @@ struct ImportMetadataSheet: View {
                     thumbnailPreview
                 }
 
-                Section("Work") {
+                Section {
                     TextField("Composer", text: $composer)
                     TextField("Title", text: $title)
                     TextField("Catalogue number (e.g. BWV 1007)", text: $catalogueNumber)
                     TextField("Edition (e.g. Bärenreiter urtext)", text: $edition)
+                } header: {
+                    Text("Work")
+                } footer: {
+                    // Both fields used to be mandatory. A musician importing
+                    // six parts before a rehearsal should not have to name
+                    // them all first — get the music onto the shelf, correct
+                    // it from the work's info sheet whenever.
+                    Text(title.trimmed.isEmpty
+                        ? "Optional. Untitled, this comes in as \u{201C}\(fallbackTitle)\u{201D} and can be renamed any time."
+                        : "Optional \u{2014} both can be edited later.")
                 }
 
                 Section("Part") {
@@ -50,7 +63,6 @@ struct ImportMetadataSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add to library") { save() }
-                        .disabled(composer.isEmpty || title.isEmpty)
                 }
             }
         }
@@ -100,7 +112,7 @@ struct ImportMetadataSheet: View {
            let firstPageText = doc.page(at: 0)?.string {
             let lines = firstPageText
                 .components(separatedBy: .newlines)
-                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .map(\.trimmed)
                 .filter { $0.count >= 3 && $0.count <= 70 }
             if title.isEmpty, let candidate = lines.first {
                 title = candidate
@@ -122,18 +134,26 @@ struct ImportMetadataSheet: View {
         estimatedMinutes = String(max(pageCount * 3, 1))
     }
 
+    /// A work with no name at all cannot be found again, so the filename
+    /// stands in — never a fabricated composer, which would be a guess
+    /// presented as a fact.
+    private var fallbackTitle: String {
+        let name = originalName.trimmed
+        return name.isEmpty ? "Untitled score" : name
+    }
+
     private func save() {
         let work = Work(
-            composer: composer,
-            title: title,
-            catalogueNumber: catalogueNumber,
-            edition: edition
+            composer: composer.trimmed,
+            title: title.trimmed.isEmpty ? fallbackTitle : title.trimmed,
+            catalogueNumber: catalogueNumber.trimmed,
+            edition: edition.trimmed
         )
 
-        work.estimatedMinutes = Int(estimatedMinutes.trimmingCharacters(in: .whitespaces))
+        work.estimatedMinutes = Int(estimatedMinutes.trimmed)
 
         let part = Part(
-            name: partName,
+            name: partName.trimmed.isEmpty ? "score" : partName.trimmed,
             pdfFileName: pdfURL.lastPathComponent,
             pageCount: pageCount
         )
@@ -144,3 +164,4 @@ struct ImportMetadataSheet: View {
         dismiss()
     }
 }
+

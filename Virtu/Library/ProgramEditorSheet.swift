@@ -136,7 +136,7 @@ struct ProgramEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(program == nil ? "Create set" : "Save") { save() }
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || entries.isEmpty)
+                        .disabled(name.trimmed.isEmpty || entries.isEmpty)
                 }
             }
             .confirmationDialog(

@@ -25,8 +25,7 @@ struct NavRailView: View {
             // Stage toggle
             NavRailToggle(
                 icon: state.stageMode ? "sun.max" : "moon",
-                label: "Stage",
-                isActive: false
+                label: "Stage"
             ) {
                 state.stageMode.toggle()
             }
@@ -89,16 +88,21 @@ struct NavRailButton: View {
     }
 
     private var accessibilityName: String {
-        // The tools destination IS the Recycle Bin today; say so.
-        destination == .tools ? "Recycle Bin" : destination.rawValue.capitalized
+        switch destination {
+        case .bin: "Recycle Bin"
+        default: destination.rawValue.capitalized
+        }
     }
 
     private var iconName: String {
         switch destination {
         case .library: "books.vertical"
         case .score: "music.note.list"
-        case .find: "magnifyingglass"
-        case .tools: "trash"
+        // Named for what is actually behind it. When the tuning reference and
+        // page-turn preferences join the metronome, this owes itself a
+        // generic bench icon instead.
+        case .tools: "metronome"
+        case .bin: "trash"
         }
     }
 }
@@ -106,7 +110,6 @@ struct NavRailButton: View {
 struct NavRailToggle: View {
     let icon: String
     let label: String
-    let isActive: Bool
     let action: () -> Void
     @Environment(\.theme) private var theme
 

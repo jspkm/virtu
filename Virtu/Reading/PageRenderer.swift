@@ -16,9 +16,18 @@ final class PageRenderer {
     private let renderQueue = DispatchQueue(label: "com.virtu.pageRenderer", qos: .userInitiated)
     private var inFlight = Set<String>()
     private let inFlightLock = NSLock()
+    /// Read once, on the main thread, at init. `UIScreen.main` is main-thread
+    /// -only and rendering happens on `renderQueue` — reaching for it there is
+    /// a UIKit-from-a-background-thread access, and the app dies when the
+    /// screen changes under it (which is exactly what app switching, Stage
+    /// Manager and external displays do).
+    private let deviceScale: CGFloat
 
+
+    @MainActor
     init?(url: URL) {
         guard let doc = PDFDocument(url: url), doc.pageCount > 0 else { return nil }
+        self.deviceScale = UIScreen.main.scale
         self.document = doc
         self.pageSize = doc.page(at: 0)?.bounds(for: .mediaBox).size ?? CGSize(width: 595, height: 842)
         cache.countLimit = 12
@@ -87,14 +96,21 @@ final class PageRenderer {
         let bounds = page.bounds(for: .mediaBox)
         guard bounds.height > 0, height > 0 else { return nil }
 
-        let scale = UIScreen.main.scale
+        let scale = deviceScale
         let pixelHeight = height * scale
         let pixelWidth = pixelHeight * (bounds.width / bounds.height)
         let size = CGSize(width: pixelWidth, height: pixelHeight)
+        // A degenerate request renders nothing rather than a broken bitmap.
+        // The window really does report a near-zero height mid-resize.
+        guard pixelWidth >= 1, pixelHeight >= 1 else { return nil }
 
         let paper = page.thumbnail(of: size, for: .mediaBox)
         guard stage else {
-            return UIImage(cgImage: paper.cgImage ?? UIImage().cgImage!, scale: scale, orientation: .up)
+            // `UIImage().cgImage` is ALWAYS nil, so the old fallback here was
+            // a guaranteed crash the moment PDFKit handed back an image with
+            // no backing bitmap — which it does under memory pressure.
+            guard let cg = paper.cgImage else { return nil }
+            return UIImage(cgImage: cg, scale: scale, orientation: .up)
         }
         return paper.stageRemapped() ?? paper
     }

@@ -137,6 +137,8 @@ final class ReadingPageViewController: UIViewController {
     var testRightPage: ReadingPageView { marginRightView }
     #endif
 
+    private let pencilInteraction = UIPencilInteraction()
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -146,6 +148,12 @@ final class ReadingPageViewController: UIViewController {
         setupScrollView()
         setupPages()
         setupGestures()
+
+        // Double-tap the barrel to swap the eraser in and out. The pencil
+        // never navigates (see the gesture vocabulary above) — this is the
+        // one thing it says to the app that is not a mark.
+        pencilInteraction.delegate = self
+        view.addInteraction(pencilInteraction)
 
         NotificationCenter.default.addObserver(
             forName: .virtuUndo, object: nil, queue: .main
@@ -788,13 +796,6 @@ final class ReadingPageViewController: UIViewController {
         inkViews.first { $0.pageIndex == origin.pageIndex }?.refreshClippings()
     }
 
-    /// The deliberate destroy — double-tap only.
-    private func discardFloatingClipping() {
-        floatingClipping?.removeFromSuperview()
-        floatingClipping = nil
-        liftedOrigin = nil
-    }
-
     // MARK: - Turns
 
     private func turn(_ direction: Int, hapticAllowed: Bool) {
@@ -1032,5 +1033,37 @@ extension ReadingPageViewController: UIGestureRecognizerDelegate {
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
         true
+    }
+}
+
+
+// MARK: - The pencil's barrel
+
+extension ReadingPageViewController: UIPencilInteractionDelegate {
+
+    /// iOS 17.0–17.4 only. The newer callback below arrived in 17.5 and is
+    /// the one UIKit delivers from then on; returning early here means a
+    /// system that chose to call both cannot toggle the eraser twice.
+    func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+        if #available(iOS 17.5, *) { return }
+        handlePencilDoubleTap()
+    }
+
+    @available(iOS 17.5, *)
+    func pencilInteraction(
+        _ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap
+    ) {
+        handlePencilDoubleTap()
+    }
+
+    private func handlePencilDoubleTap() {
+        // Someone who switched the double-tap off in Settings meant it.
+        guard UIPencilInteraction.preferredTapAction != .ignore else { return }
+        guard let state = appState, state.annotating else { return }
+        state.togglePencilEraser()
+        Haptics.selection()
+        // Synchronously, rather than waiting for SwiftUI to notice: the tool
+        // has to be in your hand by the time the tip is back on the page.
+        syncFromState()
     }
 }

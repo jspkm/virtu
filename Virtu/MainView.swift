@@ -24,10 +24,10 @@ struct MainView: View {
                         LibraryView()
                     case .score:
                         ReadingContainerView()
-                    case .find:
-                        FindStubView()
                     case .tools:
                         ToolsView()
+                    case .bin:
+                        RecycleBinView()
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -92,19 +92,3 @@ struct MainView: View {
         .ignoresSafeArea()
     }
 }
-
-struct FindStubView: View {
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Text("Find & Import")
-                .font(VFont.sectionHeading)
-                .foregroundStyle(theme.ink)
-            Text("Coming in M1")
-                .font(VFont.metadata)
-                .foregroundStyle(theme.muted)
-        }
-    }
-}
-

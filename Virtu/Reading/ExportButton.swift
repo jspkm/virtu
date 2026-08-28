@@ -40,7 +40,7 @@ enum ScoreExporter {
         let safe = name
             .components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>"))
             .joined(separator: " ")
-            .trimmingCharacters(in: .whitespaces)
+            .trimmed
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("\(safe.isEmpty ? "score" : safe).pdf")
         do {

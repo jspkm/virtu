@@ -19,6 +19,9 @@ struct VirtuApp: App {
                 .modelContainer(container)
                 .onAppear {
                     SeedData.seedIfNeeded(context: container.mainContext)
+                    // Seed first: restore has to be able to find the work it
+                    // is looking for.
+                    appState.restoreSession(context: container.mainContext)
                 }
         }
     }

@@ -1,11 +1,15 @@
 import SwiftUI
+import SwiftData
 import PencilKit
 
 @Observable
 final class AppState {
 
+    /// Declaration order IS the nav rail's order.
+    /// Tools sits immediately after Search; the Recycle Bin is its own
+    /// destination below it, no longer riding inside Tools.
     enum Destination: String, CaseIterable {
-        case library, score, find, tools
+        case library, score, tools, bin
     }
 
     /// The two explicit reading modes, separated by a hard wall.
@@ -88,9 +92,13 @@ final class AppState {
     }
 
     // Navigation
-    var destination: Destination = .library
+    var destination: Destination = .library {
+        didSet { persistSession() }
+    }
     var currentWork: Work?
-    var currentPart: Part?
+    var currentPart: Part? {
+        didSet { persistSession() }
+    }
     var librarySort: LibrarySort = .recent
     /// While reading, the nav rail collapses to a ghost sliver; this expands
     /// it temporarily as an overlay.
@@ -102,12 +110,18 @@ final class AppState {
 
     // Reading. `pageIndex` is the first visible page (0-based). `pagesPerView`
     // is 1 in portrait, 2 in landscape — set by the reading view from geometry.
-    var pageIndex: Int = 0
-    var pagesPerView: Int = 2
+    var pageIndex: Int = 0 {
+        didSet { persistSession() }
+    }
+    var pagesPerView: Int = 2 {
+        didSet { persistSession() }
+    }
     var chromeVisible: Bool = true
 
     // Mode
-    var readingMode: ReadingMode = .perform
+    var readingMode: ReadingMode = .perform {
+        didSet { persistSession() }
+    }
     var annotating: Bool { readingMode == .study }
 
     // Annotation. Each ink tool remembers its own color; swatches recolor the
@@ -115,6 +129,25 @@ final class AppState {
     // engraving beats subtlety (a musician's HB, not a whisper).
     var tool: AnnotationTool = .pencil {
         didSet { persistToolSettings() }
+    }
+
+    /// What the pencil's barrel double-tap hands back. Two taps put the
+    /// eraser in your hand; two more return whatever you were holding —
+    /// forScore's behaviour, and what Apple's own "Switch to Eraser"
+    /// preference describes. Not persisted: a launch that finds the eraser
+    /// held gives the pencil back, which is the right guess.
+    private var toolBeforeEraser: AnnotationTool = .pencil
+
+    /// Study only. In Perform the pencil is inert, and a barrel tap that
+    /// silently rearmed a tool nobody can see is worse than nothing.
+    func togglePencilEraser() {
+        guard annotating else { return }
+        if tool == .eraser {
+            tool = toolBeforeEraser
+        } else {
+            toolBeforeEraser = tool
+            tool = .eraser
+        }
     }
     var toolColors: [AnnotationTool: UInt32] = [
         .pencil: AppState.graphiteHex,
@@ -235,7 +268,9 @@ final class AppState {
     static let stageGraphiteHex: UInt32 = 0xDAD4C8
 
     // Stage mode (dark theme), orthogonal to reading mode.
-    var stageMode: Bool = false
+    var stageMode: Bool = false {
+        didSet { persistSession() }
+    }
     var stageBrightnessSuggested: Bool = false
 
     /// Injectable so tests get their own store: tool settings now persist,
@@ -247,6 +282,133 @@ final class AppState {
         self.defaults = defaults
         shelfName = defaults.string(forKey: "shelfName") ?? ""
         restoreToolSettings()
+    }
+
+    // MARK: - Session restore
+    //
+    // Reported 2026-08-27: "it goes back to the first page after I leave the
+    // app." Nothing about *where you were* was ever written down, so any
+    // relaunch — a crash, or iPadOS reclaiming the app while you were in
+    // three others — put you back on the shelf, and reopening put you on
+    // page one. A music stand does not close the book when you look away.
+    //
+    // The snapshot is deliberately small and entirely re-derivable: if the
+    // work has been binned or deleted since, restore simply declines and you
+    // land on the shelf, which is the old behaviour.
+
+    private struct SessionSnapshot: Codable {
+        var destination: String
+        var workID: UUID?
+        var partID: UUID?
+        var programID: UUID?
+        var pageIndex: Int
+        /// Restored so `goToPage`'s landscape parity lock does not re-clamp a
+        /// portrait position: left on page 8 in portrait, a relaunch that
+        /// assumed landscape would put you on page 7.
+        var pagesPerView: Int
+        var readingMode: String
+        var stageMode: Bool
+    }
+
+    private static let sessionKey = "session"
+    private var restoringSession = false
+    private var didRestoreSession = false
+    /// Held separately from `currentProgram` so the snapshot can be written
+    /// without keeping a SwiftData object alive for the encoder.
+    private var currentProgramID: UUID?
+
+    private func persistSession() {
+        guard !restoringSession else { return }
+        let snapshot = SessionSnapshot(
+            destination: destination.rawValue,
+            workID: currentWork?.id,
+            partID: currentPart?.id,
+            programID: currentProgramID,
+            pageIndex: pageIndex,
+            pagesPerView: pagesPerView,
+            readingMode: readingMode.rawValue,
+            stageMode: stageMode
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        defaults.set(data, forKey: Self.sessionKey)
+    }
+
+    /// Put the musician back where they were. Called once, at launch, after
+    /// the store is up.
+    func restoreSession(context: ModelContext) {
+        guard !didRestoreSession else { return }
+        didRestoreSession = true
+        guard let data = defaults.data(forKey: Self.sessionKey),
+              let snapshot = try? JSONDecoder().decode(SessionSnapshot.self, from: data)
+        else { return }
+
+        restoringSession = true
+        defer {
+            restoringSession = false
+            persistSession()
+        }
+
+        // Stage is orthogonal to everything below and survives even a restore
+        // that finds no score: coming back to a bright screen in a dark pit
+        // is the same betrayal as coming back to page one.
+        stageMode = snapshot.stageMode
+
+        guard snapshot.destination == Destination.score.rawValue,
+              let workID = snapshot.workID,
+              let work = fetchWork(id: workID, context: context),
+              work.deletedAt == nil
+        else {
+            destination = Destination(rawValue: snapshot.destination) ?? .library
+            // A destination that needs a score but has none is just the shelf.
+            if destination == .score { destination = .library }
+            return
+        }
+
+        // A programme reopens as a programme, so page turns still run across
+        // its pieces. A programme emptied since is downgraded to the work.
+        if let programID = snapshot.programID,
+           let program = fetchProgram(id: programID, context: context) {
+            let parts = program.sortedItems
+                .compactMap(\.work)
+                .filter { $0.deletedAt == nil }
+                .compactMap { $0.parts.first }
+            if !parts.isEmpty {
+                currentProgram = program
+                currentProgramID = programID
+                programParts = parts
+            }
+        }
+
+        currentWork = work
+        currentPart = work.parts.first { $0.id == snapshot.partID } ?? work.parts.first
+        guard currentPart != nil else { return }
+
+        readingMode = ReadingMode(rawValue: snapshot.readingMode) ?? .perform
+        chromeVisible = false
+        destination = .score
+        // The reading view overwrites this from real geometry on its first
+        // layout; until then the last launch's value is a better guess than
+        // the default, and it decides how goToPage clamps.
+        pagesPerView = max(1, min(snapshot.pagesPerView, 2))
+        // Clamped through goToPage: the part may have been re-imported
+        // shorter since.
+        goToPage(snapshot.pageIndex)
+    }
+
+    // Fetched whole and filtered in Swift rather than by #Predicate.
+    // `#Predicate { $0.id == id }` over these models traps inside SwiftData
+    // (verified 2026-08-27 — EXC_BREAKPOINT, not a throw, so it cannot even
+    // be caught): our `id` is a plain stored UUID living alongside
+    // PersistentModel's own identity. A shelf is tens of works, and this runs
+    // once per launch.
+    private func fetchWork(id: UUID, context: ModelContext) -> Work? {
+        let all = (try? context.fetch(FetchDescriptor<Work>())) ?? []
+        return all.first { $0.id == id }
+    }
+
+    private func fetchProgram(id: UUID, context: ModelContext) -> Program? {
+        let all = (try? context.fetch(FetchDescriptor<Program>())) ?? []
+        return all.first { $0.id == id }
     }
 
     // MARK: - Tool persistence
@@ -385,6 +547,7 @@ final class AppState {
     func openWork(_ work: Work) {
         currentProgram = nil
         programParts = []
+        currentProgramID = nil
         currentWork = work
         currentPart = work.parts.first
         work.lastOpenedAt = Date()
@@ -406,6 +569,7 @@ final class AppState {
         guard let first = parts.first else { return }
         currentProgram = program
         programParts = parts
+        currentProgramID = program.id
         currentPart = first
         currentWork = first.work
         first.work?.lastOpenedAt = Date()

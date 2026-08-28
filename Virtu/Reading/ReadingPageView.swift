@@ -322,6 +322,14 @@ final class ReadingPageView: UIView {
     /// blank per the OS bug), leaving the ink layer as sole display owner.
     private func rebuildCanvas() {
         let old = canvas
+        // Detach BEFORE discarding. A removed canvas is not a dead one:
+        // PencilKit keeps it alive internally and it can still emit
+        // canvasViewDrawingDidChange. That callback writes whatever it is
+        // handed to the CURRENT page slot, so an orphan left wired to us
+        // stamps the page it belonged to onto the page we moved to — the ink
+        // duplicated forward, the ink underneath gone.
+        old.delegate = nil
+        old.drawingGestureRecognizer.removeTarget(self, action: nil)
         old.removeFromSuperview()
 
         canvas = ScoreCanvasView()
@@ -673,6 +681,12 @@ final class ReadingPageView: UIView {
         // A page turn mid-lasso-session would otherwise strand the new page
         // with its ink layer hidden and a blank PencilKit canvas on top.
         endLassoSession()
+        // The 250ms normalization armed by the last pen-up belongs to the
+        // page we are leaving. Let it fire here and it rebuilds the canvas
+        // under the incoming page for no reason.
+        normalizeWork?.cancel()
+        normalizeWork = nil
+        pencilDown = false
         self.partID = partID
         self.pageIndex = pageIndex
 
@@ -903,10 +917,6 @@ final class ReadingPageView: UIView {
         }
     }
 
-    func saveDrawingIfNeeded() {
-        persist(layer: activeLayer)
-    }
-
     private func persist(layer: Int) {
         // Margins carry negative indices on purpose, so this cannot test for
         // a positive one.
@@ -984,7 +994,9 @@ final class ReadingPageView: UIView {
 
 extension ReadingPageView: PKCanvasViewDelegate {
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-        guard !isApplying else { return }
+        // Belt to rebuildCanvas's braces: only the live canvas may write.
+        // Anything else is an orphan speaking for a page we have left.
+        guard canvasView === canvas, !isApplying else { return }
         let scale = displayScale
         guard scale > 0, let partID, pageIndex != Self.unconfiguredPage else { return }
         activeDrawing = canvasView.drawing.transformed(
@@ -1006,6 +1018,7 @@ extension ReadingPageView: PKCanvasViewDelegate {
     }
 
     func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
+        guard canvasView === canvas else { return }
         onCanvasUsed?(self)
     }
 }

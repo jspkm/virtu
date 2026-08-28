@@ -1,5 +1,7 @@
 import XCTest
 import PencilKit
+import SwiftData
+import AVFoundation
 @testable import Virtu
 
 /// Regression suite for the ink pipeline. Every bug class found on hardware
@@ -327,6 +329,79 @@ final class VirtuInkTests: XCTestCase {
         let before = page.canvasNormalizations
         page.apply(tool: PKInkingTool(.pencil, color: .black, width: 3))
         XCTAssertGreaterThan(page.canvasNormalizations, before, "leaving a lasso session must normalize the canvas to blank PencilKit's layer")
+    }
+
+    // MARK: - Orphaned canvases (the ink-duplication bug class)
+    //
+    // Reported 2026-08-27: marks vanished from one page and reappeared on the
+    // next. rebuildCanvas() discarded the outgoing PKCanvasView but left it
+    // wired to us as its delegate, and a removed canvas is not a dead one —
+    // PencilKit can still emit a change from it. That change was written to
+    // whatever page the view had since moved to.
+
+    func testAnOrphanedCanvasCannotStampItsInkOntoAnotherPage() throws {
+        let partID = UUID()
+        let pdfSize = CGSize(width: 612, height: 792)
+        let page = makePageView(partID: partID)
+
+        // Page 0 is written on. `orphan` is the canvas that took the ink.
+        let orphan = page.canvas
+        orphan.drawing = makeDrawing([
+            makeStroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 160, y: 100))
+        ])
+        page.canvasViewDrawingDidChange(orphan)
+        waitForJournal()
+
+        // Any display handoff replaces the canvas — here, a layer change.
+        page.setLayers(active: 2, visible: [1, 2, 3])
+        XCTAssertFalse(page.canvas === orphan, "the handoff did not replace the canvas; this test proves nothing")
+
+        // Page 1 already carries its own, different marking on that layer.
+        let pageOneInk = makeDrawing([
+            makeStroke(from: CGPoint(x: 300, y: 400), to: CGPoint(x: 380, y: 400))
+        ])
+        StrokeJournal.shared.save(
+            pageOneInk, partID: partID, pageIndex: 1, layer: 2, pageSize: pdfSize)
+        waitForJournal()
+
+        // Turn to page 1, then let the orphan speak late.
+        page.configure(partID: partID, pageIndex: 1, pdfSize: pdfSize)
+        page.layoutIfNeeded()
+        page.canvasViewDrawingDidChange(orphan)
+        waitForJournal()
+
+        let saved = try XCTUnwrap(
+            StrokeJournal.shared.load(partID: partID, pageIndex: 1, layer: 2),
+            "page 1's own ink was erased by a canvas belonging to page 0"
+        )
+        XCTAssertEqual(saved.strokes.count, 1)
+        XCTAssertEqual(
+            saved.bounds.minX, pageOneInk.bounds.minX, accuracy: 2,
+            "page 0's marking was stamped onto page 1"
+        )
+
+        // And page 0 keeps what was written on it.
+        let original = try XCTUnwrap(
+            StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: AnnotationLayers.first))
+        XCTAssertEqual(original.strokes.count, 1)
+    }
+
+    func testTurningThePageDisarmsThePendingNormalization() {
+        let partID = UUID()
+        let pdfSize = CGSize(width: 612, height: 792)
+        let page = makePageView(partID: partID)
+
+        // Pen-up arms a rebuild 250ms out; the turn happens inside that window.
+        page.setPencilDown(true)
+        page.setPencilDown(false)
+        page.configure(partID: partID, pageIndex: 1, pdfSize: pdfSize)
+        let after = page.canvasNormalizations
+
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+        XCTAssertEqual(
+            page.canvasNormalizations, after,
+            "a normalization armed for the page we left fired on the page we arrived at"
+        )
     }
 
     // MARK: - Journal
@@ -1454,4 +1529,262 @@ final class VirtuInkTests: XCTestCase {
                        "a page turn stranded the ink layer hidden behind a blank canvas")
         XCTAssertLessThan(page.canvas.alpha, 0.05)
     }
+
+    // MARK: - Session restore (reported 2026-08-27: "it goes back to the
+    // first page after I leave the app")
+
+    /// ONE container for the whole suite. A second in-memory
+    /// `ModelContainer` in the same process is tolerated; a third traps
+    /// inside SwiftData on the next save (verified 2026-08-27). Each test
+    /// gets its own context over the shared store and looks its own work up
+    /// by id, so they stay independent.
+    private static let sharedStore: ModelContainer = {
+        try! ModelContainer(
+            for: Schema([Work.self, Part.self, AnnotationLayer.self, Program.self, ProgramItem.self]),
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+    }()
+
+    @MainActor
+    private func makeContext() -> ModelContext {
+        ModelContext(Self.sharedStore)
+    }
+
+    @MainActor
+    func testRelaunchReturnsToThePageYouLeft() throws {
+        let defaults = Self.scratchDefaults()
+        let context = makeContext()
+        let work = Work(composer: "Bach", title: "Cello Suite no. 1")
+        work.parts.append(Part(name: "cello", pdfFileName: "x.pdf", pageCount: 12))
+        context.insert(work)
+        try context.save()
+
+        let session = AppState(defaults: defaults)
+        session.openWork(work)
+        session.pagesPerView = 1     // portrait
+        session.goToPage(7)
+        session.readingMode = .study
+        session.stageMode = true
+
+        // A cold launch over the same store.
+        let relaunched = AppState(defaults: defaults)
+        XCTAssertEqual(relaunched.destination, .library, "a fresh state must start on the shelf")
+        relaunched.restoreSession(context: context)
+
+        XCTAssertEqual(relaunched.destination, .score)
+        XCTAssertEqual(relaunched.currentWork?.id, work.id)
+        XCTAssertEqual(relaunched.currentPart?.id, work.parts.first?.id)
+        XCTAssertEqual(relaunched.pageIndex, 7, "the musician was put back on page one")
+        XCTAssertEqual(relaunched.readingMode, .study)
+        XCTAssertTrue(relaunched.stageMode, "stage went bright on relaunch")
+    }
+
+    @MainActor
+    func testRelaunchDeclinesToReopenABinnedWork() throws {
+        let defaults = Self.scratchDefaults()
+        let context = makeContext()
+        let work = Work(composer: "Bach", title: "Cello Suite no. 1")
+        work.parts.append(Part(name: "cello", pdfFileName: "x.pdf", pageCount: 12))
+        context.insert(work)
+        try context.save()
+
+        let session = AppState(defaults: defaults)
+        session.openWork(work)
+        session.goToPage(4)
+        work.deletedAt = .now
+        try context.save()
+
+        let relaunched = AppState(defaults: defaults)
+        relaunched.restoreSession(context: context)
+        XCTAssertEqual(relaunched.destination, .library, "restore reopened a work sitting in the bin")
+        XCTAssertNil(relaunched.currentPart)
+    }
+
+    @MainActor
+    func testRestoreIsIdempotent() throws {
+        let defaults = Self.scratchDefaults()
+        let context = makeContext()
+        let work = Work(composer: "Bach", title: "Cello Suite no. 1")
+        work.parts.append(Part(name: "cello", pdfFileName: "x.pdf", pageCount: 12))
+        context.insert(work)
+        try context.save()
+
+        let session = AppState(defaults: defaults)
+        session.openWork(work)
+        session.pagesPerView = 1
+        session.goToPage(5)
+
+        let relaunched = AppState(defaults: defaults)
+        relaunched.restoreSession(context: context)
+        relaunched.goToPage(2)
+        // onAppear can fire more than once per scene; a second restore must
+        // not drag the musician back off the page they just turned to.
+        relaunched.restoreSession(context: context)
+        XCTAssertEqual(relaunched.pageIndex, 2)
+    }
+
+    // MARK: - The pencil's barrel (forScore parity)
+
+    func testBarrelDoubleTapSwapsTheEraserInAndOut() {
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.readingMode = .study
+        state.tool = .highlighter
+
+        state.togglePencilEraser()
+        XCTAssertEqual(state.tool, .eraser)
+
+        state.togglePencilEraser()
+        XCTAssertEqual(
+            state.tool, .highlighter,
+            "the barrel must give back the tool you were holding, not a default"
+        )
+    }
+
+    func testBarrelDoubleTapIsInertInPerform() {
+        let state = AppState(defaults: Self.scratchDefaults())
+        state.readingMode = .perform
+        state.tool = .pencil
+        state.togglePencilEraser()
+        XCTAssertEqual(state.tool, .pencil, "the pencil is inert in Perform; the barrel is too")
+    }
+
+
+    // MARK: - Metronome
+    //
+    // PRD §10: a sample-accurate clock, never a Timer. The buffer IS the
+    // tempo — the clicks sit at their sample offsets and the bar loops — so
+    // the buffer's length and the position of its transients is the only
+    // place correctness is observable.
+
+    /// Sample index of the start of each click in a bar.
+    ///
+    /// A click is a decaying sine, so it crosses zero dozens of times inside
+    /// its own envelope — an onset needs a hold-off longer than the click, or
+    /// every half-cycle reads as a new one.
+    private func clickOnsets(_ buffer: AVAudioPCMBuffer, sampleRate: Double = 44_100) -> [Int] {
+        guard let data = buffer.floatChannelData?[0] else { return [] }
+        let holdOff = Int(sampleRate * 0.05)   // longer than Metronome.clickSeconds
+        var onsets: [Int] = []
+        var i = 0
+        while i < Int(buffer.frameLength) {
+            if abs(data[i]) > 0.001 {
+                onsets.append(i)
+                i += holdOff
+            } else {
+                i += 1
+            }
+        }
+        return onsets
+    }
+
+    /// Clicks land on their beats, to within a sample or two — the first
+    /// sample of a sine burst is sin(0), which is exactly silent.
+    private func assertOnsets(
+        _ buffer: AVAudioPCMBuffer, are expected: [Int],
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let onsets = clickOnsets(buffer)
+        XCTAssertEqual(
+            onsets.count, expected.count,
+            "expected \(expected.count) clicks to the bar, got \(onsets.count)",
+            file: file, line: line
+        )
+        for (got, want) in zip(onsets, expected) {
+            XCTAssertLessThanOrEqual(
+                abs(got - want), 2,
+                "a click landed at sample \(got) instead of \(want) — a metronome that drifts",
+                file: file, line: line
+            )
+        }
+    }
+
+    func testBarBufferIsExactlyOneBarLong() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 120
+        metronome.beatsPerBar = 4
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        // 120bpm = 0.5s a beat = 22050 frames; four of them to the bar.
+        XCTAssertEqual(Int(buffer.frameLength), 88_200)
+    }
+
+    func testClicksSitOnTheBeatsAndNowhereElse() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 120
+        metronome.beatsPerBar = 4
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        assertOnsets(buffer, are: [0, 22_050, 44_100, 66_150])
+    }
+
+    func testMeterChangesTheNumberOfClicks() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 60
+        metronome.beatsPerBar = 3
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        assertOnsets(buffer, are: [0, 44_100, 88_200])
+        XCTAssertEqual(Int(buffer.frameLength), 132_300)
+    }
+
+    func testBeatOneIsAudiblyTheDownbeat() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 120
+        metronome.beatsPerBar = 4
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        let data = try XCTUnwrap(buffer.floatChannelData?[0])
+        // The accent is a different frequency, so the two clicks cannot be
+        // sample-identical. Compared a little way in, where the two sines
+        // have visibly diverged.
+        let accent = (40..<200).map { data[$0] }
+        let plain = (40..<200).map { data[22_050 + $0] }
+        XCTAssertNotEqual(accent, plain, "beat one sounds the same as beat two — there is no downbeat")
+    }
+
+    func testTapTempoDerivesTheTempo() {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        let start = Date(timeIntervalSinceReferenceDate: 1_000)
+        metronome.tap(at: start)
+        metronome.tap(at: start.addingTimeInterval(0.5))
+        metronome.tap(at: start.addingTimeInterval(1.0))
+        XCTAssertEqual(metronome.bpm, 120)
+    }
+
+    func testTapsOlderThanTheWindowAreForgotten() {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        let start = Date(timeIntervalSinceReferenceDate: 1_000)
+        metronome.tap(at: start)
+        // A pause between phrases must not be read as a very slow tempo.
+        metronome.tap(at: start.addingTimeInterval(10))
+        let afterPause = metronome.bpm
+        metronome.tap(at: start.addingTimeInterval(10.5))
+        XCTAssertNotEqual(afterPause, 6, "a ten-second gap was taken for a tempo")
+        XCTAssertEqual(metronome.bpm, 120)
+    }
+
+    func testTempoIsClampedToThePlayableRange() {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 5_000
+        XCTAssertEqual(metronome.bpm, Metronome.maxBPM)
+        metronome.bpm = 0
+        XCTAssertEqual(metronome.bpm, Metronome.minBPM)
+    }
+
+    func testTempoAndMeterSurviveRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Metronome(defaults: defaults)
+        first.bpm = 76
+        first.beatsPerBar = 3
+
+        let relaunched = Metronome(defaults: defaults)
+        XCTAssertEqual(relaunched.bpm, 76, "the tempo you set was not there when you came back")
+        XCTAssertEqual(relaunched.beatsPerBar, 3)
+    }
+
+    func testTempoWordsFollowTheHandoffThresholds() {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        for (bpm, word) in [(40, "largo"), (60, "adagio"), (76, "andante"),
+                            (96, "moderato"), (112, "allegro"), (140, "presto")] {
+            metronome.bpm = bpm
+            XCTAssertEqual(metronome.tempoWord, word, "\(bpm) should read as \(word)")
+        }
+    }
+
 }

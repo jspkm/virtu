@@ -73,7 +73,7 @@ struct WorkInfoSheet: View {
         if let part = work.parts.first, !partName.isEmpty {
             part.name = partName
         }
-        work.estimatedMinutes = Int(estimatedMinutes.trimmingCharacters(in: .whitespaces))
+        work.estimatedMinutes = Int(estimatedMinutes.trimmed)
         try? modelContext.save()
         dismiss()
     }

@@ -34,10 +34,8 @@ enum VFont {
     }
 
     // Named roles from the design handoff
-    static let screenTitle = serif(38)
     static let sectionHeading = serif(20)
     static let workTitle = serif(17)
-    static let scoreTitle = serif(15)
     static let nowPlayingTitle = serif(17)
 
     static let eyebrow = sans(10.5, weight: .semibold)
@@ -50,9 +48,7 @@ enum VFont {
     static let control = sans(13, weight: .medium)
     static let body = sans(13, weight: .regular)
     static let metadata = sans(11, weight: .regular)
-    static let searchInput = sans(15)
 
-    static let bpmPanel = mono(44, weight: .medium)
     static let bpmTools = mono(60, weight: .medium)
     static let catalogueNumber = mono(10.5)
     static let pageNumber = mono(9)

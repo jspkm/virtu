@@ -40,13 +40,6 @@ enum Tokens {
         static let railFaint = Color(hex: 0x6B6862)
     }
 
-    // MARK: - Annotation inks
-
-    static let inkRed   = Color(hex: 0xB33F26)
-    static let inkBlue  = Color(hex: 0x2B3E5E)
-    static let inkGreen = Color(hex: 0x2D6A3F)
-    static let inkWhite = Color(hex: 0xEDE9E1)
-
     // MARK: - Radii
 
     enum Radius {
@@ -55,23 +48,14 @@ enum Tokens {
         static let smallControl: CGFloat = 8
         static let button: CGFloat = 10
         static let toolButton: CGFloat = 11
-        static let searchInput: CGFloat = 12
-        static let seamStrip: CGFloat = 12
         static let card: CGFloat = 14
-        static let floatingPanel: CGFloat = 16
         static let pill: CGFloat = 999
     }
 
     // MARK: - Spacing
 
     static let screenPadding = EdgeInsets(top: 34, leading: 40, bottom: 48, trailing: 40)
-    static let gridUnit: CGFloat = 4
 
-    // MARK: - Hit targets
-
-    static let tapZoneWidth: CGFloat = 170
-    static let railButtonSize = CGSize(width: 56, height: 48)
-    static let annotationToolSize: CGFloat = 44
     // MARK: - Always-on reading controls (top right)
     //
     // Sized against each other rather than to a 44pt grid. At 44pt square the
@@ -208,22 +192,6 @@ extension Color {
             blue: Double(hex & 0xFF) / 255,
             opacity: opacity
         )
-    }
-
-    init(hex: UInt32) {
-        self.init(hex: hex, opacity: 1)
-    }
-
-    /// Back to a 0xRRGGBB value for storage — the currency the ink model
-    /// already speaks. Whatever wide-gamut colour the system picker hands
-    /// back is clamped into it rather than rejected.
-    var hexValue: UInt32 {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a) else {
-            return 0x26221E
-        }
-        let channel: (CGFloat) -> UInt32 = { UInt32((max(0, min(1, $0)) * 255).rounded()) }
-        return channel(r) << 16 | channel(g) << 8 | channel(b)
     }
 }
 
