@@ -33,6 +33,7 @@
 		5BD00051895A7FADDDBE8553 /* ProgramEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */; };
 		5BF8786C61383A861579ED32 /* NavRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470085E4A1BB516D6F599BCF /* NavRailView.swift */; };
 		5FDD4B81E74389BCB45EFEBE /* Archivo-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 48236BE2D525BEC327353494 /* Archivo-SemiBold.ttf */; };
+		686AE9B60F7789C1AAEC5C66 /* TurnsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50F148CC8E9F809702C43D9 /* TurnsCard.swift */; };
 		708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */; };
 		72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD13E0C987E87F6A734F83AD /* SeedData.swift */; };
 		813AF30D48DABA0A616DB416 /* ToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19348EE6BE543E728C816058 /* ToolsView.swift */; };
@@ -117,6 +118,7 @@
 		AD9E3C139EEBE58F976E037A /* ReadingContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingContainerView.swift; sourceTree = "<group>"; };
 		B20201F9D4F06EF67D6D4EAB /* LoopPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopPlayer.swift; sourceTree = "<group>"; };
 		C3485586FDA4910CF3B3216F /* Newsreader-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Italic.ttf"; sourceTree = "<group>"; };
+		C50F148CC8E9F809702C43D9 /* TurnsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnsCard.swift; sourceTree = "<group>"; };
 		C592AD3F6E92ED07B6CCA021 /* brahms-piano-quartet-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "brahms-piano-quartet-1.pdf"; sourceTree = "<group>"; };
 		CD13E0C987E87F6A734F83AD /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
 		CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
@@ -274,6 +276,7 @@
 				19348EE6BE543E728C816058 /* ToolsView.swift */,
 				CEF16B44C226E47AE6106E69 /* Tuner.swift */,
 				6DE623654C0232EA0810EFC2 /* TunerCard.swift */,
+				C50F148CC8E9F809702C43D9 /* TurnsCard.swift */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -440,6 +443,7 @@
 				35AE5F1C6D532F09B648885C /* TopChromeView.swift in Sources */,
 				9F90264C3A25E5E2B3455FEB /* Tuner.swift in Sources */,
 				EEEA15C530ED3473977A46E9 /* TunerCard.swift in Sources */,
+				686AE9B60F7789C1AAEC5C66 /* TurnsCard.swift in Sources */,
 				F0AFEEA9511C612CA50E4A37 /* Typography.swift in Sources */,
 				F4DB76DFF7DE4B549733AB18 /* VirtuApp.swift in Sources */,
 				F571E6D459600442EEAFCAAB /* Work.swift in Sources */,
