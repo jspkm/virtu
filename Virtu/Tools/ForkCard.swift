@@ -1,13 +1,18 @@
 import SwiftUI
 
-/// The tuning fork — a sounded reference, on its own card.
+/// The tuning fork: the orchestra's A, and nothing else.
 ///
-/// Separate from the tuner because giving a pitch and checking a pitch are
-/// two different jobs, and the musician is doing exactly one of them at a
-/// time. The model enforces that: sounding stops listening and listening
-/// stops sounding, because an iPad's microphone and its speaker are a hand
-/// apart and a tuner that hears its own fork reports, with total confidence,
-/// that you are perfectly in tune.
+/// Deliberately not a second tuner. A fork is one pitch you strike without
+/// deciding anything — that is the whole of its value, and giving it a note
+/// picker would make it a worse copy of the card above it. Choosing a note
+/// belongs to the tuner's Play mode; this is for the moment before a
+/// rehearsal when someone says "give us an A".
+///
+/// It follows the calibration, so a baroque player's fork is a baroque fork.
+/// It shares the tuner's one oscillator and audio-session claim, so sounding
+/// it stops whatever else was sounding — and cannot run while the tuner
+/// listens, because a microphone a hand from the speaker would hear it and
+/// report perfect tuning.
 struct ForkCard: View {
     @Environment(\.theme) private var theme
     @State private var tuner = Tuner.shared
@@ -22,10 +27,10 @@ struct ForkCard: View {
                 .padding(.bottom, 16)
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(Pitch.name(pitchClass: tuner.forkPitchClass, spelling: tuner.spelling))
+                Text("A")
                     .font(VFont.tunerNote)
                     .foregroundStyle(theme.ink)
-                Text("\(tuner.forkOctave)")
+                Text("\(Tuner.forkOctave)")
                     .font(VFont.mono(13))
                     .foregroundStyle(theme.muted)
                 Spacer()
@@ -34,21 +39,23 @@ struct ForkCard: View {
                     .foregroundStyle(theme.muted)
                     .monospacedDigit()
             }
-            .padding(.bottom, 18)
 
-            notes
-            octaves.padding(.top, 8)
+            Text("The A everyone tunes to, at the pitch you set above.")
+                .font(VFont.metadata)
+                .foregroundStyle(theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 8)
 
             Button {
-                tuner.toggleSounding()
+                tuner.toggleSounding(.fork)
                 Haptics.medium()
             } label: {
-                Text(tuner.isSounding ? "Stop" : "Sound")
+                Text(tuner.sounds(.fork) ? "Stop" : "Sound the A")
                     .font(VFont.control)
                     .foregroundStyle(theme.paper)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(tuner.isSounding ? theme.accent : theme.ink)
+                    .background(tuner.sounds(.fork) ? theme.accent : theme.ink)
                     .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.button))
             }
             .buttonStyle(.plain)
@@ -56,56 +63,5 @@ struct ForkCard: View {
         }
         .padding(24)
         .plateCard()
-    }
-
-    /// Twelve across two rows of six — one row of twelve is unreadable at
-    /// card width, and a scroller hides half the notes behind a gesture.
-    private var notes: some View {
-        VStack(spacing: 4) {
-            ForEach([Array(0..<6), Array(6..<12)], id: \.self) { row in
-                HStack(spacing: 4) {
-                    ForEach(row, id: \.self) { pitchClass in
-                        let selected = tuner.forkPitchClass == pitchClass
-                        Button {
-                            tuner.forkPitchClass = pitchClass
-                            Haptics.selection()
-                        } label: {
-                            Text(Pitch.name(pitchClass: pitchClass, spelling: tuner.spelling))
-                                .font(VFont.mono(12))
-                                .foregroundStyle(selected ? theme.paper : theme.muted)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(selected ? theme.ink : theme.wash)
-                                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(selected ? [.isSelected] : [])
-                    }
-                }
-            }
-        }
-    }
-
-    private var octaves: some View {
-        HStack(spacing: 4) {
-            ForEach(Tuner.forkOctaves, id: \.self) { octave in
-                let selected = tuner.forkOctave == octave
-                Button {
-                    tuner.forkOctave = octave
-                    Haptics.selection()
-                } label: {
-                    Text("\(octave)")
-                        .font(VFont.mono(12))
-                        .foregroundStyle(selected ? theme.paper : theme.muted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(selected ? theme.ink : theme.wash)
-                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Octave \(octave)")
-                .accessibilityAddTraits(selected ? [.isSelected] : [])
-            }
-        }
     }
 }

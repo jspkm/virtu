@@ -99,6 +99,13 @@ final class VirtuInkTests: XCTestCase {
         return UserDefaults(suiteName: name) ?? .standard
     }
 
+    /// The drone fades out before the engine stops, and the audio-session
+    /// claim is released in that completion — so a test that starts a tone
+    /// and returns immediately leaks the claim into whatever runs next.
+    private func waitForFadeOut() {
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.15))
+    }
+
     private func waitForJournal() {
         // A real barrier on the journal's own queue. This was a fixed 0.6s
         // sleep, which was a guess — and one that got slower and flakier as
@@ -2000,8 +2007,8 @@ final class VirtuInkTests: XCTestCase {
         for reference in Tuner.references {
             let tuner = Tuner(defaults: Self.scratchDefaults())
             tuner.referenceHz = reference
-            tuner.forkPitchClass = 9        // A
-            tuner.forkOctave = 4
+            tuner.tonePitchClass = 9        // A
+            tuner.toneOctave = 4
             let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
             let data = try XCTUnwrap(buffer.floatChannelData?[0])
             let window = (0..<PitchDetector.windowFrames).map { data[$0] }
@@ -2019,8 +2026,8 @@ final class VirtuInkTests: XCTestCase {
                 for (pitchClass, octave) in [(9, 4), (0, 5), (10, 5), (11, 6), (0, 4)] {
                     let tuner = Tuner(defaults: Self.scratchDefaults())
                     tuner.referenceHz = reference
-                    tuner.forkPitchClass = pitchClass
-                    tuner.forkOctave = octave
+                    tuner.tonePitchClass = pitchClass
+                    tuner.toneOctave = octave
                     let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
                     let data = try XCTUnwrap(buffer.floatChannelData?[0])
                     let frames = Int(buffer.frameLength)
@@ -2462,6 +2469,11 @@ final class VirtuInkTests: XCTestCase {
 
     func testTheScreenStaysAwakeWhileAnyoneStillWantsIt() {
         let wake = ScreenWake.shared
+        // Relative to whatever is already claimed, not absolute. Asserting
+        // the global was empty made this test depend on every other test
+        // having released — and the tuner releases its claim from a fade
+        // completion that outlives the test that started it.
+        let wasAwake = wake.isAwake
         var decisions: [Bool] = []
         let original = wake.apply
         wake.apply = { decisions.append($0) }
@@ -2471,15 +2483,15 @@ final class VirtuInkTests: XCTestCase {
         wake.claim("test.b")
         XCTAssertTrue(wake.isAwake)
 
-        // The bug this replaces: one owner releasing put the screen to sleep
-        // under the other, and nothing re-armed it.
+        // The invariant: one owner releasing must not put the screen to sleep
+        // under the other. That was the bug this replaces.
         wake.release("test.a")
         XCTAssertTrue(wake.isAwake, "one owner releasing let the screen sleep under the other")
         XCTAssertEqual(decisions.last, true)
 
         wake.release("test.b")
-        XCTAssertFalse(wake.isAwake)
-        XCTAssertEqual(decisions.last, false)
+        XCTAssertEqual(wake.isAwake, wasAwake,
+                       "releasing our own claims changed somebody else's")
     }
 
     func testClaimingTwiceIsNotTwoClaims() {
@@ -2785,14 +2797,14 @@ final class VirtuInkTests: XCTestCase {
     // MARK: - The tuning fork (PRD §5.1)
 
     func testForkPitchesAreTheOnesTheKeyboardHas() {
-        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 0, octave: 4, referenceA: 440), 261.6256, accuracy: 0.001)
-        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 9, octave: 4, referenceA: 440), 440, accuracy: 0.0001)
-        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 11, octave: 6, referenceA: 440), 1975.533, accuracy: 0.01)
+        XCTAssertEqual(Tuner.frequency(pitchClass: 0, octave: 4, referenceA: 440), 261.6256, accuracy: 0.001)
+        XCTAssertEqual(Tuner.frequency(pitchClass: 9, octave: 4, referenceA: 440), 440, accuracy: 0.0001)
+        XCTAssertEqual(Tuner.frequency(pitchClass: 11, octave: 6, referenceA: 440), 1975.533, accuracy: 0.01)
     }
 
     func testTheForkFollowsTheReference() {
         // A baroque player's fork is a baroque fork.
-        let a415 = Tuner.forkFrequency(pitchClass: 9, octave: 4, referenceA: 415)
+        let a415 = Tuner.frequency(pitchClass: 9, octave: 4, referenceA: 415)
         XCTAssertEqual(a415, 415, accuracy: 0.0001)
         XCTAssertEqual(1200 * log2(a415 / 440), -100, accuracy: 2, "A415 is a semitone under A440")
     }
@@ -2809,22 +2821,22 @@ final class VirtuInkTests: XCTestCase {
         let tuner = Tuner(defaults: Self.scratchDefaults())
         tuner.referenceHz = 440
         for (pitchClass, octave) in [(0, 4), (5, 5), (11, 6)] {
-            tuner.forkPitchClass = pitchClass
-            tuner.forkOctave = octave
+            tuner.tonePitchClass = pitchClass
+            tuner.toneOctave = octave
             let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
             let data = try XCTUnwrap(buffer.floatChannelData?[0])
             let window = (0..<PitchDetector.windowFrames).map { data[$0] }
-            assertHears(Tuner.forkFrequency(pitchClass: pitchClass, octave: octave, referenceA: 440),
+            assertHears(Tuner.frequency(pitchClass: pitchClass, octave: octave, referenceA: 440),
                         in: window, sampleRate: rate, withinCents: 2, ceilingHz: 2_200)
         }
     }
 
-    func testTheForkIsClampedToTheOctavesOffered() {
+    func testTheToneIsClampedToTheOctavesOffered() {
         let tuner = Tuner(defaults: Self.scratchDefaults())
-        tuner.forkOctave = 1
-        XCTAssertEqual(tuner.forkOctave, 4)
-        tuner.forkOctave = 9
-        XCTAssertEqual(tuner.forkOctave, 6)
+        tuner.toneOctave = 1
+        XCTAssertEqual(tuner.toneOctave, Tuner.toneOctaves.first)
+        tuner.toneOctave = 9
+        XCTAssertEqual(tuner.toneOctave, Tuner.toneOctaves.last)
     }
 
 
@@ -2861,6 +2873,106 @@ final class VirtuInkTests: XCTestCase {
         // uses; assert the value it is given cannot round to a different A.
         XCTAssertNotEqual(Int(tuner.referenceHz), Int(tuner.referenceHz.rounded()),
                           "this test proves nothing if 442.5 truncates to itself")
+    }
+
+
+    func testSoundingTheForkActuallyRendersAudio() throws {
+        // `isSounding` only says the state machine ran. This asks the audio
+        // clock whether a tone is actually being produced — the difference
+        // between a button that says Stop and a speaker that makes a sound.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.tonePitchClass = 9
+        tuner.toneOctave = 4
+
+        tuner.startSounding(.tuner)
+        guard tuner.isSounding else {
+            throw XCTSkip("no audio output on this host — the drone path cannot be exercised")
+        }
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
+
+        let elapsed = try XCTUnwrap(
+            tuner.droneElapsedSeconds,
+            "the fork reports that it is sounding, but its playhead does not exist")
+        XCTAssertGreaterThan(
+            elapsed, 0.05,
+            "the fork says it is sounding and the playhead has not moved — silence")
+
+        tuner.stopSounding()
+        XCTAssertFalse(tuner.isSounding)
+    }
+
+
+    // MARK: - Two modes, one oscillator
+
+    func testTheTunerAndTheForkAreDifferentReferences() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 442
+        tuner.tonePitchClass = 0        // C
+        tuner.toneOctave = 5
+
+        // The fork is an A whatever the tuner is set to — that is what makes
+        // it a fork rather than a second tuner.
+        XCTAssertEqual(tuner.forkHz, 442, accuracy: 0.001)
+        XCTAssertEqual(tuner.toneHz, 525.6, accuracy: 0.1)
+
+        // Both follow the calibration.
+        tuner.referenceHz = 415
+        XCTAssertEqual(tuner.forkHz, 415, accuracy: 0.001)
+        XCTAssertEqual(tuner.toneHz, 493.5, accuracy: 0.1)
+    }
+
+    func testSoundingSwapsBetweenTheTwoWithoutStopping() throws {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.tonePitchClass = 0
+        tuner.toneOctave = 5
+
+        tuner.startSounding(.tuner)
+        guard tuner.isSounding else {
+            throw XCTSkip("no audio output on this host")
+        }
+        XCTAssertTrue(tuner.sounds(.tuner))
+        XCTAssertFalse(tuner.sounds(.fork), "both cards would show Stop")
+
+        // Pressing the fork while the tuner sounds swaps what the loop holds.
+        tuner.startSounding(.fork)
+        XCTAssertTrue(tuner.sounds(.fork))
+        XCTAssertFalse(tuner.sounds(.tuner))
+        XCTAssertTrue(tuner.isSounding, "swapping the reference stopped the sound")
+
+        tuner.stopSounding()
+        XCTAssertFalse(tuner.isSounding)
+        waitForFadeOut()
+    }
+
+    func testTheModesTurnEachOtherOff() throws {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.mode = .play
+        tuner.startSounding(.tuner)
+        guard tuner.isSounding else { throw XCTSkip("no audio output on this host") }
+
+        // Switching to Listen must silence the tone: a microphone a hand from
+        // the speaker would hear it and report perfect tuning.
+        tuner.mode = .listen
+        XCTAssertFalse(tuner.isSounding, "the tone kept sounding into the microphone")
+        waitForFadeOut()
+    }
+
+    func testTheModeSurvivesRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Tuner(defaults: defaults)
+        XCTAssertEqual(first.mode, .play, "the tuner should open on the half that needs no permission")
+        first.mode = .listen
+        XCTAssertEqual(Tuner(defaults: defaults).mode, .listen)
+    }
+
+    func testTheToneSurvivesRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Tuner(defaults: defaults)
+        first.tonePitchClass = 3
+        first.toneOctave = 2
+        let relaunched = Tuner(defaults: defaults)
+        XCTAssertEqual(relaunched.tonePitchClass, 3)
+        XCTAssertEqual(relaunched.toneOctave, 2)
     }
 
 }

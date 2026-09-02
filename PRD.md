@@ -165,6 +165,25 @@ test for everything below is the same as everywhere else: it must hold up at the
 
 #### The tuner
 
+**Two modes, and they are the two things the hardware cannot do at once.**
+
+- **Play a note** — set any note in any octave the range offers and sound it, to tune
+  against by ear. This half needs no permission and no microphone, so it is where the
+  tuner opens.
+- **Listen** — hear the instrument and say what it is actually playing.
+
+They are exclusive because an iPad's microphone and its speaker are a hand apart: a tuner
+sounding a tone *and* listening hears its own tone and reports, with total confidence,
+that you are perfectly in tune. Switching mode is therefore also how you stop the other.
+
+**The tone's range.** Any of the twelve pitch classes, in octaves 2 to 6 — C2 (the
+cello's bottom string, 65Hz) to B6 (1975Hz). Below C2 an iPad speaker cannot reproduce a
+fundamental and above B6 it is a whistle, so a wider range would be offering something
+that does not work.
+
+> **DONE** — 2026-09-02. It first shipped inside out, with the note picker on the fork
+> card and a tuner that could set a reference and not sound it; corrected the same day.
+
 **Reference calibration.** A4 is continuously adjustable from **415.0 Hz to 456.0 Hz** in
 0.5 Hz steps — baroque pitch at the bottom, sharp continental and brass-band pitch at the
 top. Presets remain for the values people actually name (415, 430, 432, 435, 440, 442,
@@ -212,12 +231,14 @@ jitter is smoothed enough to lag the string.
 
 #### The tuning fork
 
-A sounded reference, separate from the tuner because giving a pitch and checking a pitch
-are two different jobs and the musician is doing exactly one of them at a time.
+**The orchestra's A, and nothing else.** Deliberately not a second tuner: a fork is one
+pitch you strike without deciding anything, and that is the whole of its value. Choosing a
+note belongs to the tuner's Play mode; this is for the moment before a rehearsal when
+someone says "give us an A".
 
-**Any of the twelve pitch classes, in octaves 4, 5 or 6** — C4 (261.6 Hz at A440) to B6
-(1975.5 Hz) — computed from the A4 reference above, so a baroque player's fork is a
-baroque fork. The sounding pitch is shown in hertz beside the note.
+A4, at whatever the reference is calibrated to, so a baroque player's fork is a baroque
+fork. It shares the tuner's one oscillator and one audio-session claim, so sounding it
+stops whatever else was sounding.
 
 The tone is the fundamental plus four quiet partials, looped over a whole number of
 cycles so the wrap is silent and the pitch is exactly the number displayed. It **stops
@@ -225,8 +246,8 @@ whenever the tuner starts listening, and cannot sound while the tuner listens** 
 microphone and speaker are a hand apart, and a tuner that hears its own fork reports, with
 total confidence, that you are perfectly in tune.
 
-> **DONE** — twelve pitch classes across octaves 4–6, on its own card. Verified on
-> device: C5 sounds 525.6Hz at A442.
+> **DONE** — verified on device: the fork sounds the A at the calibration, and only the
+> card actually sounding shows Stop.
 >
 > **One thing worth keeping written down.** The loop's length is a whole number of
 > samples, so it cannot also hold a whole number of cycles of an arbitrary pitch — the
