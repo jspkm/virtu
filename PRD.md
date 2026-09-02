@@ -146,7 +146,7 @@ Five surfaces, fully specified for appearance in the design handoff. Scope per r
 | **Reading** | Play from the score. Two-page spread, edge taps to turn, centre tap to hide all chrome. | Screens § 2 | **DONE** — plus the Perform/Study wall, Corner Peek, Stage, pedals, scrubber. |
 | **Annotation** | Non-modal tool rail: pencil, pen, highlighter, text, erase; four inks. No "done" button; page turns keep working while marking. | Screens § 2 | **PARTIAL** — everything but **text**. Layers, nib widths, line styles and free colour go past the spec. |
 | **Find** | One field over the shelf. (Public-archive and in-score search are later — §6.) | Screens § 3 | **NOT BUILT** — the rail destination is a stub reading "Coming in M1". |
-| **Tools** | Metronome, tuning reference, page-turn preferences. | Screens § 4 | **PARTIAL** — the metronome and the tuner are built (2026-08-28); the tuner also listens, which the handoff did not draw. Both are short of the bench specified in §5.1, and page-turn preferences are not built. The refusal in §6.0(3) is withdrawn. |
+| **Tools** | Metronome, tuning reference, page-turn preferences. | Screens § 4 | **PARTIAL** — the metronome and the tuner are built (2026-08-28); the tuner also listens, which the handoff did not draw. The bench specified in §5.1 is built as of 2026-09-02; page-turn preferences are partly built (the pedal switch and the Pencil-less drawing hatch; the seam and half-page rows wait on the behaviour they would control). The refusal in §6.0(3) is withdrawn. |
 
 One of five rail destinations currently leads nowhere. Either build it or take
 it out of the rail — a dead end at the stand costs more than a missing
@@ -172,8 +172,9 @@ top. Presets remain for the values people actually name (415, 430, 432, 435, 440
 only when the reference is not 440. The reference is the only calibration in the product,
 and everything the tuner says is relative to it.
 
-> **BUILT, PARTIAL** — four fixed presets (442/440/432/415) that the setter *snaps* to.
-> The continuous range, the steppers and the reset are not built.
+> **DONE** — continuous 415.0–456.0 in half-hertz steps, the named values behind the
+> figure, steppers either side, and a reset that appears only when the reference is not
+> 440. Shipped 2026-09-02.
 
 **Target note.** Two modes, because they fail differently:
 
@@ -185,14 +186,18 @@ and everything the tuner says is relative to it.
   measured against *that* note in whichever octave is nearest. A slack D string reads as
   D, eighty cents flat, and stays D while you bring it up.
 
-> **BUILT, PARTIAL** — auto only. Pinning is not built.
+> **DONE** — both modes. Pinned readings are deliberately *not* persisted, unlike the
+> reference, the fork and the spelling: a target is a thing you set for one string, and
+> coming back tomorrow still pinned to D — with the tuner refusing to name anything else
+> — would read as broken.
 
 **Accidental spelling.** All twelve pitch classes are addressable, spelled with **sharps
 or flats at the musician's choice** — a violinist in E major thinks D♯ and a clarinettist
 in E♭ thinks E♭, and neither should have to translate. The choice applies everywhere a
 note is named: the readout, the target picker, and the fork.
 
-> **NOT BUILT** — sharps only, hardcoded.
+> **DONE** — sharps or flats, chosen on the card and applied to the readout, the target
+> picker and the fork alike.
 >
 > **Typographic note.** No bundled face carries U+266F/U+266D, so the accidentals resolve
 > through the system font cascade and must be set as their own `Text` runs to sit
@@ -220,8 +225,15 @@ whenever the tuner starts listening, and cannot sound while the tuner listens** 
 microphone and speaker are a hand apart, and a tuner that hears its own fork reports, with
 total confidence, that you are perfectly in tune.
 
-> **BUILT, PARTIAL** — sounds A at the reference only. Note and octave selection are not
-> built.
+> **DONE** — twelve pitch classes across octaves 4–6, on its own card. Verified on
+> device: C5 sounds 525.6Hz at A442.
+>
+> **One thing worth keeping written down.** The loop's length is a whole number of
+> samples, so it cannot also hold a whole number of cycles of an arbitrary pitch — the
+> leftover phase at the wrap grows with frequency, and at B6 it reached a third of the
+> tone's own amplitude, which is a click once a second. The buffer's length is therefore
+> chosen first and the frequency derived from it, which makes the wrap bit-exact and
+> moves the pitch by under 0.02 cents.
 
 #### The metronome
 
@@ -232,13 +244,14 @@ reel at pitch. Coarse adjustment is a slider mapped **logarithmically**, because
 perception is logarithmic and a linear slider across 485 BPM cannot resolve a single beat
 at the bottom; fine adjustment is ±1 steppers; tap tempo remains.
 
-> **BUILT, PARTIAL** — 30 to 220, linear slider, no steppers. The word ladder stops at
-> *presto* and has no *grave* or *vivace*.
+> **DONE** — 15 to 500, a logarithmic slider with ±1 steppers beside it, and the full
+> ladder. Every threshold the handoff set is preserved; grave was added below and the
+> catch-all above 140 split into vivace, presto and prestissimo.
 
 **Meter: 1 to 7 beats to the bar**, beat one accented. One beat is a legitimate setting —
 it is a plain pulse with no downbeat pattern, which is what you want when subdividing.
 
-> **BUILT, PARTIAL** — 2 to 6.
+> **DONE** — 1 to 7.
 
 **Rhythm.** Every beat may be subdivided, and the subdivision is a third, quieter voice
 under the accent and the beat:
@@ -252,7 +265,11 @@ under the accent and the beat:
 | **Swing** | 2 | ⅔ — the shuffle, not an even eighth |
 | **Dotted** | 2 | ¾ — dotted-eighth and sixteenth |
 
-> **NOT BUILT.** The click is one voice at one click per beat.
+> **DONE** — all six, as a third and quieter click voice under the accent and the beat.
+> At the top of the range the click shortens so consecutive clicks cannot run together,
+> and that bound includes the gap from the last click round to the next downbeat — dotted
+> on one beat to the bar is the case where the room after the last click is smaller than
+> any gap inside the bar.
 
 **What does not change.** The clock stays sample-accurate (§10): the bar is synthesised
 into a buffer with every click at its exact sample offset and looped, so the gap between
@@ -359,7 +376,7 @@ The minimum that tests the actual hypothesis.
 - **DONE, UNVERIFIED ON HARDWARE** — pedals arrive as keyboards and the key-command path handles them. Never tested against an actual AirTurn or PageFlip.
 - **REFUSED** — iCloud sync. See §6.0(3); contradicts this line *and* §8.2.
 - **PARTIAL** — fountain pen (as the calligraphic line style), four inks, lasso select and move: all done. **Text annotation is not built**, which also means §M4's "handwriting search over text annotations" has nothing to search.
-- **NOT BUILT** — Tools screen. The rail destination is a stub reading "Debug panel — M1".
+- **DONE, past scope** — Tools screen. The metronome and the tuner shipped 2026-08-28 and grew into the bench §5.1 specifies on 2026-09-02; the Pencil-less drawing hatch and the pedal switch live there too. Page-turn preferences are the one thing the handoff drew that is still missing.
 
 **Gate: NOT EVALUATED** — no cohort.
 
@@ -549,7 +566,17 @@ compositing) but that is a design intention, not a number. "Strokes lost, ever:
 
 ### 8.4 Testing
 
-- **NOT BUILT** — kill the app mid-stroke, at 50 randomized points; assert zero stroke loss on relaunch. The single most important missing test in the project.
+- **PARTIAL** — the in-process half is built (2026-09-01) and runs on every build: 25
+  randomised trials each stage the real crash window — ink safely on disk, then a journal
+  entry with no matching compacted record, which is exactly what a kill between the
+  journal write and the compact leaves — then replay and assert the ink came back. A
+  second test asserts the inverse, that a stale journal from an older crash cannot
+  overwrite newer ink. Both were checked by disabling replay, which makes them report
+  "3 strokes were journalled, 2 came back".
+
+  **Still missing: the out-of-process half** — a real `SIGKILL` at randomised offsets in
+  the write path and a real relaunch, which only a scripted harness outside the test
+  runner can do. `PLAN.md` Part III, B4.
 - **NOT APPLICABLE while sync is refused** — two-device concurrent edit, assert union.
 - **PARTIAL** — the hand-on-glass test now lives in `PLAN.md` Part V half 2, an 11-step protocol run on a physical iPad with a real Pencil. It has been exercised during development and has caught real defects, but it has never been run end to end as a release gate, and there has been no TestFlight to gate.
 

@@ -352,6 +352,6 @@ struct TunerCard: View {
     private var spokenReading: String {
         if let pitch = tuner.reading { return pitch.spoken }
         if tuner.isListening { return "Listening" }
-        return "Tuning to A \(Int(tuner.referenceHz)) hertz"
+        return "Tuning to A \(Self.hzLabel(tuner.referenceHz)) hertz"
     }
 }

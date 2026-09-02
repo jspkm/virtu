@@ -264,7 +264,13 @@ final class Metronome {
         // A click must end before the next one starts. 500 BPM in sixteenths
         // is a click every 30ms, which is shorter than the click itself — so
         // the click shortens rather than the clicks running together.
-        var shortest = beatFrames
+        // Seeded with the gap from the LAST click round to the next loop's
+        // downbeat, not with the beat. Dotted rhythm on one beat to the bar is
+        // the case that needs it: the only gap inside the bar is three
+        // quarters of the beat, while the room after the last click is one
+        // quarter, so measuring only inside the bar truncates that click at
+        // the buffer's end — a step immediately before every downbeat.
+        var shortest = totalFrames - (clicks.last?.0 ?? 0)
         for (a, b) in zip(clicks, clicks.dropFirst()) {
             shortest = min(shortest, b.0 - a.0)
         }

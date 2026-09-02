@@ -138,14 +138,18 @@ struct MetronomeCard: View {
 
     // MARK: - Tempo
 
+    /// Logarithmic, per PRD §5.1. Tempo perception is logarithmic, and a
+    /// linear track across 485 BPM spends nine tenths of itself above 60 —
+    /// the slow end, where a single beat matters most, would be a few points
+    /// wide. Mapped this way the midpoint of the track is 87 BPM and a
+    /// thousandth of the track is a tenth of a beat at 15.
     private var slider: some View {
         Slider(
             value: Binding(
-                get: { Double(metronome.bpm) },
-                set: { metronome.bpm = Int($0.rounded()) }
+                get: { log(Double(metronome.bpm)) },
+                set: { metronome.bpm = Int(exp($0).rounded()) }
             ),
-            in: Double(Metronome.minBPM)...Double(Metronome.maxBPM),
-            step: 1
+            in: log(Double(Metronome.minBPM))...log(Double(Metronome.maxBPM))
         )
         .tint(theme.accent)
         .accessibilityLabel("Tempo")

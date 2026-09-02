@@ -2009,23 +2009,36 @@ final class VirtuInkTests: XCTestCase {
         }
     }
 
-    func testTheDroneLoopsWithoutASeam() throws {
-        // A whole number of cycles is what makes the wrap silent. If the
-        // buffer ended mid-cycle you would hear a tick once a second.
-        let rate = 48_000.0
-        let tuner = Tuner(defaults: Self.scratchDefaults())
-        tuner.referenceHz = 442
-        tuner.forkPitchClass = 9        // A
-        tuner.forkOctave = 4
-        let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
-        let cycles = Double(buffer.frameLength) * 442 / rate
-        XCTAssertEqual(cycles, cycles.rounded(), accuracy: 0.002,
-                       "the loop holds \(cycles) cycles, so its wrap is a click")
+    func testTheDroneLoopsWithoutASeamAtAnyPitchOrRate() throws {
+        // A whole number of cycles is what makes the wrap silent. This used to
+        // pin A4 at 442 on 48kHz — the single point in the whole 36-note by
+        // 83-reference space where the arithmetic comes out exact — so it
+        // passed while most of octaves 5 and 6 ticked once a second.
+        for rate in [44_100.0, 48_000.0] {
+            for reference in [415.0, 440.0, 443.5, 456.0] {
+                for (pitchClass, octave) in [(9, 4), (0, 5), (10, 5), (11, 6), (0, 4)] {
+                    let tuner = Tuner(defaults: Self.scratchDefaults())
+                    tuner.referenceHz = reference
+                    tuner.forkPitchClass = pitchClass
+                    tuner.forkOctave = octave
+                    let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
+                    let data = try XCTUnwrap(buffer.floatChannelData?[0])
+                    let frames = Int(buffer.frameLength)
 
-        let data = try XCTUnwrap(buffer.floatChannelData?[0])
-        let last = data[Int(buffer.frameLength) - 1]
-        XCTAssertEqual(Double(last), Double(data[0]), accuracy: 0.05,
-                       "the end of the loop does not meet its beginning")
+                    // The sample after the last one IS the first one again.
+                    // Compare the step at the wrap against the step between
+                    // two ordinary neighbours, so the bar scales with pitch.
+                    let neighbourStep = abs(Double(data[1]) - Double(data[0]))
+                    let wrapStep = abs(Double(data[frames - 1]) - Double(data[0]))
+                    let name = Pitch.name(pitchClass: pitchClass, spelling: .sharps)
+                    XCTAssertLessThanOrEqual(
+                        wrapStep, neighbourStep + 0.002,
+                        "\(name)\(octave) at A\(reference), \(Int(rate))Hz: the loop's end does not "
+                        + "meet its beginning — a click once a second"
+                    )
+                }
+            }
+        }
     }
 
     func testTheReferenceSurvivesRelaunch() {
@@ -2812,6 +2825,42 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(tuner.forkOctave, 4)
         tuner.forkOctave = 9
         XCTAssertEqual(tuner.forkOctave, 6)
+    }
+
+
+    func testNoClickIsTruncatedAtTheLoopBoundary() throws {
+        // Dotted on one beat to the bar is the only case where the room after
+        // the last click is smaller than any gap inside the bar, so measuring
+        // only inside it cut that click off at the buffer's end — a step
+        // landing immediately before every downbeat, eight times a second.
+        for rate in [44_100.0, 48_000.0] {
+            for bpm in [429, 460, 500] {
+                let metronome = Metronome(defaults: Self.scratchDefaults())
+                metronome.bpm = bpm
+                metronome.beatsPerBar = 1
+                metronome.subdivision = .dotted
+                let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: rate))
+                let data = try XCTUnwrap(buffer.floatChannelData?[0])
+                let last = abs(Double(data[Int(buffer.frameLength) - 1]))
+                XCTAssertLessThan(
+                    last, 0.002,
+                    "\(bpm) BPM dotted at \(Int(rate))Hz: the bar ends mid-click at \(last)"
+                )
+            }
+        }
+    }
+
+    func testTheSpokenReferenceKeepsItsHalfHertz() {
+        // The reference steps in halves now. Int() truncation named the wrong
+        // pitch to VoiceOver on half of every reachable setting, while the
+        // visible label said the right one.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 442.5
+        XCTAssertEqual(tuner.referenceHz, 442.5, accuracy: 0.001)
+        // The card builds its spoken string from the same helper the label
+        // uses; assert the value it is given cannot round to a different A.
+        XCTAssertNotEqual(Int(tuner.referenceHz), Int(tuner.referenceHz.rounded()),
+                          "this test proves nothing if 442.5 truncates to itself")
     }
 
 }

@@ -234,9 +234,22 @@ final class Tuner {
         guard rate > 0, hz > 0 else { return nil }
 
         // About a second's worth, snapped to whole cycles.
+        //
+        // The loop length is rounded to a whole sample, so `frames` cannot
+        // hold exactly `cycles` cycles OF `hz` — and the leftover phase at the
+        // wrap grows with the pitch. Sounding only A 415–456, as this did
+        // before the fork, the error is nil; at B6 it is a third of the tone's
+        // own amplitude, which is a click once a second.
+        //
+        // So the buffer's length is chosen first and the frequency is derived
+        // from it. The loop then holds exactly `cycles` cycles in `frames`
+        // samples and the wrap is bit-exact. The pitch moves by at most half a
+        // sample over the whole loop — under 0.02 cents, two orders below
+        // anything audible and below the 0.4 cents this already accepted.
         let cycles = max(1, Int(hz.rounded()))
         let frames = Int((Double(cycles) * rate / hz).rounded())
         guard frames > 0 else { return nil }
+        let loopHz = Double(cycles) * rate / Double(frames)
 
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)
@@ -251,7 +264,7 @@ final class Tuner {
             let t = Double(i) / rate
             var sum = 0.0
             for (index, amplitude) in Self.partials.enumerated() {
-                sum += amplitude * sin(2 * .pi * hz * Double(index + 1) * t)
+                sum += amplitude * sin(2 * .pi * loopHz * Double(index + 1) * t)
             }
             let value = Float(sum / norm * Self.droneLevel)
             for channel in 0..<channelCount {
