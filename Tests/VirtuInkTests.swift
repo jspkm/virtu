@@ -2508,4 +2508,25 @@ final class VirtuInkTests: XCTestCase {
         }
     }
 
+
+    func testTheGateThatActuallyDecidesWhoCanDraw() {
+        // drawingPolicy governs PencilKit, and PencilKit stopped inking on
+        // 2026-08-20. The observer's allowedTouchTypes is what a fingertip
+        // has to get past — gating only the policy left the hatch switched on
+        // and a finger still unable to draw a thing.
+        let pencil = NSNumber(value: UITouch.TouchType.pencil.rawValue)
+        let finger = NSNumber(value: UITouch.TouchType.direct.rawValue)
+
+        XCTAssertEqual(AnnotationInput.allowedTouchTypes(for: .pencilOnly), [pencil])
+        XCTAssertEqual(AnnotationInput.allowedTouchTypes(for: .anyInput), [pencil, finger],
+                       "the hatch is open and a fingertip still cannot reach the ink pipeline")
+
+        // And end to end from the two booleans, which is how it is used.
+        let hatchOpen = AnnotationInput.policy(pencilEverPaired: false, fingerDrawing: true)
+        XCTAssertTrue(AnnotationInput.allowedTouchTypes(for: hatchOpen).contains(finger))
+        let pencilPresent = AnnotationInput.policy(pencilEverPaired: true, fingerDrawing: true)
+        XCTAssertFalse(AnnotationInput.allowedTouchTypes(for: pencilPresent).contains(finger),
+                       "a paired Pencil let a finger into the ink pipeline")
+    }
+
 }

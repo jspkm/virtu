@@ -15,6 +15,10 @@ final class PencilObserverRecognizer: UIGestureRecognizer {
     var onEnded: (() -> Void)?
     var onCancelled: (() -> Void)?
 
+    /// What kind of touch the live gesture belongs to. Read by the page when
+    /// it decides whether a stroke counts as proof that a Pencil exists.
+    private(set) var currentTouchType: UITouch.TouchType = .pencil
+
     private func sample(_ touch: UITouch) -> Sample {
         let norm = touch.maximumPossibleForce > 0
             ? touch.force / touch.maximumPossibleForce
@@ -31,6 +35,7 @@ final class PencilObserverRecognizer: UIGestureRecognizer {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         guard let touch = touches.first else { return }
+        currentTouchType = touch.type
         onBegan?([sample(touch)])
     }
 
@@ -259,17 +264,18 @@ final class ReadingPageView: UIView {
         marqueeLayer.isHidden = true
         layer.addSublayer(marqueeLayer)
 
-        let observer = PencilObserverRecognizer()
+        let observer = inkObserver
         observer.cancelsTouchesInView = false
-        observer.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
         // The observer only feeds the wet preview; pencil-up truth comes from
         // PencilKit's drawing recognizer (see drawingGestureChanged).
         observer.onBegan = { [weak self] samples in
             guard let self else { return }
-            // This observer accepts pencil touches only (allowedTouchTypes
-            // above), so arriving here IS the proof that a Pencil exists.
-            // There is no API that asks.
-            if !self.preferences.pencilEverPaired {
+            // A Pencil writing here is the only proof available that one
+            // exists — there is no API that asks. It must be the *touch* that
+            // is checked, not merely arriving: with the hatch open a
+            // fingertip reaches this closure too, and a finger must never
+            // latch the Pencil flag and shut the hatch it is using.
+            if observer.currentTouchType == .pencil, !self.preferences.pencilEverPaired {
                 self.preferences.notePencilSeen()
                 self.applyDrawingPolicy()
             }
@@ -291,13 +297,26 @@ final class ReadingPageView: UIView {
         didSet { applyDrawingPolicy() }
     }
 
+    /// The recognizer that feeds the wet preview and, since 2026-08-20, is
+    /// the whole of inking — PencilKit's own recognizer runs only for the
+    /// eraser and the lasso now.
+    private let inkObserver = PencilObserverRecognizer()
+
     /// Also called after a Pencil is first seen: the hatch closes the moment
     /// a Pencil writes, which is what the setting's own copy promises.
+    ///
+    /// Both gates move together, and the second one is the one that matters.
+    /// `drawingPolicy` governs only PencilKit, which no longer inks — so
+    /// setting it alone left the hatch switched on and a fingertip still
+    /// unable to draw a thing. What actually admits a touch to the ink
+    /// pipeline is the observer's `allowedTouchTypes`.
     private func applyDrawingPolicy() {
-        canvas.drawingPolicy = AnnotationInput.policy(
+        let policy = AnnotationInput.policy(
             pencilEverPaired: preferences.pencilEverPaired,
             fingerDrawing: preferences.fingerDrawing
         )
+        canvas.drawingPolicy = policy
+        inkObserver.allowedTouchTypes = AnnotationInput.allowedTouchTypes(for: policy)
     }
 
     /// Shared canvas configuration — used at init and every rebirth, so a

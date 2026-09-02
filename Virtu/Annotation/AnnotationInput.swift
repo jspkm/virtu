@@ -1,4 +1,5 @@
 import PencilKit
+import UIKit
 
 /// Who is allowed to draw.
 ///
@@ -18,6 +19,19 @@ enum AnnotationInput {
         // §0.2 forbids.
         guard !pencilEverPaired else { return .pencilOnly }
         return fingerDrawing ? .anyInput : .pencilOnly
+    }
+
+    /// Which touch types reach the ink pipeline under a given policy.
+    ///
+    /// This is the gate that actually decides who can draw. `drawingPolicy`
+    /// governs PencilKit, and PencilKit stopped inking on 2026-08-20 — ink is
+    /// observed and committed by our own recognizer, whose `allowedTouchTypes`
+    /// is what a fingertip has to get past. Derived from the policy rather
+    /// than set beside it, so the two can never disagree.
+    static func allowedTouchTypes(for policy: PKCanvasViewDrawingPolicy) -> [NSNumber] {
+        let pencil = NSNumber(value: UITouch.TouchType.pencil.rawValue)
+        guard policy == .anyInput else { return [pencil] }
+        return [pencil, NSNumber(value: UITouch.TouchType.direct.rawValue)]
     }
 
     /// Whether to show the hatch at all. On an iPad that has seen a Pencil it
