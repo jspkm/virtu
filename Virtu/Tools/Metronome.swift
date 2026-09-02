@@ -23,9 +23,11 @@ final class Metronome {
 
     static let shared = Metronome()
 
-    // Range and defaults from the design handoff (`Virtu.dc.html`, Tools).
-    static let minBPM = 30
-    static let maxBPM = 220
+    // PRD §5.1. The handoff's 30–220 was the metronome that shipped first,
+    // not the one a professional keeps: 15 is a conductor subdividing a
+    // grave, and 500 is a fiddle player checking a reel at pitch.
+    static let minBPM = 15
+    static let maxBPM = 500
 
     private(set) var isRunning = false
 
@@ -52,11 +54,12 @@ final class Metronome {
     /// Beats to the bar; beat one is accented. Not in the handoff mock, which
     /// draws a fixed four — but the seed repertoire alone has a Sarabande and
     /// two Menuets in three, and a metronome that can only count four is a
-    /// metronome you put down.
+    /// metronome you put down. One is a plain pulse with no downbeat pattern,
+    /// which is what subdividing wants.
     var beatsPerBar: Int {
         get { storedBeatsPerBar }
         set {
-            let clamped = min(max(newValue, 2), 6)
+            let clamped = min(max(newValue, 1), 7)
             guard clamped != storedBeatsPerBar else { return }
             storedBeatsPerBar = clamped
             defaults.set(clamped, forKey: "metronomeBeatsPerBar")
@@ -65,15 +68,21 @@ final class Metronome {
     }
 
     /// The Italian, in the composer's vocabulary rather than a number.
-    /// Thresholds are the handoff's, exactly.
+    ///
+    /// Every threshold the handoff set is preserved — grave is added below
+    /// it, and what used to be a single "presto" above 140 becomes the three
+    /// words a score actually uses.
     var tempoWord: String {
         switch bpm {
+        case ..<40: "grave"
         case ..<60: "largo"
         case ..<76: "adagio"
         case ..<96: "andante"
         case ..<112: "moderato"
         case ..<140: "allegro"
-        default: "presto"
+        case ..<168: "vivace"
+        case ..<200: "presto"
+        default: "prestissimo"
         }
     }
 
@@ -204,6 +213,10 @@ final class Metronome {
         let beatFrames = Int((rate * beatDuration).rounded())
         guard beatFrames > 0 else { return nil }
         let totalFrames = beatFrames * beatsPerBar
+        // 15 BPM in seven is a 28-second loop, ~10MB of stereo float at
+        // 48kHz. That is the worst case the range allows and it is
+        // affordable; anything past it is a bug in the clamps, not a tempo.
+        assert(totalFrames <= Int(rate * 30), "bar buffer longer than the slowest legal bar")
 
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: format, frameCapacity: AVAudioFrameCount(totalFrames)

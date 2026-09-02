@@ -1761,13 +1761,6 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(metronome.bpm, 120)
     }
 
-    func testTempoIsClampedToThePlayableRange() {
-        let metronome = Metronome(defaults: Self.scratchDefaults())
-        metronome.bpm = 5_000
-        XCTAssertEqual(metronome.bpm, Metronome.maxBPM)
-        metronome.bpm = 0
-        XCTAssertEqual(metronome.bpm, Metronome.minBPM)
-    }
 
     func testTempoAndMeterSurviveRelaunch() {
         let defaults = Self.scratchDefaults()
@@ -1780,13 +1773,46 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(relaunched.beatsPerBar, 3)
     }
 
-    func testTempoWordsFollowTheHandoffThresholds() {
+    func testTempoWordsRunGraveToPrestissimo() {
         let metronome = Metronome(defaults: Self.scratchDefaults())
-        for (bpm, word) in [(40, "largo"), (60, "adagio"), (76, "andante"),
-                            (96, "moderato"), (112, "allegro"), (140, "presto")] {
+        // Every threshold the handoff set is preserved; grave is added below
+        // and the old catch-all "presto" above 140 is split into three.
+        for (bpm, word) in [(15, "grave"), (39, "grave"),
+                            (40, "largo"), (60, "adagio"), (76, "andante"),
+                            (96, "moderato"), (112, "allegro"),
+                            (140, "vivace"), (168, "presto"), (200, "prestissimo"),
+                            (500, "prestissimo")] {
             metronome.bpm = bpm
             XCTAssertEqual(metronome.tempoWord, word, "\(bpm) should read as \(word)")
         }
+    }
+
+    func testTheFullTempoAndMeterRangeIsReachable() {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 15
+        XCTAssertEqual(metronome.bpm, 15, "a conductor subdividing a grave cannot get there")
+        metronome.bpm = 500
+        XCTAssertEqual(metronome.bpm, 500)
+        metronome.bpm = 5_000
+        XCTAssertEqual(metronome.bpm, Metronome.maxBPM)
+        metronome.bpm = 0
+        XCTAssertEqual(metronome.bpm, Metronome.minBPM)
+
+        metronome.beatsPerBar = 1
+        XCTAssertEqual(metronome.beatsPerBar, 1, "one beat is a plain pulse, and a legitimate setting")
+        metronome.beatsPerBar = 7
+        XCTAssertEqual(metronome.beatsPerBar, 7)
+        metronome.beatsPerBar = 99
+        XCTAssertEqual(metronome.beatsPerBar, 7)
+    }
+
+    func testOneBeatToTheBarIsOneClick() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 60
+        metronome.beatsPerBar = 1
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        assertOnsets(buffer, are: [0])
+        XCTAssertEqual(Int(buffer.frameLength), 44_100)
     }
 
 

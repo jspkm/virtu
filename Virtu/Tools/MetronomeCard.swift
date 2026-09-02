@@ -19,6 +19,7 @@ struct MetronomeCard: View {
             reading
             lamps.padding(.vertical, 18)
             slider
+            meterPicker.padding(.top, 14)
             transport.padding(.top, 18)
         }
         .padding(24)
@@ -42,15 +43,42 @@ struct MetronomeCard: View {
 
             Spacer()
 
-            meterPicker
+            stepper("minus", enabled: metronome.bpm > Metronome.minBPM) {
+                metronome.bpm -= 1
+            }
+            stepper("plus", enabled: metronome.bpm < Metronome.maxBPM) {
+                metronome.bpm += 1
+            }
         }
+    }
+
+    /// Single-BPM precision, which the slider cannot give: 485 BPM across a
+    /// card's width is roughly two beats a point, so the slow end — where one
+    /// beat matters most — is unreachable by dragging.
+    private func stepper(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            Haptics.selection()
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(enabled ? theme.ink : theme.faint)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.smallControl)
+                        .stroke(theme.line2, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(symbol == "minus" ? "Slower" : "Faster")
     }
 
     /// Beats to the bar. A plain segmented row of figures — the numerator of
     /// the time signature, which is the only part a click can express.
     private var meterPicker: some View {
         HStack(spacing: 4) {
-            ForEach(2...6, id: \.self) { count in
+            ForEach(1...7, id: \.self) { count in
                 let selected = metronome.beatsPerBar == count
                 Button {
                     metronome.beatsPerBar = count
@@ -59,7 +87,8 @@ struct MetronomeCard: View {
                     Text("\(count)")
                         .font(VFont.mono(12))
                         .foregroundStyle(selected ? theme.paper : theme.muted)
-                        .frame(width: 28, height: 28)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 28)
                         .background(selected ? theme.ink : .clear)
                         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
                         .overlay(
