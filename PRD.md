@@ -3,7 +3,7 @@
 **A sheet-music reader for classical musicians.** Universal app, iPad-first.
 
 Status: **in build** — M0 and M1 shipped; M2/M3 partial; a P0 block sits ahead
-of M4 (see §6.0 and `docs/ROADMAP.md`).
+of M4 (see §6.0 and `PLAN.md` Part IV).
 Design reference: `Virtu.dc.html` + `README.md` (Claude Design handoff)
 Last revised: 2026-08-20
 
@@ -146,11 +146,121 @@ Five surfaces, fully specified for appearance in the design handoff. Scope per r
 | **Reading** | Play from the score. Two-page spread, edge taps to turn, centre tap to hide all chrome. | Screens § 2 | **DONE** — plus the Perform/Study wall, Corner Peek, Stage, pedals, scrubber. |
 | **Annotation** | Non-modal tool rail: pencil, pen, highlighter, text, erase; four inks. No "done" button; page turns keep working while marking. | Screens § 2 | **PARTIAL** — everything but **text**. Layers, nib widths, line styles and free colour go past the spec. |
 | **Find** | One field over the shelf. (Public-archive and in-score search are later — §6.) | Screens § 3 | **NOT BUILT** — the rail destination is a stub reading "Coming in M1". |
-| **Tools** | Metronome, tuning reference, page-turn preferences. | Screens § 4 | **NOT BUILT** — stub. Two of its three contents are now refused (§6.0(3)), so this surface needs rethinking or removing. |
+| **Tools** | Metronome, tuning reference, page-turn preferences. | Screens § 4 | **PARTIAL** — the metronome and the tuner are built (2026-08-28); the tuner also listens, which the handoff did not draw. Both are short of the bench specified in §5.1, and page-turn preferences are not built. The refusal in §6.0(3) is withdrawn. |
 
-Two of five rail destinations currently lead nowhere. Either build them or take
-them out of the rail — a dead end at the stand costs more than a missing
+One of five rail destinations currently leads nowhere. Either build it or take
+it out of the rail — a dead end at the stand costs more than a missing
 feature.
+
+---
+
+### §5.1 — The bench, specified
+
+The Tools screen is a bench with three things on it. The metronome and the tuner shipped
+2026-08-28 as the minimum that answered a musician's request; this section specifies what
+they must become to be worth a professional's trust, and what is built today.
+
+A working musician does not carry two apps because one of them *nearly* does the job. The
+test for everything below is the same as everywhere else: it must hold up at the stand.
+
+#### The tuner
+
+**Reference calibration.** A4 is continuously adjustable from **415.0 Hz to 456.0 Hz** in
+0.5 Hz steps — baroque pitch at the bottom, sharp continental and brass-band pitch at the
+top. Presets remain for the values people actually name (415, 430, 432, 435, 440, 442,
+444, 446, 450, 456), and an explicit **Reset to 440** is always one tap away and visible
+only when the reference is not 440. The reference is the only calibration in the product,
+and everything the tuner says is relative to it.
+
+> **BUILT, PARTIAL** — four fixed presets (442/440/432/415) that the setter *snaps* to.
+> The continuous range, the steppers and the reset are not built.
+
+**Target note.** Two modes, because they fail differently:
+
+- **Auto (chromatic)** — the tuner names the nearest note. Right when you are close, and
+  wrong in the one case that matters most: a string a semitone flat is confidently named
+  as the note below, and the needle tells you that you are perfectly in tune with the
+  wrong pitch.
+- **Pinned** — you choose the note you are tuning to, from all twelve, and the reading is
+  measured against *that* note in whichever octave is nearest. A slack D string reads as
+  D, eighty cents flat, and stays D while you bring it up.
+
+> **BUILT, PARTIAL** — auto only. Pinning is not built.
+
+**Accidental spelling.** All twelve pitch classes are addressable, spelled with **sharps
+or flats at the musician's choice** — a violinist in E major thinks D♯ and a clarinettist
+in E♭ thinks E♭, and neither should have to translate. The choice applies everywhere a
+note is named: the readout, the target picker, and the fork.
+
+> **NOT BUILT** — sharps only, hardcoded.
+>
+> **Typographic note.** No bundled face carries U+266F/U+266D, so the accidentals resolve
+> through the system font cascade and must be set as their own `Text` runs to sit
+> correctly against the letter. §12 owns this.
+
+**The reading.** Note, octave, signed cents, and the heard frequency; in tune is within
+**±5 cents**, at which point the reading and the needle take the accent colour. The needle
+is steadied in the data, never by a long view animation — a needle smoothed enough to hide
+jitter is smoothed enough to lag the string.
+
+> **DONE** — verified at 0.04 cents through a real microphone.
+
+#### The tuning fork
+
+A sounded reference, separate from the tuner because giving a pitch and checking a pitch
+are two different jobs and the musician is doing exactly one of them at a time.
+
+**Any of the twelve pitch classes, in octaves 4, 5 or 6** — C4 (261.6 Hz at A440) to B6
+(1975.5 Hz) — computed from the A4 reference above, so a baroque player's fork is a
+baroque fork. The sounding pitch is shown in hertz beside the note.
+
+The tone is the fundamental plus four quiet partials, looped over a whole number of
+cycles so the wrap is silent and the pitch is exactly the number displayed. It **stops
+whenever the tuner starts listening, and cannot sound while the tuner listens** — an iPad's
+microphone and speaker are a hand apart, and a tuner that hears its own fork reports, with
+total confidence, that you are perfectly in tune.
+
+> **BUILT, PARTIAL** — sounds A at the reference only. Note and octave selection are not
+> built.
+
+#### The metronome
+
+**Tempo: 15 to 500 BPM**, named in the composer's vocabulary rather than a number —
+*grave, largo, adagio, andante, moderato, allegro, vivace, presto, prestissimo*. The range
+is not vanity: 15 is a conductor subdividing a grave, and 500 is a fiddle player checking a
+reel at pitch. Coarse adjustment is a slider mapped **logarithmically**, because tempo
+perception is logarithmic and a linear slider across 485 BPM cannot resolve a single beat
+at the bottom; fine adjustment is ±1 steppers; tap tempo remains.
+
+> **BUILT, PARTIAL** — 30 to 220, linear slider, no steppers. The word ladder stops at
+> *presto* and has no *grave* or *vivace*.
+
+**Meter: 1 to 7 beats to the bar**, beat one accented. One beat is a legitimate setting —
+it is a plain pulse with no downbeat pattern, which is what you want when subdividing.
+
+> **BUILT, PARTIAL** — 2 to 6.
+
+**Rhythm.** Every beat may be subdivided, and the subdivision is a third, quieter voice
+under the accent and the beat:
+
+| | Clicks per beat | Where they fall |
+|---|---|---|
+| **Quarter** | 1 | the beat alone |
+| **Eighths** | 2 | ½ |
+| **Triplets** | 3 | ⅓, ⅔ |
+| **Sixteenths** | 4 | ¼, ½, ¾ |
+| **Swing** | 2 | ⅔ — the shuffle, not an even eighth |
+| **Dotted** | 2 | ¾ — dotted-eighth and sixteenth |
+
+> **NOT BUILT.** The click is one voice at one click per beat.
+
+**What does not change.** The clock stays sample-accurate (§10): the bar is synthesised
+into a buffer with every click at its exact sample offset and looped, so the gap between
+two beats is a property of the file and not of when a timer fired. Subdivisions are more
+offsets in the same buffer. At the fast end the click must shorten so that consecutive
+clicks cannot overlap — 500 BPM in sixteenths is a click every 30 ms, shorter than the
+click itself.
+
 
 ---
 
@@ -160,27 +270,58 @@ The design describes the destination. v1 is a subset. Several designed features 
 
 ### §6.0 — Build status, 2026-08-20
 
-Marked per item below. Four things are true across the whole document and are
+Marked per item below. Five things are true across the whole document and are
 easier to state once:
 
-1. **"Done" here means implemented and passing the automated suite** (32 tests,
+1. **"Done" here means implemented and passing the automated suite** (97 tests,
    `Tests/VirtuInkTests.swift`). Where hardware is the only possible proof, the
-   item says so — `docs/TESTPLAN.md` half 2 is the gate, and it has been
+   item says so — `PLAN.md` Part V half 2 is the gate, and it has been
    exercised on an iPad mini but not signed off end to end.
 2. **The rendering architecture deviates from §7.1**, deliberately and under
    duress: PencilKit's renderer draws nothing for programmatically-set drawings
    on iPadOS 26.x, so pages render through a bitmap `PageRenderer` and all
    committed ink through our own `InkRenderer`, on both display and export.
    `PDFView` is not used. This was the M0 spike's real finding.
-3. **Three M2 items are now explicitly refused**, not merely unbuilt: the
-   metronome, the tuning reference, and iCloud sync. `docs/ROADMAP.md` lists
-   them under "Still refusing to build" — the first two as commodity clutter,
-   sync because a merge bug that eats annotations ends the product (§0.3).
-   **This contradicts §6 M2 as written and needs an explicit decision**, since
-   §8.2 still specifies sync behaviour in detail.
-4. **The seam (§9) was not built.** M2 shipped **Corner Peek** in its place —
+3. **One M2 item is explicitly refused**, not merely unbuilt: iCloud sync,
+   because a merge bug that eats annotations ends the product (§0.3). §8.2
+   still specifies sync behaviour in detail and is retained as a description
+   of the destination, not of v1.
+
+   **The metronome and the tuning reference were also refused, and that
+   refusal was reversed on 2026-08-27.** Both now ship. The refusal was
+   reasoned from the premise that every professional already owns a dedicated
+   one, and it survived only until a working musician used Virtu and went
+   looking for them *inside* Virtu — which is the only evidence this document
+   accepts (§0.5). Two further things had been true the whole time and were
+   overlooked: the design handoff draws both tools in full on the Tools
+   screen, and `VFont.bpmTools` had been sitting in the type scale waiting
+   for one of them. The tuner goes past the handoff by also listening; a
+   reference pitch tells you what to aim at, and the musician's complaint was
+   about not being told how far off she was.
+4. **The tuner has been heard end to end, but only in the simulator, and
+   its first run can deadlock.** Played a 220Hz tone into the host
+   microphone: the tuner named A3 and held 220.005Hz — 0.04 cents — for
+   eleven seconds, then followed a change to D3 within one analysis. Naming,
+   octave, cent accuracy, steadiness and re-latching are therefore observed
+   behaviour rather than inference. An iPad's own microphone and its input
+   processing are still untested.
+
+   **The deadlock is the open risk.** Three times, `AVAudioEngine.inputNode`
+   aborted the process inside `AURemoteIO::Initialize` ("RPC timeout.
+   Apparently deadlocked"). The crash reports show it is a lock-ordering
+   collision: the simulator's UI-sound device runner holds the
+   `AQIONodeManager` lock through a one-time initialisation while the input
+   unit waits on it, and the main thread gives up after nine seconds. Every
+   observed abort was on a run that raised the microphone permission alert;
+   once permission was granted, a dozen cold starts opened the input
+   cleanly. The likely trigger is therefore **granting permission and
+   opening the input in the same moment** — which is the path every new user
+   takes exactly once. Unproven, and the first thing to watch on hardware.
+5. **The seam (§9) was not built.** M2 shipped **Corner Peek** in its place —
    hold the forward tap zone to preview the next page, release to commit. The
-   substitution is recorded in `docs/2026-08-15-m2-reading-experience-design.md`.
+   substitution was recorded in the M2 reading-experience design, consolidated away
+   on 2026-09-01: Corner Peek answers "what is ahead", the seam answered "what is
+   behind", and only the first shipped.
    The seam remains unbuilt and unretired.
 
 ### M0 — Skeleton · ~1 week · Simulator only — **DONE**
@@ -205,15 +346,15 @@ The minimum that tests the actual hypothesis.
 - **DONE, and past scope** — pencil, highlighter, lasso, erase, undo/redo; four preset inks plus free colour choice; four nib widths and four line styles; annotation layers (§6.0 and the P0 spec).
 - **DONE** — journal, compaction, silent replay on launch. Crash *recovery* is implemented; crash recovery is not yet *tested* — see §8.4.
 - **DONE** — export flattens visible layers into a copy.
-- **HOLDS** — no sync, no metronome; no settings screen (the Tools destination is still a stub).
+- **HOLDS** — no sync, and no settings screen. The metronome held here until 2026-08-28, when the refusal was reversed and it shipped early with the tuner; see §6.0(3).
 
 **Gate: NOT EVALUATED.** No TestFlight build has gone out, so the one question this milestone exists to answer is still unanswered.
 
 ### M2 — Conservatory build · ~6 weeks · TestFlight, N≈20
 
-- **NOT BUILT** — the seam. Corner Peek shipped instead; see §6.0(4) and §9.
-- **REFUSED** — metronome. See §6.0(3); contradicts this line.
-- **REFUSED** — tuning reference. See §6.0(3); contradicts this line.
+- **NOT BUILT** — the seam. Corner Peek shipped instead; see §6.0(5) and §9.
+- **DONE** — metronome. On a sample-accurate clock per §10, with beats to the bar past the handoff's fixed four. Refused until 2026-08-27; see §6.0(3).
+- **DONE, PAST SCOPE** — tuning reference: the handoff's four references (A 442/440/432/415) as a sounding drone, *and* a listening tuner that names what it hears and shows the error in cents. Refused until 2026-08-27; see §6.0(3). The listening half is **UNVERIFIED ON HARDWARE** — see §6.0(4).
 - **DONE** — Stage mode. Not an inversion: a luminance remap (paper to #0A0908, notation to warm white), and the default graphite ink flips to chalk so it cannot vanish on the dark page.
 - **DONE, UNVERIFIED ON HARDWARE** — pedals arrive as keyboards and the key-command path handles them. Never tested against an actual AirTurn or PageFlip.
 - **REFUSED** — iCloud sync. See §6.0(3); contradicts this line *and* §8.2.
@@ -370,7 +511,7 @@ proof behind it.
 - **Conflict resolution is union of strokes, never last-writer-wins.** If the same page is edited on two devices, the user gets both sets. Losing a bowing to a merge is unacceptable; a duplicate is merely annoying.
 - Sync state is never surfaced as a blocking UI. At most, a quiet indicator in Settings.
 
-**Status: NOT BUILT, AND NOW REFUSED.** `docs/ROADMAP.md` lists cloud sync under
+**Status: NOT BUILT, AND NOW REFUSED.** `PLAN.md` Part IV lists cloud sync under
 "Still refusing to build" — the reasoning being §0.3 itself: a merge bug eats
 annotations, and eaten annotations end the product. AirDrop plus annotated-PDF
 export is the sharing story instead.
@@ -402,7 +543,7 @@ compositing) but that is a design intention, not a number. "Strokes lost, ever:
 
 - **NOT BUILT** — kill the app mid-stroke, at 50 randomized points; assert zero stroke loss on relaunch. The single most important missing test in the project.
 - **NOT APPLICABLE while sync is refused** — two-device concurrent edit, assert union.
-- **PARTIAL** — the hand-on-glass test now lives in `docs/TESTPLAN.md` half 2, an 11-step protocol run on a physical iPad with a real Pencil. It has been exercised during development and has caught real defects, but it has never been run end to end as a release gate, and there has been no TestFlight to gate.
+- **PARTIAL** — the hand-on-glass test now lives in `PLAN.md` Part V half 2, an 11-step protocol run on a physical iPad with a real Pencil. It has been exercised during development and has caught real defects, but it has never been run end to end as a release gate, and there has been no TestFlight to gate.
 
 **What does exist:** 32 automated tests in `Tests/VirtuInkTests.swift`, covering
 geometry round-trips, ink rendering and position, canvas input space, the
@@ -530,9 +671,12 @@ the annotation layers are **DONE**, in SwiftData. Divergences worth knowing:
   built. Nothing computes system rects at import.
 - **`Preferences` does not exist as a type.** What persists, persists ad hoc in
   `UserDefaults`: shelf name, tool, colour, nib, line style, and the one-time
-  hint flag. `seamHoldSeconds`, `halfPageTurns`, `tuningPreset` and
-  `fingerDrawing` have nothing to configure yet; `stageMode` is live but resets
-  each launch, and `bluetoothPedal` is always-on with no switch.
+  hint flag, the metronome's tempo and meter, and the tuner's reference A.
+  `tuningPreset` is therefore live, though it persists as hertz rather than as
+  an enum case — the same four values, stored so that a future free reference
+  is a wider setter rather than a migration. `seamHoldSeconds`, `halfPageTurns`
+  and `fingerDrawing` still have nothing to configure; `stageMode` is live but
+  resets each launch, and `bluetoothPedal` is always-on with no switch.
 - **Layer state lives on `Part`** (`layerCount`, `activeLayerIndex`,
   `hiddenLayerIndices`), so a score reopens exactly as it was left.
 
@@ -555,7 +699,73 @@ Summary for orientation only — **the handoff is authoritative**:
 - **Palette**: warm paper `#F2EFE8` / plate `#FFFDF8` / ink `#16151A`, red-pencil accent `#B33F26`, dark rail `#161519`. Stage mode is a full token swap, not a filter.
 - **Type**: Newsreader (serif — titles, work names, tempo words), Archivo (sans — all controls), JetBrains Mono (figures — catalogue numbers, BPM, page numbers). All OFL, bundle them.
 - **Surfaces use borders, not shadows.** Keep it that way.
-- **Motion**: 120 ms control transitions, 220 ms `cubic-bezier(.4,0,.2,1)` spread turn, 60 ms linear metronome lamps. No page-curl skeuomorphism.
+- **Motion**: four named curves, below. No page-curl skeuomorphism.
+
+### §12.1 — Motion and haptics
+
+Absorbed from `docs/2026-08-15-design-language.md` on 2026-09-01, which this replaces.
+The one-line summary that stood here until then ("120 ms control transitions, 220 ms
+spread turn") disagreed with both this table and the shipped code; **this table is what
+the code implements.**
+
+| Curve | Timing | Used for |
+|---|---|---|
+| **Turn** | 90 ms, `easeOut(0,0,.2,1)` | page turns only |
+| **Settle** | 260 ms, `cubic(.32,.72,0,1)` | mode transitions, chrome reveal, panels — the signature motion |
+| **Snap** | `spring(0.32, damping .86)` | tool rail, loupe, swatch selection — tactile, touch-triggered |
+| **Drift** | 180 ms, `ease(.4,0,.2,1)` | ambient opacity fades (idle-dim, peek cancel, tuner lock) |
+
+Indicators are not animations: the metronome lamps and the tuner needle run at 60 ms and
+100 ms linear respectively, because anything slower lags the thing it is reporting.
+
+**Haptics.** Mode switch = light on gesture recognition, medium on settle completion — a
+deliberate two-beat "tap…click," like a mechanical mode dial. Page turn = **none in
+Perform** (hard rule: zero risk of a felt "error buzz" mid-concert), `.selection` in Study
+on tap-zone turns only (a swipe already has kinesthetic feedback). Ink/swatch selection =
+`.selection`. Undo/redo = `.rigid`. Corner Peek commit = the same tick as a turn; cancel =
+none.
+
+**Never animates in Perform.** Page-turn easing beyond the 90 ms Turn curve (no spring, no
+overshoot, ever); idle chrome pulsing; onboarding or coach-marks; any haptic beyond the
+single Study-only turn tick; orientation reflow (snaps instantly at 0 ms — Study *does*
+animate this with Settle). Theme swaps never happen automatically on a timer or a sensor,
+only on a deliberate toggle.
+
+### §12.2 — Mode, chrome and Stage
+
+**The always-visible state signal, spending no chrome.** In Study only, the page carries a
+1.5 pt hairline inset 4 pt from its edge, accent at 35% opacity (paper) / 50% (Stage), and
+its corner radius softens from 0 pt to 6 pt — the page stops being the screen and becomes
+an object placed on a surface. In Perform the stroke is absent entirely. Internally the
+metaphor is **music stand** (Perform) versus **desk** (Study); never surface "stand/desk"
+as UI copy.
+
+**Perform chrome is zero, with one exception:** a page readout, bottom-centre, mono 11 pt,
+"12 / 34", fading 40% → 15% after 4 s idle and never to 0 — page-position anxiety costs
+more than that sliver. **Study chrome is binary:** the top bar and the scrubber reveal and
+dismiss together, never partially. The tool rail is tied to *mode*, not chrome state, so
+hiding chrome to see more page never strands the tools.
+
+**Stage is orthogonal to Perform/Study**, giving a valid 2×2 — a teacher marking at night
+wants Stage+Study; a musician outdoors in daylight wants Paper+Perform. Fusing them would
+remove real use cases. Stage is a **luminance remap**, not a colour invert (which flips
+noteheads to a photo negative, alien to printed music) and not sepia-on-black: background
+to `#0A0908`, notation to warm white preserving relative contrast, printed colour keeping
+hue while gaining lightness. Swap rasters on toggle; never a live per-frame filter.
+
+**Stage + Perform, the pit-orchestra case:** the page readout's floor drops further,
+40% → 20%; paper grain (3% in Paper) drops to 0%, since grain reads as sensor noise on
+true black. No other pairing-specific logic is needed.
+
+**Stage Manager:** below roughly 820×600 pt, force portrait single-page logic regardless of
+window aspect. Perform disables resize *animation* — window changes snap instantly, since a
+mid-performance resize is rare but must never be a visual event.
+
+> **Superseded by what shipped, and recorded so nobody re-derives it:** the design
+> language's ink-preset table (four fixed `PKInk` configs) and its five-tool list were
+> replaced by the P0 ink controls — four preset inks plus free colour choice, four nib
+> widths, four line styles, and a fixed first swatch per tool. See §7. The Loupe and the
+> radial eraser picker described there are still unbuilt (PLAN Part IV, M4).
 
 Stage mode requires the PDF itself to render inverted, not merely recolored. Budget real time for this — naive inversion of a scanned score looks dreadful, and this feature is for people reading in an orchestra pit who will notice.
 
