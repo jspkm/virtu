@@ -44,6 +44,7 @@
 		A4A2CBF0020A8D0A6075B4FC /* ClippingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794D29A636F8848C35B6F8A7 /* ClippingStore.swift */; };
 		A5EB9096F149A58F0A5DE512 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */; };
 		AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322133D65AC57D316B417AE6 /* BottomChromeView.swift */; };
+		AB687D5FE22AC5262D0E9797 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D2D5D778CC5EC67EFFC16E /* Preferences.swift */; };
 		ACE6812A629D83B1B7FC8D2F /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */; };
 		AFCBB76A8A50363A3A09DE56 /* ReadingPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EDAD94D75938D56086D5774 /* ReadingPageView.swift */; };
 		BA27E822B5C6857D63BAEFB0 /* ImportMetadataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C7C9F1985034FF10DC84BC /* ImportMetadataSheet.swift */; };
@@ -120,6 +121,7 @@
 		CD13E0C987E87F6A734F83AD /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
 		CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
 		CEF16B44C226E47AE6106E69 /* Tuner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tuner.swift; sourceTree = "<group>"; };
+		D1D2D5D778CC5EC67EFFC16E /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		D61561F7BD63B32AE86FE9AD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		DD2EA59D5336A1F306180094 /* VirtuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtuApp.swift; sourceTree = "<group>"; };
 		E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
@@ -179,6 +181,7 @@
 				D61561F7BD63B32AE86FE9AD /* AppState.swift */,
 				0AFE91D8F08145C59690645F /* Formatting.swift */,
 				69A78623A24E0FADAD4A486D /* Part.swift */,
+				D1D2D5D778CC5EC67EFFC16E /* Preferences.swift */,
 				A9F4B6847F74900389A116B9 /* Program.swift */,
 				CD13E0C987E87F6A734F83AD /* SeedData.swift */,
 				9C163DA4E621F5A22F1EF81A /* Work.swift */,
@@ -420,6 +423,7 @@
 				3DB97B6E69AF3B0993C9D7C8 /* PageRenderer.swift in Sources */,
 				38172D62A4C05FF73FB91A24 /* Part.swift in Sources */,
 				5B589B7C4838CFAA9A160893 /* PitchDetector.swift in Sources */,
+				AB687D5FE22AC5262D0E9797 /* Preferences.swift in Sources */,
 				CE91BF8E0DBD2725A89196D7 /* Program.swift in Sources */,
 				5BD00051895A7FADDDBE8553 /* ProgramEditorSheet.swift in Sources */,
 				32D384E7943729CC0DB0E5EE /* ReadingContainerView.swift in Sources */,

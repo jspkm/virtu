@@ -278,8 +278,13 @@ final class AppState {
     /// an unrelated test sees.
     private let defaults: UserDefaults
 
+    /// Shared with the Tools screen and the reading surface. One instance, so
+    /// a toggle flipped on Tools is the same object the canvas reads.
+    let preferences: Preferences
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.preferences = Preferences(defaults: defaults)
         shelfName = defaults.string(forKey: "shelfName") ?? ""
         restoreToolSettings()
     }

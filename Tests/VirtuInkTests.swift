@@ -2188,4 +2188,49 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertNil(tuner.reading, "an empty room put a note on the card")
     }
 
+
+    // MARK: - Preferences (PRD §14)
+
+    func testPreferencesDefaultsMatchThePRD() {
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        XCTAssertEqual(prefs.seamHoldSeconds, 4)
+        XCTAssertFalse(prefs.halfPageTurns)
+        XCTAssertTrue(prefs.bluetoothPedal, "the pedal path is always-on today; the default must not change that")
+        XCTAssertFalse(prefs.fingerDrawing, "§0.2: finger drawing is never auto-enabled")
+        XCTAssertFalse(prefs.pencilEverPaired)
+    }
+
+    func testPreferencesSurviveRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Preferences(defaults: defaults)
+        first.seamHoldSeconds = 6
+        first.halfPageTurns = true
+        first.bluetoothPedal = false
+
+        let relaunched = Preferences(defaults: defaults)
+        XCTAssertEqual(relaunched.seamHoldSeconds, 6)
+        XCTAssertTrue(relaunched.halfPageTurns)
+        XCTAssertFalse(relaunched.bluetoothPedal)
+    }
+
+    func testSeamHoldIsClampedToSomethingAMusicianCanUse() {
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        prefs.seamHoldSeconds = 99
+        XCTAssertEqual(prefs.seamHoldSeconds, Preferences.maxSeamHoldSeconds)
+        prefs.seamHoldSeconds = -3
+        XCTAssertEqual(prefs.seamHoldSeconds, Preferences.minSeamHoldSeconds)
+    }
+
+    func testPencilEverPairedIsALatchAndNeverUnsets() {
+        let defaults = Self.scratchDefaults()
+        let prefs = Preferences(defaults: defaults)
+        prefs.notePencilSeen()
+        XCTAssertTrue(prefs.pencilEverPaired)
+
+        // A pencil that was paired once stays paired: the escape hatch must
+        // not reappear on a device that simply has the Pencil in a drawer.
+        prefs.notePencilSeen()
+        XCTAssertTrue(Preferences(defaults: defaults).pencilEverPaired)
+    }
+
 }
