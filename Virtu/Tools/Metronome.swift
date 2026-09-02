@@ -1,6 +1,5 @@
 import AVFoundation
 import Foundation
-import UIKit
 
 /// The click, on a sample-accurate clock.
 ///
@@ -12,6 +11,10 @@ import UIKit
 ///
 /// The lamps read the same clock (`currentBeat` asks the player where it is),
 /// so what you see and what you hear cannot disagree.
+///
+/// The engine, the loop and the playhead are `LoopPlayer`; the session is
+/// `AudioSession`. Both were written here first and both moved out when the
+/// tuner turned out to need exactly the same machine.
 ///
 /// Shared, not owned by the Tools screen: PRD §5 requires that leaving a
 /// surface never stops a running metronome. You can start it and go read.
@@ -76,10 +79,16 @@ final class Metronome {
 
     // MARK: - Audio
 
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private var format: AVAudioFormat?
-    private var engineConfigured = false
+    private static let claimID = "metronome"
+
+    // @ObservationIgnored because the macro rewrites stored properties into
+    // computed ones, and a computed property cannot be lazy. The same rewrite
+    // is what makes the didSet above recurse — one macro, two traps.
+    @ObservationIgnored
+    private lazy var loop = LoopPlayer { [weak self] format in
+        self?.makeBarBuffer(format: format)
+    }
+
     private let defaults: UserDefaults
 
     // The click itself: a sine burst under a steep exponential decay. Short
@@ -109,47 +118,27 @@ final class Metronome {
 
     func start() {
         guard !isRunning else { return }
-        do {
-            let session = AVAudioSession.sharedInstance()
-            // .playback so the ring/silent switch cannot silence a practice
-            // tool; .mixWithOthers so starting the click does not stop the
-            // recording someone is playing along to.
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true)
-            try configureEngineIfNeeded()
-            guard let buffer = makeBarBuffer() else { return }
-            player.scheduleBuffer(buffer, at: nil, options: [.loops])
-            player.play()
-            isRunning = true
-            // A metronome you started and then stopped watching still has to
-            // be there when you look up from the cello.
-            UIApplication.shared.isIdleTimerDisabled = true
-        } catch {
+        guard AudioSession.shared.claim(.play, by: Self.claimID) else { return }
+        guard loop.start() else {
             // A metronome that cannot open the audio session simply does not
             // start. There is nothing useful to say and nothing to recover.
-            isRunning = false
+            AudioSession.shared.release(Self.claimID)
+            return
         }
+        isRunning = true
     }
 
     func stop() {
         guard isRunning else { return }
-        player.stop()
-        engine.pause()
         isRunning = false
-        // The reading surface owns this flag while a score is open, and sets
-        // it on appear — releasing it here cannot strand a lit screen.
-        UIApplication.shared.isIdleTimerDisabled = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        loop.stop()
+        AudioSession.shared.release(Self.claimID)
     }
 
     /// Tempo and meter changes take effect on the next bar by restarting the
     /// loop: the buffer IS the tempo, so there is nothing to adjust in place.
     private func reloadIfRunning() {
-        guard isRunning else { return }
-        player.stop()
-        guard let buffer = makeBarBuffer() else { return }
-        player.scheduleBuffer(buffer, at: nil, options: [.loops])
-        player.play()
+        loop.reload()
     }
 
     // MARK: - The lamps
@@ -158,12 +147,7 @@ final class Metronome {
     /// `nil` when nothing is running. Derived rather than counted, so it
     /// cannot drift away from what you are hearing.
     var currentBeat: Int? {
-        guard isRunning,
-              let nodeTime = player.lastRenderTime,
-              let playerTime = player.playerTime(forNodeTime: nodeTime),
-              playerTime.sampleRate > 0
-        else { return nil }
-        let seconds = Double(playerTime.sampleTime) / playerTime.sampleRate
+        guard isRunning, let seconds = loop.elapsedSeconds else { return nil }
         let beat = Int((seconds / beatDuration).rounded(.down))
         return ((beat % beatsPerBar) + beatsPerBar) % beatsPerBar
     }
@@ -193,31 +177,12 @@ final class Metronome {
         return true
     }
 
-    // MARK: - Engine
-
-    private func configureEngineIfNeeded() throws {
-        if engineConfigured {
-            if !engine.isRunning { try engine.start() }
-            return
-        }
-        let output = engine.outputNode.outputFormat(forBus: 0)
-        // The simulator has been seen reporting a zero sample rate before the
-        // engine has ever run; 44.1k is a safe floor and the click is
-        // synthesised at whatever rate we end up with.
-        let rate = output.sampleRate > 0 ? output.sampleRate : 44_100
-        let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2)
-        self.format = format
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: format)
-        engine.prepare()
-        try engine.start()
-        engineConfigured = true
-    }
+    // MARK: - The bar
 
     /// One bar, clicks written at their exact sample offsets.
-    private func makeBarBuffer() -> AVAudioPCMBuffer? {
-        guard let format else { return nil }
+    private func makeBarBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
         let rate = format.sampleRate
+        guard rate > 0 else { return nil }
         let beatFrames = Int((rate * beatDuration).rounded())
         guard beatFrames > 0 else { return nil }
         let totalFrames = beatFrames * beatsPerBar
@@ -252,8 +217,9 @@ final class Metronome {
     /// Test hooks. The buffer is the tempo, so its length and where the
     /// transients sit is the only place correctness is observable.
     func testBarBuffer(sampleRate: Double = 44_100) -> AVAudioPCMBuffer? {
-        format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)
-        return makeBarBuffer()
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)
+        else { return nil }
+        return makeBarBuffer(format: format)
     }
     #endif
 }

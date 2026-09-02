@@ -36,6 +36,10 @@ targets:
         CFBundleShortVersionString: "0.0.1"
         CFBundleVersion: "1"
         UILaunchScreen: {}
+        # The tuner's listening half. Says what is heard, what it is for, and
+        # what happens to it — nothing leaves the device and nothing is kept.
+        NSMicrophoneUsageDescription: "Virtu listens through the microphone to show how far a string is from the A you chose. Nothing is recorded or saved."
+
         UIAppFonts:
           - Newsreader-Regular.ttf
           - Newsreader-Medium.ttf

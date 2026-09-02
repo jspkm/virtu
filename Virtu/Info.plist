@@ -20,6 +20,8 @@
 	<string>0.0.1</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Virtu listens through the microphone to show how far a string is from the A you chose. Nothing is recorded or saved.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Newsreader-Regular.ttf</string>
