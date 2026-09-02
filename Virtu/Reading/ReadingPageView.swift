@@ -264,17 +264,49 @@ final class ReadingPageView: UIView {
         observer.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
         // The observer only feeds the wet preview; pencil-up truth comes from
         // PencilKit's drawing recognizer (see drawingGestureChanged).
-        observer.onBegan = { [weak self] samples in self?.inkGestureBegan(samples) }
+        observer.onBegan = { [weak self] samples in
+            guard let self else { return }
+            // This observer accepts pencil touches only (allowedTouchTypes
+            // above), so arriving here IS the proof that a Pencil exists.
+            // There is no API that asks.
+            if !self.preferences.pencilEverPaired {
+                self.preferences.notePencilSeen()
+                self.applyDrawingPolicy()
+            }
+            self.inkGestureBegan(samples)
+        }
         observer.onMoved = { [weak self] real, predicted in self?.inkGestureMoved(real, predicted: predicted) }
         observer.onEnded = { [weak self] in self?.inkGestureEnded() }
         observer.onCancelled = { [weak self] in self?.pencilGestureCancelled() }
         addGestureRecognizer(observer)
     }
 
+    /// Who may draw here. Injected when the page is configured; until then
+    /// the default set is used, which resolves to `.pencilOnly` — so a canvas
+    /// built before injection obeys §0.2 rather than nothing.
+    ///
+    /// The canvas is built before this arrives, so setting it re-applies the
+    /// policy rather than waiting for the next rebirth.
+    var preferences = Preferences() {
+        didSet { applyDrawingPolicy() }
+    }
+
+    /// Also called after a Pencil is first seen: the hatch closes the moment
+    /// a Pencil writes, which is what the setting's own copy promises.
+    private func applyDrawingPolicy() {
+        canvas.drawingPolicy = AnnotationInput.policy(
+            pencilEverPaired: preferences.pencilEverPaired,
+            fingerDrawing: preferences.fingerDrawing
+        )
+    }
+
     /// Shared canvas configuration — used at init and every rebirth, so a
     /// fresh canvas can never regress the inset/offset guarantees.
     private func configureAndAttachCanvas(_ c: ScoreCanvasView) {
-        c.drawingPolicy = .pencilOnly
+        c.drawingPolicy = AnnotationInput.policy(
+            pencilEverPaired: preferences.pencilEverPaired,
+            fingerDrawing: preferences.fingerDrawing
+        )
         c.backgroundColor = .clear
         c.isOpaque = false
         c.delegate = self

@@ -668,6 +668,9 @@ final class ReadingPageViewController: UIViewController {
             return
         }
         pageView.isHidden = false
+        // One Preferences for the whole app, so a toggle flipped on Tools is
+        // the same object this canvas reads.
+        pageView.preferences = appState.preferences
         pageView.configure(partID: appState.currentPart?.id, pageIndex: index, pdfSize: renderer.pageSize)
 
         if let cached = renderer.image(at: index, height: height, stage: stage, completion: { [weak pageView] image in

@@ -2308,4 +2308,36 @@ final class VirtuInkTests: XCTestCase {
         }
     }
 
+
+    // MARK: - Who may draw (PRD §0.2, §7.2)
+
+    func testAPairedPencilAlwaysMeansPencilOnly() {
+        // The rule, and it does not bend: if a Pencil has ever written here,
+        // fingers do not draw — even if the hatch was somehow left on.
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: true, fingerDrawing: false), .pencilOnly)
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: true, fingerDrawing: true), .pencilOnly,
+            "a paired Pencil was overridden by the finger-drawing hatch")
+    }
+
+    func testAPencillessIPadStillDefaultsToPencilOnly() {
+        // §0.2: never auto-enabled. An iPad with no Pencil is inert until
+        // someone deliberately opens the hatch.
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: false, fingerDrawing: false), .pencilOnly)
+    }
+
+    func testTheHatchOpensOnlyWhereThereIsNoPencil() {
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: false, fingerDrawing: true), .anyInput)
+    }
+
+    func testTheHatchIsOfferedOnlyWhereThereIsNoPencil() {
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        XCTAssertTrue(AnnotationInput.offersHatch(prefs), "a Pencil-less iPad was given no way out")
+        prefs.notePencilSeen()
+        XCTAssertFalse(AnnotationInput.offersHatch(prefs), "the hatch is clutter once a Pencil exists")
+    }
+
 }

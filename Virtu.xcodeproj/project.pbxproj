@@ -26,6 +26,7 @@
 		4AFA373C3CC58DD365B73F16 /* bach-cello-suite-1.pdf in Resources */ = {isa = PBXBuildFile; fileRef = E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */; };
 		4CC1B5DD903DD3175B501135 /* ToolRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0949CFF42733FEA2237BD8B /* ToolRailView.swift */; };
 		5174770ED1BE67FAFACF84EB /* StageInk.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32BB9FA9516F188E40A59A5F /* StageInk.swift */; };
+		524D3DA7322FF15679568467 /* AnnotationInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0191C258E01E50D62F8778 /* AnnotationInput.swift */; };
 		54978DB0B013517BF81D65C2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 17D694569F8FDDDCA3715FB9 /* Assets.xcassets */; };
 		5832B9371D75AE7E9184A1A3 /* RecycleBinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C8A1F0EEFB974CB16767D8 /* RecycleBinView.swift */; };
 		5915C8972EC9F5C9E8DD8772 /* InkRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */; };
@@ -114,6 +115,7 @@
 		96179BBEFD4BA14DA63D82FC /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
 		9C163DA4E621F5A22F1EF81A /* Work.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Work.swift; sourceTree = "<group>"; };
 		A9F4B6847F74900389A116B9 /* Program.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Program.swift; sourceTree = "<group>"; };
+		AD0191C258E01E50D62F8778 /* AnnotationInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationInput.swift; sourceTree = "<group>"; };
 		AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgramEditorSheet.swift; sourceTree = "<group>"; };
 		AD9E3C139EEBE58F976E037A /* ReadingContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingContainerView.swift; sourceTree = "<group>"; };
 		B20201F9D4F06EF67D6D4EAB /* LoopPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopPlayer.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 		80D56EE1B0827CFFC5B54A66 /* Annotation */ = {
 			isa = PBXGroup;
 			children = (
+				AD0191C258E01E50D62F8778 /* AnnotationInput.swift */,
 				794D29A636F8848C35B6F8A7 /* ClippingStore.swift */,
 				FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */,
 				F0949CFF42733FEA2237BD8B /* ToolRailView.swift */,
@@ -407,6 +410,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				524D3DA7322FF15679568467 /* AnnotationInput.swift in Sources */,
 				9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */,
 				346B69C299F9034E95BF180C /* AppState.swift in Sources */,
 				96A53D22A386BB30D6C7B1A9 /* AudioSession.swift in Sources */,
