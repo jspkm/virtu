@@ -11,8 +11,16 @@ import Foundation
 /// So the reference is carried here rather than baked in.
 struct Pitch: Equatable {
 
+    /// A violinist in E major thinks D sharp; a clarinettist in E flat thinks
+    /// E flat. Neither should have to translate, so the name is a choice and
+    /// not a property of the frequency.
+    enum Spelling: String, CaseIterable {
+        case sharps, flats
+    }
+
     let frequency: Double
     let referenceA: Double
+    let spelling: Spelling
 
     /// MIDI number of the nearest equal-tempered note. A 440 is 69.
     let midi: Int
@@ -20,33 +28,57 @@ struct Pitch: Equatable {
     /// Distance from that note. Negative is flat, positive is sharp.
     let cents: Double
 
-    init(frequency: Double, referenceA: Double) {
-        self.frequency = frequency
-        self.referenceA = referenceA
-        // Where this frequency falls on a continuous MIDI scale, then the
-        // note it is nearest and how far off that leaves it.
+    /// Chromatic: the nearest note wins.
+    init(frequency: Double, referenceA: Double, spelling: Spelling = .sharps) {
         let exact = 69 + 12 * log2(frequency / referenceA)
         let nearest = exact.rounded()
+        self.frequency = frequency
+        self.referenceA = referenceA
+        self.spelling = spelling
         self.midi = Int(nearest)
         self.cents = (exact - nearest) * 100
+    }
+
+    /// Pinned: the note is chosen and only the octave is found. The cents may
+    /// exceed a quarter tone, which is the whole point — a slack string reads
+    /// as its own note, badly flat, instead of as the note below, in tune.
+    init(frequency: Double, referenceA: Double, spelling: Spelling = .sharps, pinnedTo pitchClass: Int) {
+        let exact = 69 + 12 * log2(frequency / referenceA)
+        let octaves = ((exact - Double(pitchClass)) / 12).rounded()
+        let midi = pitchClass + 12 * Int(octaves)
+        self.frequency = frequency
+        self.referenceA = referenceA
+        self.spelling = spelling
+        self.midi = midi
+        self.cents = (exact - Double(midi)) * 100
     }
 
     /// Sharps, not flats. A tuner names a pitch, not a key — nothing here
     /// knows what you are playing, so there is no basis for choosing E flat
     /// over D sharp, and picking one and staying with it is the only honest
     /// option.
-    private static let letters = ["C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B"]
-    private static let accidentals: [String?] = [
-        nil, "♯", nil, "♯", nil, nil, "♯", nil, "♯", nil, "♯", nil
-    ]
-    private static let spokenAccidentals: [String?] = [
-        nil, " sharp", nil, " sharp", nil, nil, " sharp", nil, " sharp", nil, " sharp", nil
-    ]
+    static let sharpLetters = ["C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B"]
+    static let flatLetters  = ["C", "D", "D", "E", "E", "F", "G", "G", "A", "A", "B", "B"]
+    private static let sharpMarks: [String?] = [nil, "\u{266F}", nil, "\u{266F}", nil, nil, "\u{266F}", nil, "\u{266F}", nil, "\u{266F}", nil]
+    private static let flatMarks: [String?] = [nil, "\u{266D}", nil, "\u{266D}", nil, nil, "\u{266D}", nil, "\u{266D}", nil, "\u{266D}", nil]
+    private static let spokenSharps: [String?] = [nil, " sharp", nil, " sharp", nil, nil, " sharp", nil, " sharp", nil, " sharp", nil]
+    private static let spokenFlats: [String?] = [nil, " flat", nil, " flat", nil, nil, " flat", nil, " flat", nil, " flat", nil]
 
-    private var pitchClass: Int { ((midi % 12) + 12) % 12 }
+    var pitchClass: Int { ((midi % 12) + 12) % 12 }
 
-    var letter: String { Self.letters[pitchClass] }
-    var accidental: String? { Self.accidentals[pitchClass] }
+    /// The name a musician would say, for the pickers and for VoiceOver.
+    static func name(pitchClass: Int, spelling: Spelling) -> String {
+        let letters = spelling == .sharps ? sharpLetters : flatLetters
+        let marks = spelling == .sharps ? sharpMarks : flatMarks
+        return letters[pitchClass] + (marks[pitchClass] ?? "")
+    }
+
+    var letter: String {
+        (spelling == .sharps ? Self.sharpLetters : Self.flatLetters)[pitchClass]
+    }
+    var accidental: String? {
+        (spelling == .sharps ? Self.sharpMarks : Self.flatMarks)[pitchClass]
+    }
 
     /// Scientific pitch notation: middle C is C4, so the cello's A string is
     /// A3 and the violin's is A4. Worth showing — an octave error is the one
@@ -58,7 +90,8 @@ struct Pitch: Equatable {
     /// "A sharp 3, seven cents sharp." For VoiceOver, and for anyone whose
     /// eyes are on the fingerboard.
     var spoken: String {
-        let name = letter + (Self.spokenAccidentals[pitchClass] ?? "") + " \(octave)"
+        let marks = spelling == .sharps ? Self.spokenSharps : Self.spokenFlats
+        let name = letter + (marks[pitchClass] ?? "") + " \(octave)"
         let rounded = Int(cents.rounded())
         // Asks `isInTune` rather than re-deriving it: rounding first put a
         // 5.4-cent reading in tune for VoiceOver and out of tune on screen,

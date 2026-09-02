@@ -23,9 +23,16 @@ final class Tuner {
 
     static let shared = Tuner()
 
-    /// The handoff's four references, in the order it draws them: modern
-    /// orchestral, standard, the one people ask for, and baroque.
-    static let references: [Double] = [442, 440, 432, 415]
+    /// PRD §5.1. Baroque pitch at the bottom, sharp continental and
+    /// brass-band pitch at the top.
+    static let minReferenceHz = 415.0
+    static let maxReferenceHz = 456.0
+    static let standardReferenceHz = 440.0
+    static let referenceStep = 0.5
+
+    /// The values people name out loud. Quick jumps, not the whole range —
+    /// the range is continuous now, because 442.5 is a real orchestra's pitch.
+    static let references: [Double] = [415, 430, 432, 435, 440, 442, 444, 446, 450, 456]
 
     /// Inside five cents the ear stops hearing the difference against a
     /// drone, and a needle that will not settle is a needle you stop
@@ -35,6 +42,17 @@ final class Tuner {
     // Two ids, not one. The arbiter keys claims by owner, so a single id
     // means a release for either half drops both — harmless while the two are
     // mutually exclusive, and a silent bug the moment they are not.
+    /// The octaves worth offering: below C4 a fork is hard to hear over an
+    /// instrument, and above B6 it is a whistle.
+    static let forkOctaves = [4, 5, 6]
+
+    /// Equal temperament off the A in force, so the fork moves with the
+    /// calibration rather than beside it.
+    static func forkFrequency(pitchClass: Int, octave: Int, referenceA: Double) -> Double {
+        let midi = (octave + 1) * 12 + pitchClass
+        return referenceA * pow(2, (Double(midi) - 69) / 12)
+    }
+
     private static let droneClaimID = "tuner.drone"
     private static let micClaimID = "tuner.mic"
 
@@ -45,6 +63,8 @@ final class Tuner {
     // to a property inside its own didSet re-enters the setter and recurses.
     // The metronome learned this the hard way.
     private var storedReferenceHz = 442.0
+    private var storedForkPitchClass = 9      // A
+    private var storedForkOctave = 4          // A4
 
     /// Which A everything is measured against. Snapped to one of the four —
     /// stored in hertz rather than as a preset index so that a future free
@@ -52,15 +72,63 @@ final class Tuner {
     var referenceHz: Double {
         get { storedReferenceHz }
         set {
-            let nearest = Self.references.min {
-                abs($0 - newValue) < abs($1 - newValue)
-            } ?? 442
-            guard nearest != storedReferenceHz else { return }
-            storedReferenceHz = nearest
-            defaults.set(nearest, forKey: "tunerReferenceHz")
+            // Clamped, no longer snapped to one of four.
+            let stepped = (newValue / Self.referenceStep).rounded() * Self.referenceStep
+            let clamped = min(max(stepped, Self.minReferenceHz), Self.maxReferenceHz)
+            guard clamped != storedReferenceHz else { return }
+            storedReferenceHz = clamped
+            defaults.set(clamped, forKey: "tunerReferenceHz")
             // The drone IS the reference, so changing it is a new loop.
             drone.reload()
         }
+    }
+
+    /// Whether the reset affordance has anything to do.
+    var isOffStandardPitch: Bool {
+        abs(storedReferenceHz - Self.standardReferenceHz) > 0.01
+    }
+
+    func resetReference() { referenceHz = Self.standardReferenceHz }
+
+    /// `nil` is chromatic — the nearest note wins. Otherwise the reading is
+    /// pinned to this pitch class in whichever octave is nearest, so a string
+    /// a semitone flat reads as its own note badly flat rather than as the
+    /// note below, in tune.
+    var targetPitchClass: Int?
+
+    /// Sharps or flats, applied everywhere a note is named. A plain stored
+    /// property with a didSet is safe here only because it never writes to
+    /// itself — unlike the clamped setters above it.
+    var spelling: Pitch.Spelling = .sharps {
+        didSet { defaults.set(spelling.rawValue, forKey: "tunerSpelling") }
+    }
+
+    var forkPitchClass: Int {
+        get { storedForkPitchClass }
+        set {
+            let wrapped = ((newValue % 12) + 12) % 12
+            guard wrapped != storedForkPitchClass else { return }
+            storedForkPitchClass = wrapped
+            defaults.set(wrapped, forKey: "tunerForkPitchClass")
+            drone.reload()
+        }
+    }
+
+    var forkOctave: Int {
+        get { storedForkOctave }
+        set {
+            let clamped = min(max(newValue, Self.forkOctaves.first!), Self.forkOctaves.last!)
+            guard clamped != storedForkOctave else { return }
+            storedForkOctave = clamped
+            defaults.set(clamped, forKey: "tunerForkOctave")
+            drone.reload()
+        }
+    }
+
+    /// What the fork is about to sound.
+    var forkHz: Double {
+        Self.forkFrequency(pitchClass: storedForkPitchClass, octave: storedForkOctave,
+                           referenceA: storedReferenceHz)
     }
 
     private(set) var isSounding = false
@@ -78,13 +146,28 @@ final class Tuner {
     /// stored, so tapping A 415 re-reads the string you are already holding
     /// instead of waiting for the next bow stroke.
     var reading: Pitch? {
-        heardHz.map { Pitch(frequency: $0, referenceA: storedReferenceHz) }
+        guard let heardHz else { return nil }
+        if let target = targetPitchClass {
+            return Pitch(frequency: heardHz, referenceA: storedReferenceHz,
+                         spelling: spelling, pinnedTo: target)
+        }
+        return Pitch(frequency: heardHz, referenceA: storedReferenceHz, spelling: spelling)
     }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let stored = defaults.object(forKey: "tunerReferenceHz") as? Double {
-            referenceHz = stored          // through the setter, which snaps
+            referenceHz = stored          // through the setter, which clamps
+        }
+        if defaults.object(forKey: "tunerForkPitchClass") != nil {
+            forkPitchClass = defaults.integer(forKey: "tunerForkPitchClass")
+        }
+        if defaults.object(forKey: "tunerForkOctave") != nil {
+            forkOctave = defaults.integer(forKey: "tunerForkOctave")
+        }
+        if let raw = defaults.string(forKey: "tunerSpelling"),
+           let value = Pitch.Spelling(rawValue: raw) {
+            spelling = value
         }
         drone.fadeOutSeconds = 0.04
     }
@@ -147,13 +230,26 @@ final class Tuner {
     /// buffer length to something convenient.
     private func makeDroneBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
         let rate = format.sampleRate
-        let hz = storedReferenceHz
+        let hz = forkHz
         guard rate > 0, hz > 0 else { return nil }
 
         // About a second's worth, snapped to whole cycles.
+        //
+        // The loop length is rounded to a whole sample, so `frames` cannot
+        // hold exactly `cycles` cycles OF `hz` — and the leftover phase at the
+        // wrap grows with the pitch. Sounding only A 415–456, as this did
+        // before the fork, the error is nil; at B6 it is a third of the tone's
+        // own amplitude, which is a click once a second.
+        //
+        // So the buffer's length is chosen first and the frequency is derived
+        // from it. The loop then holds exactly `cycles` cycles in `frames`
+        // samples and the wrap is bit-exact. The pitch moves by at most half a
+        // sample over the whole loop — under 0.02 cents, two orders below
+        // anything audible and below the 0.4 cents this already accepted.
         let cycles = max(1, Int(hz.rounded()))
         let frames = Int((Double(cycles) * rate / hz).rounded())
         guard frames > 0 else { return nil }
+        let loopHz = Double(cycles) * rate / Double(frames)
 
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)
@@ -168,7 +264,7 @@ final class Tuner {
             let t = Double(i) / rate
             var sum = 0.0
             for (index, amplitude) in Self.partials.enumerated() {
-                sum += amplitude * sin(2 * .pi * hz * Double(index + 1) * t)
+                sum += amplitude * sin(2 * .pi * loopHz * Double(index + 1) * t)
             }
             let value = Float(sum / norm * Self.droneLevel)
             for channel in 0..<channelCount {

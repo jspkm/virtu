@@ -25,7 +25,9 @@ struct TunerCard: View {
 
             reading
             deviation.padding(.vertical, 18)
-            references
+            calibration
+            targetHeader.padding(.top, 16)
+            target.padding(.top, 6)
             transport.padding(.top, 18)
 
             if tuner.micDenied {
@@ -66,7 +68,7 @@ struct TunerCard: View {
                 Text("A")
                     .font(VFont.tunerNote)
                     .foregroundStyle(theme.ink)
-                Text("\(Int(tuner.referenceHz)) Hz")
+                Text("\(Self.hzLabel(tuner.referenceHz)) Hz")
                     .font(VFont.mono(13))
                     .foregroundStyle(theme.muted)
             }
@@ -149,27 +151,139 @@ struct TunerCard: View {
         return width / 2 - 2 + CGFloat(clamped / Self.fullScaleCents) * half
     }
 
-    // MARK: - The references
+    // MARK: - Calibration
 
-    private var references: some View {
-        HStack(spacing: 6) {
-            ForEach(Tuner.references, id: \.self) { hz in
-                let selected = tuner.referenceHz == hz
+    /// A = 442.0 Hz, with fine steppers, the named presets behind the figure,
+    /// and a reset that exists only when it would do something.
+    private var calibration: some View {
+        HStack(spacing: 8) {
+            stepper("minus", enabled: tuner.referenceHz > Tuner.minReferenceHz) {
+                tuner.referenceHz -= Tuner.referenceStep
+            }
+
+            Menu {
+                ForEach(Tuner.references, id: \.self) { hz in
+                    Button("A \(Self.hzLabel(hz)) Hz") { tuner.referenceHz = hz }
+                }
+            } label: {
+                Text("A \(Self.hzLabel(tuner.referenceHz)) Hz")
+                    .font(VFont.mono(13, weight: .medium))
+                    .foregroundStyle(theme.ink)
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(theme.wash)
+                    .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
+            }
+            .accessibilityLabel("Reference pitch, A \(Self.hzLabel(tuner.referenceHz)) hertz")
+
+            stepper("plus", enabled: tuner.referenceHz < Tuner.maxReferenceHz) {
+                tuner.referenceHz += Tuner.referenceStep
+            }
+
+            if tuner.isOffStandardPitch {
                 Button {
-                    tuner.referenceHz = hz
+                    tuner.resetReference()
                     Haptics.selection()
                 } label: {
-                    Text("A \(Int(hz))")
+                    Text("440")
                         .font(VFont.mono(12))
+                        .foregroundStyle(theme.accent)
+                        .padding(.horizontal, 8)
+                        .frame(height: 30)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Reset to concert pitch, A 440")
+            }
+        }
+    }
+
+    private func stepper(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            Haptics.selection()
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(enabled ? theme.ink : theme.faint)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.smallControl)
+                        .stroke(theme.line2, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(symbol == "minus" ? "Lower the reference" : "Raise the reference")
+    }
+
+    // MARK: - Target note
+
+    private var targetHeader: some View {
+        HStack {
+            Text("Tuning to")
+                .font(VFont.metadata)
+                .foregroundStyle(theme.faint)
+            Spacer()
+            spellingToggle
+        }
+    }
+
+    /// Auto first, because it is right most of the time; a pinned note is
+    /// what you reach for when it is not — a string a semitone flat is named
+    /// as the note below and reported nearly in tune.
+    private var target: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                chip(title: "Auto", selected: tuner.targetPitchClass == nil) {
+                    tuner.targetPitchClass = nil
+                }
+                ForEach(0..<12, id: \.self) { pitchClass in
+                    chip(
+                        title: Pitch.name(pitchClass: pitchClass, spelling: tuner.spelling),
+                        selected: tuner.targetPitchClass == pitchClass
+                    ) { tuner.targetPitchClass = pitchClass }
+                }
+            }
+            .padding(.trailing, 2)
+        }
+    }
+
+    private func chip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            Haptics.selection()
+        } label: {
+            Text(title)
+                .font(VFont.mono(12))
+                .foregroundStyle(selected ? theme.paper : theme.muted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(selected ? theme.ink : theme.wash)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+
+    /// Sharps or flats, applied everywhere a note is named.
+    private var spellingToggle: some View {
+        HStack(spacing: 4) {
+            ForEach(Pitch.Spelling.allCases, id: \.self) { option in
+                let selected = tuner.spelling == option
+                Button {
+                    tuner.spelling = option
+                    Haptics.selection()
+                } label: {
+                    Text(option == .sharps ? "\u{266F}" : "\u{266D}")
+                        .font(VFont.serif(15))
                         .foregroundStyle(selected ? theme.paper : theme.muted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
+                        .frame(width: 30, height: 24)
                         .background(selected ? theme.ink : theme.wash)
                         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Tune to A \(Int(hz)) hertz")
-                .accessibilityAddTraits(selected ? [.isSelected] : [])
+                .accessibilityLabel(option == .sharps ? "Name black notes as sharps" : "Name black notes as flats")
             }
         }
     }
@@ -177,41 +291,24 @@ struct TunerCard: View {
     // MARK: - Transport
 
     private var transport: some View {
-        HStack(spacing: 10) {
-            Button {
-                tuner.toggleSounding()
-                Haptics.medium()
-            } label: {
-                Text(tuner.isSounding ? "Stop" : "Sound A")
-                    .font(VFont.control)
-                    .foregroundStyle(theme.paper)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(tuner.isSounding ? theme.accent : theme.ink)
-                    .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.button))
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                tuner.toggleListening()
-                Haptics.light()
-            } label: {
-                Text(tuner.isListening ? "Listening" : "Listen")
-                    .font(VFont.control)
-                    .foregroundStyle(tuner.isListening ? theme.paper : theme.ink)
-                    .fixedSize()
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 20)
-                    .background(tuner.isListening ? theme.accent : .clear)
-                    .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.button))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Tokens.Radius.button)
-                            .stroke(tuner.isListening ? .clear : theme.line2, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint(tuner.isListening ? "Stops listening" : "Listens and shows how far off you are")
+        Button {
+            tuner.toggleListening()
+            Haptics.light()
+        } label: {
+            Text(tuner.isListening ? "Listening" : "Listen")
+                .font(VFont.control)
+                .foregroundStyle(tuner.isListening ? theme.paper : theme.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(tuner.isListening ? theme.accent : .clear)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.button))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.button)
+                        .stroke(tuner.isListening ? .clear : theme.line2, lineWidth: 1)
+                )
         }
+        .buttonStyle(.plain)
+        .accessibilityHint(tuner.isListening ? "Stops listening" : "Listens and shows how far off you are")
     }
 
     /// Shown only after the microphone has actually been refused. A button
@@ -236,6 +333,10 @@ struct TunerCard: View {
 
     // MARK: - Copy
 
+    private static func hzLabel(_ hz: Double) -> String {
+        hz == hz.rounded() ? String(Int(hz)) : String(format: "%.1f", hz)
+    }
+
     private static func hertz(_ value: Double) -> String {
         String(format: "%.1f Hz", value)
     }
@@ -251,6 +352,6 @@ struct TunerCard: View {
     private var spokenReading: String {
         if let pitch = tuner.reading { return pitch.spoken }
         if tuner.isListening { return "Listening" }
-        return "Tuning to A \(Int(tuner.referenceHz)) hertz"
+        return "Tuning to A \(Self.hzLabel(tuner.referenceHz)) hertz"
     }
 }

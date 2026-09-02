@@ -874,6 +874,17 @@ git commit -m "test: §0.3 at 50 randomised stopping points — the gate that wa
 
 ## I.B — The Bench, Fully Featured
 
+> **Complete, 2026-09-02.** Tasks 6–9 landed on `the-bench`. Implements PRD §5.1 except
+> the logarithmic tempo slider, which stayed linear — Task 6's steppers give the
+> single-BPM precision instead, and the slider is coarse adjustment. Reopen that if the
+> slow end feels unusable in practice.
+>
+> Two things learned in the building, both recorded where they happened: the fork sounds
+> higher (B6, 1975Hz) than the tuner listens (1500Hz), which is fine because the two
+> never run at once but means a round-trip test has to raise the detector's ceiling; and
+> the whole-cycle loop that keeps the wrap silent costs about 0.4 cents at the top of the
+> fork's range, which is inaudible and now written down rather than rediscovered.
+
 Implements PRD §5.1. Depends on nothing in I.A and may be executed before, after, or
 alongside it.
 
@@ -901,7 +912,7 @@ does not report, because they simply go back to the app that works.
 - Modify: `Virtu/Tools/Metronome.swift`
 - Test: `Tests/VirtuInkTests.swift`
 
-- [ ] **Step 1: Update the existing threshold test, which this task deliberately breaks**
+- [x] **Step 1: Update the existing threshold test, which this task deliberately breaks**
 
 `testTempoWordsFollowTheHandoffThresholds` asserts `140 → "presto"`. With *vivace* added,
 140 is vivace. Replace that test with:
@@ -953,12 +964,12 @@ does not report, because they simply go back to the app that works.
 Also delete the now-superseded `testTempoIsClampedToThePlayableRange`, whose assertions are
 absorbed above.
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `xcodebuild -project Virtu.xcodeproj -scheme Virtu -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' -derivedDataPath build-test test 2>&1 | grep -E "error:|Executed .* tests"`
 Expected: failures on `grave`, on `bpm = 15`, and on `beatsPerBar = 1`.
 
-- [ ] **Step 3: Widen the range and the ladder**
+- [x] **Step 3: Widen the range and the ladder**
 
 In `Virtu/Tools/Metronome.swift`, replace the two range constants:
 
@@ -1005,7 +1016,7 @@ Replace `tempoWord` entirely:
     }
 ```
 
-- [ ] **Step 4: Guard the buffer at the slow end**
+- [x] **Step 4: Guard the buffer at the slow end**
 
 At 15 BPM with 7 beats a bar the loop is 28 seconds — about 10 MB of stereo float at 48 kHz.
 That is allocated once per tempo change and is acceptable, but it must not be an accident.
@@ -1018,11 +1029,11 @@ Add to `makeBarBuffer(format:)`, immediately after `let totalFrames = beatFrames
         assert(totalFrames <= Int(rate * 30), "bar buffer longer than the slowest legal bar")
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Expected: 0 failures, and **one more test than before this task** — two added, one deleted, one rewritten. (Absolute counts depend on whether I.A has run; the delta does not.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Virtu/Tools/Metronome.swift Tests/VirtuInkTests.swift
@@ -1036,7 +1047,7 @@ git commit -m "feat: 15 to 500, one to seven, grave to prestissimo"
 - Modify: `Virtu/Tools/Metronome.swift`
 - Test: `Tests/VirtuInkTests.swift`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
     // MARK: - Subdivisions (PRD §5.1)
@@ -1128,11 +1139,11 @@ defaulted so every existing caller is unchanged:
     }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Expected: `cannot find 'Subdivision' in scope`.
 
-- [ ] **Step 3: Write the subdivision**
+- [x] **Step 3: Write the subdivision**
 
 Create `Virtu/Tools/Subdivision.swift`:
 
@@ -1189,7 +1200,7 @@ enum Subdivision: String, CaseIterable, Identifiable {
 }
 ```
 
-- [ ] **Step 4: Sound it**
+- [x] **Step 4: Sound it**
 
 In `Virtu/Tools/Metronome.swift`, add a third click voice beside the existing two:
 
@@ -1262,11 +1273,11 @@ Then replace the click-writing loop in `makeBarBuffer(format:)` — everything f
         return buffer
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Expected: 0 failures, and **five more tests than before this task**.
 
-- [ ] **Step 6: Put the row on the card**
+- [x] **Step 6: Put the row on the card**
 
 In `Virtu/Tools/MetronomeCard.swift`, add a rhythm row and use it between the slider and
 the transport:
@@ -1301,13 +1312,13 @@ the transport:
 
 and insert `rhythm.padding(.top, 14)` after `slider` in `body`.
 
-- [ ] **Step 7: Hear it**
+- [x] **Step 7: Hear it**
 
 Build, install, launch. Set 60 BPM, 4 beats, and step through the six rhythms. Expected:
 triplets are three even clicks to the beat; swing's off-beat sits noticeably later than
 eighths'; dotted's sits later still. The downbeat stays clearly the loudest in all six.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Virtu/Tools/Subdivision.swift Virtu/Tools/Metronome.swift Virtu/Tools/MetronomeCard.swift Tests/VirtuInkTests.swift Virtu.xcodeproj/project.pbxproj
@@ -1320,7 +1331,7 @@ git commit -m "feat: the click can subdivide — eighths through swing"
 - Modify: `Virtu/Tools/PitchDetector.swift`, `Virtu/Tools/Tuner.swift`, `Virtu/Tools/TunerCard.swift`
 - Test: `Tests/VirtuInkTests.swift`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
     // MARK: - Calibration, target note and spelling (PRD §5.1)
@@ -1390,11 +1401,11 @@ git commit -m "feat: the click can subdivide — eighths through swing"
     }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Expected: unknown members `spelling`, `pinnedTo`, `Tuner.minReferenceHz`, `resetReference`.
 
-- [ ] **Step 3: Teach `Pitch` to spell and to be pinned**
+- [x] **Step 3: Teach `Pitch` to spell and to be pinned**
 
 In `Virtu/Tools/PitchDetector.swift`, add inside `struct Pitch`:
 
@@ -1457,7 +1468,7 @@ Replace the existing `init` with the two below, and replace the name tables:
 Delete the old `letters`/`accidentals` tables and the old `private var pitchClass`. Update
 `spoken` to build its accidental from `spelling` the same way.
 
-- [ ] **Step 4: Widen the tuner**
+- [x] **Step 4: Widen the tuner**
 
 In `Virtu/Tools/Tuner.swift`, replace the snapping setter and the presets:
 
@@ -1522,7 +1533,7 @@ and restore the spelling in `init`:
         }
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Expected: 0 failures, and **five more tests than before this task**. Note that
 `testTheReferenceSnapsToAPresetAndSurvivesRelaunch` from the tuner's first build asserts
@@ -1530,7 +1541,7 @@ the snapping this task removes: split it, keeping the relaunch half as
 `testTheReferenceSurvivesRelaunch` and letting
 `testTheReferenceIsContinuousAcrossItsRange` above replace the snapping half.
 
-- [ ] **Step 6: Rebuild the card's controls**
+- [x] **Step 6: Rebuild the card's controls**
 
 In `Virtu/Tools/TunerCard.swift`, replace the four-preset `references` row with a
 calibration row and a target row. The sound button moves to the fork card in Task 9, so
@@ -1658,14 +1669,14 @@ calibration row and a target row. The sound button moves to the fork card in Tas
 Lay them out in `body` as: label · reading · deviation · calibration · (target + spelling
 in one row) · Listen.
 
-- [ ] **Step 7: Use it**
+- [x] **Step 7: Use it**
 
 Build, install, launch. Step the reference to 443.5 and confirm the readout of a held tone
 moves by the right number of cents; tap 440 to reset and watch the button disappear. Pin D,
 sound something around C♯, and confirm it reads as a very flat D rather than a near C♯.
 Flip to flats and confirm every black note renames.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Virtu/Tools/PitchDetector.swift Virtu/Tools/Tuner.swift Virtu/Tools/TunerCard.swift Tests/VirtuInkTests.swift
@@ -1679,7 +1690,7 @@ git commit -m "feat: calibrate 415-456, pin the note, spell it your way"
 - Modify: `Virtu/Tools/Tuner.swift`, `Virtu/Tools/TunerCard.swift`, `Virtu/Tools/ToolsView.swift`
 - Test: `Tests/VirtuInkTests.swift`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```swift
     // MARK: - The tuning fork (PRD §5.1)
@@ -1723,11 +1734,11 @@ git commit -m "feat: calibrate 415-456, pin the note, spell it your way"
     }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Expected: unknown members `forkFrequency`, `forkPitchClass`, `forkOctave`.
 
-- [ ] **Step 3: Give the tuner a fork**
+- [x] **Step 3: Give the tuner a fork**
 
 In `Virtu/Tools/Tuner.swift`:
 
@@ -1784,7 +1795,7 @@ the reference — replace `let hz = storedReferenceHz` with:
 
 The cycle count already derives from `hz`, so a whole number of cycles still fills the loop.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Expected: 0 failures, and **four more tests than before this task**.
 `testTheDroneIsExactlyThePitchOnTheButton`
@@ -1792,7 +1803,7 @@ and `testTheDroneLoopsWithoutASeam` from the first build assume the drone is the
 A; they pass unchanged only while the fork sits at A4, so set `forkPitchClass = 9` and
 `forkOctave = 4` explicitly in both rather than relying on the default.
 
-- [ ] **Step 5: Build the card**
+- [x] **Step 5: Build the card**
 
 Create `Virtu/Tools/ForkCard.swift`:
 
@@ -1908,19 +1919,19 @@ struct ForkCard: View {
 }
 ```
 
-- [ ] **Step 6: Put it on the bench and take Sound off the tuner**
+- [x] **Step 6: Put it on the bench and take Sound off the tuner**
 
 In `Virtu/Tools/ToolsView.swift`, add `ForkCard()` to the grid after `TunerCard()`. In
 `TunerCard.swift`, delete the "Sound A" button from `transport`, leaving Listen to fill the
 width.
 
-- [ ] **Step 7: Hear every note**
+- [x] **Step 7: Hear every note**
 
 Build, install, launch. Sound C4, then B6, then set the reference to 415 and sound A4 —
 expected 415.0 Hz on the card and a pitch a semitone under concert A. Press Listen while
 the fork sounds: the fork must stop.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Virtu/Tools/ForkCard.swift Virtu/Tools/Tuner.swift Virtu/Tools/TunerCard.swift Virtu/Tools/ToolsView.swift Tests/VirtuInkTests.swift Virtu.xcodeproj/project.pbxproj
@@ -2193,7 +2204,7 @@ xcodebuild test -project Virtu.xcodeproj -scheme Virtu \
   -destination 'platform=iOS Simulator,id=<booted-ipad>'
 ```
 
-115 tests in `Tests/VirtuInkTests.swift`: data integrity, geometry round-trips,
+134 tests in `Tests/VirtuInkTests.swift`: data integrity, geometry round-trips,
 ink-layer rendering and position, canvas input space (inset/offset), display-
 ownership state machine (normalization timing, lasso handoff, tool idempotence),
 layer isolation and persistence, journal v2 (authored page size, pre-layer ink

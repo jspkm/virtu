@@ -1663,9 +1663,11 @@ final class VirtuInkTests: XCTestCase {
     /// A click is a decaying sine, so it crosses zero dozens of times inside
     /// its own envelope — an onset needs a hold-off longer than the click, or
     /// every half-cycle reads as a new one.
-    private func clickOnsets(_ buffer: AVAudioPCMBuffer, sampleRate: Double = 44_100) -> [Int] {
+    private func clickOnsets(
+        _ buffer: AVAudioPCMBuffer, sampleRate: Double = 44_100, holdOff: Int? = nil
+    ) -> [Int] {
         guard let data = buffer.floatChannelData?[0] else { return [] }
-        let holdOff = Int(sampleRate * 0.05)   // longer than Metronome.clickSeconds
+        let holdOff = holdOff ?? Int(sampleRate * 0.05)   // longer than Metronome.clickSeconds
         var onsets: [Int] = []
         var i = 0
         while i < Int(buffer.frameLength) {
@@ -1682,10 +1684,10 @@ final class VirtuInkTests: XCTestCase {
     /// Clicks land on their beats, to within a sample or two — the first
     /// sample of a sine burst is sin(0), which is exactly silent.
     private func assertOnsets(
-        _ buffer: AVAudioPCMBuffer, are expected: [Int],
+        _ buffer: AVAudioPCMBuffer, are expected: [Int], holdOff: Int? = nil,
         file: StaticString = #filePath, line: UInt = #line
     ) {
-        let onsets = clickOnsets(buffer)
+        let onsets = clickOnsets(buffer, holdOff: holdOff)
         XCTAssertEqual(
             onsets.count, expected.count,
             "expected \(expected.count) clicks to the bar, got \(onsets.count)",
@@ -1761,13 +1763,6 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(metronome.bpm, 120)
     }
 
-    func testTempoIsClampedToThePlayableRange() {
-        let metronome = Metronome(defaults: Self.scratchDefaults())
-        metronome.bpm = 5_000
-        XCTAssertEqual(metronome.bpm, Metronome.maxBPM)
-        metronome.bpm = 0
-        XCTAssertEqual(metronome.bpm, Metronome.minBPM)
-    }
 
     func testTempoAndMeterSurviveRelaunch() {
         let defaults = Self.scratchDefaults()
@@ -1780,13 +1775,46 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(relaunched.beatsPerBar, 3)
     }
 
-    func testTempoWordsFollowTheHandoffThresholds() {
+    func testTempoWordsRunGraveToPrestissimo() {
         let metronome = Metronome(defaults: Self.scratchDefaults())
-        for (bpm, word) in [(40, "largo"), (60, "adagio"), (76, "andante"),
-                            (96, "moderato"), (112, "allegro"), (140, "presto")] {
+        // Every threshold the handoff set is preserved; grave is added below
+        // and the old catch-all "presto" above 140 is split into three.
+        for (bpm, word) in [(15, "grave"), (39, "grave"),
+                            (40, "largo"), (60, "adagio"), (76, "andante"),
+                            (96, "moderato"), (112, "allegro"),
+                            (140, "vivace"), (168, "presto"), (200, "prestissimo"),
+                            (500, "prestissimo")] {
             metronome.bpm = bpm
             XCTAssertEqual(metronome.tempoWord, word, "\(bpm) should read as \(word)")
         }
+    }
+
+    func testTheFullTempoAndMeterRangeIsReachable() {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 15
+        XCTAssertEqual(metronome.bpm, 15, "a conductor subdividing a grave cannot get there")
+        metronome.bpm = 500
+        XCTAssertEqual(metronome.bpm, 500)
+        metronome.bpm = 5_000
+        XCTAssertEqual(metronome.bpm, Metronome.maxBPM)
+        metronome.bpm = 0
+        XCTAssertEqual(metronome.bpm, Metronome.minBPM)
+
+        metronome.beatsPerBar = 1
+        XCTAssertEqual(metronome.beatsPerBar, 1, "one beat is a plain pulse, and a legitimate setting")
+        metronome.beatsPerBar = 7
+        XCTAssertEqual(metronome.beatsPerBar, 7)
+        metronome.beatsPerBar = 99
+        XCTAssertEqual(metronome.beatsPerBar, 7)
+    }
+
+    func testOneBeatToTheBarIsOneClick() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 60
+        metronome.beatsPerBar = 1
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        assertOnsets(buffer, are: [0])
+        XCTAssertEqual(Int(buffer.frameLength), 44_100)
     }
 
 
@@ -1886,10 +1914,17 @@ final class VirtuInkTests: XCTestCase {
 
     private func assertHears(
         _ expected: Double, in samples: [Float], sampleRate: Double,
-        withinCents tolerance: Double = 1,
+        withinCents tolerance: Double = 1, ceilingHz: Double? = nil,
         file: StaticString = #filePath, line: UInt = #line
     ) {
-        let detector = PitchDetector(sampleRate: sampleRate)
+        var detector = PitchDetector(sampleRate: sampleRate)
+        // The tuner listens to 1500Hz, which is above every note anyone
+        // tunes. The fork *sounds* to B6 (1975Hz), which is a different job —
+        // and the two never run at once. Raising the ceiling here tests the
+        // oscillator rather than the detector's range; without it the
+        // detector answers a clean octave down and the failure looks like a
+        // synthesis bug.
+        if let ceilingHz { detector.highestHz = ceilingHz }
         guard let heard = detector.frequency(in: samples) else {
             return XCTFail("heard nothing where \(expected)Hz was playing", file: file, line: line)
         }
@@ -1965,6 +2000,8 @@ final class VirtuInkTests: XCTestCase {
         for reference in Tuner.references {
             let tuner = Tuner(defaults: Self.scratchDefaults())
             tuner.referenceHz = reference
+            tuner.forkPitchClass = 9        // A
+            tuner.forkOctave = 4
             let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
             let data = try XCTUnwrap(buffer.floatChannelData?[0])
             let window = (0..<PitchDetector.windowFrames).map { data[$0] }
@@ -1972,33 +2009,111 @@ final class VirtuInkTests: XCTestCase {
         }
     }
 
-    func testTheDroneLoopsWithoutASeam() throws {
-        // A whole number of cycles is what makes the wrap silent. If the
-        // buffer ended mid-cycle you would hear a tick once a second.
-        let rate = 48_000.0
-        let tuner = Tuner(defaults: Self.scratchDefaults())
-        tuner.referenceHz = 442
-        let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
-        let cycles = Double(buffer.frameLength) * 442 / rate
-        XCTAssertEqual(cycles, cycles.rounded(), accuracy: 0.002,
-                       "the loop holds \(cycles) cycles, so its wrap is a click")
+    func testTheDroneLoopsWithoutASeamAtAnyPitchOrRate() throws {
+        // A whole number of cycles is what makes the wrap silent. This used to
+        // pin A4 at 442 on 48kHz — the single point in the whole 36-note by
+        // 83-reference space where the arithmetic comes out exact — so it
+        // passed while most of octaves 5 and 6 ticked once a second.
+        for rate in [44_100.0, 48_000.0] {
+            for reference in [415.0, 440.0, 443.5, 456.0] {
+                for (pitchClass, octave) in [(9, 4), (0, 5), (10, 5), (11, 6), (0, 4)] {
+                    let tuner = Tuner(defaults: Self.scratchDefaults())
+                    tuner.referenceHz = reference
+                    tuner.forkPitchClass = pitchClass
+                    tuner.forkOctave = octave
+                    let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
+                    let data = try XCTUnwrap(buffer.floatChannelData?[0])
+                    let frames = Int(buffer.frameLength)
 
-        let data = try XCTUnwrap(buffer.floatChannelData?[0])
-        let last = data[Int(buffer.frameLength) - 1]
-        XCTAssertEqual(Double(last), Double(data[0]), accuracy: 0.05,
-                       "the end of the loop does not meet its beginning")
+                    // The sample after the last one IS the first one again.
+                    // Compare the step at the wrap against the step between
+                    // two ordinary neighbours, so the bar scales with pitch.
+                    let neighbourStep = abs(Double(data[1]) - Double(data[0]))
+                    let wrapStep = abs(Double(data[frames - 1]) - Double(data[0]))
+                    let name = Pitch.name(pitchClass: pitchClass, spelling: .sharps)
+                    XCTAssertLessThanOrEqual(
+                        wrapStep, neighbourStep + 0.002,
+                        "\(name)\(octave) at A\(reference), \(Int(rate))Hz: the loop's end does not "
+                        + "meet its beginning — a click once a second"
+                    )
+                }
+            }
+        }
     }
 
-    func testTheReferenceSnapsToAPresetAndSurvivesRelaunch() {
+    func testTheReferenceSurvivesRelaunch() {
         let defaults = Self.scratchDefaults()
         let first = Tuner(defaults: defaults)
         XCTAssertEqual(first.referenceHz, 442, "the default A is not the handoff's")
-        first.referenceHz = 439          // nothing on the card offers this
-        XCTAssertEqual(first.referenceHz, 440, "an off-card reference was kept")
-
         first.referenceHz = 415
         let relaunched = Tuner(defaults: defaults)
         XCTAssertEqual(relaunched.referenceHz, 415, "the A you chose was not there when you came back")
+    }
+
+    // MARK: - Calibration, target note and spelling (PRD §5.1)
+
+    func testTheReferenceIsContinuousAcrossItsRange() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 443.5
+        XCTAssertEqual(tuner.referenceHz, 443.5, accuracy: 0.001,
+                       "the reference still snaps to a preset")
+        tuner.referenceHz = 500
+        XCTAssertEqual(tuner.referenceHz, Tuner.maxReferenceHz, accuracy: 0.001)
+        tuner.referenceHz = 100
+        XCTAssertEqual(tuner.referenceHz, Tuner.minReferenceHz, accuracy: 0.001)
+        XCTAssertEqual(Tuner.minReferenceHz, 415)
+        XCTAssertEqual(Tuner.maxReferenceHz, 456)
+    }
+
+    func testResetReturnsToConcertPitch() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 415
+        XCTAssertTrue(tuner.isOffStandardPitch, "the reset affordance would be hidden when it is needed")
+        tuner.resetReference()
+        XCTAssertEqual(tuner.referenceHz, 440, accuracy: 0.001)
+        XCTAssertFalse(tuner.isOffStandardPitch, "the reset affordance is still showing at 440")
+    }
+
+    func testSpellingRenamesTheBlackNotes() {
+        let sharp = Pitch(frequency: 466.164, referenceA: 440, spelling: .sharps)
+        XCTAssertEqual(sharp.letter, "A")
+        XCTAssertEqual(sharp.accidental, "\u{266F}")
+
+        let flat = Pitch(frequency: 466.164, referenceA: 440, spelling: .flats)
+        XCTAssertEqual(flat.letter, "B")
+        XCTAssertEqual(flat.accidental, "\u{266D}")
+
+        // The white notes are the same either way.
+        for spelling in [Pitch.Spelling.sharps, .flats] {
+            XCTAssertNil(Pitch(frequency: 440, referenceA: 440, spelling: spelling).accidental)
+        }
+    }
+
+    func testPinningANoteKeepsTheNameWhileTheStringIsFlat() {
+        // A D string a hair over a semitone flat. Chromatic naming calls it
+        // C sharp and says "nearly in tune", which is the exact failure a
+        // target note exists to prevent.
+        let veryFlatD = 146.832 * pow(2, -110.0 / 1200)
+        let chromatic = Pitch(frequency: veryFlatD, referenceA: 440, spelling: .sharps)
+        XCTAssertNotEqual(chromatic.letter, "D", "this test proves nothing if auto already says D")
+
+        let pinned = Pitch(frequency: veryFlatD, referenceA: 440, spelling: .sharps, pinnedTo: 2)
+        XCTAssertEqual(pinned.letter, "D")
+        XCTAssertEqual(pinned.octave, 3, "pinning must find the nearest D, not a fixed one")
+        XCTAssertEqual(pinned.cents, -110, accuracy: 0.5)
+        XCTAssertFalse(pinned.isInTune)
+    }
+
+    func testPinningReadsThroughTheTuner() throws {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.targetPitchClass = 2          // D
+        tuner.hear(146.832)
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).letter, "D")
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).cents, 0, accuracy: 0.5)
+
+        tuner.targetPitchClass = nil        // back to chromatic
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).letter, "D")
     }
 
     func testChangingTheReferenceRereadsTheStringYouAreHolding() {
@@ -2597,6 +2712,155 @@ final class VirtuInkTests: XCTestCase {
         page.refreshInputPolicy()
         XCTAssertFalse(page.inkObserver.allowedTouchTypes.contains(finger),
                        "a Pencil wrote and fingers still reach the ink pipeline")
+    }
+
+
+    // MARK: - Subdivisions (PRD §5.1)
+
+    func testSubdivisionsPutTheRightNumberOfClicksInABeat() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 60           // one beat = 44_100 frames
+        metronome.beatsPerBar = 1
+
+        let expected: [(Subdivision, [Int])] = [
+            (.quarter,    [0]),
+            (.eighths,    [0, 22_050]),
+            (.triplets,   [0, 14_700, 29_400]),
+            (.sixteenths, [0, 11_025, 22_050, 33_075]),
+            (.swing,      [0, 29_400]),
+            (.dotted,     [0, 33_075])
+        ]
+        for (subdivision, onsets) in expected {
+            metronome.subdivision = subdivision
+            let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+            assertOnsets(buffer, are: onsets)
+        }
+    }
+
+    func testSwingIsNotAnEvenEighth() {
+        // The whole point of the setting. If these ever match, swing has
+        // silently become eighths — which is the most common way to practise
+        // swing wrong.
+        XCTAssertNotEqual(Subdivision.swing.offsets, Subdivision.eighths.offsets)
+        XCTAssertEqual(Subdivision.swing.offsets.first ?? 0, 2.0 / 3, accuracy: 0.0001)
+    }
+
+    func testTheSubdivisionIsQuieterThanTheBeatItDivides() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 60
+        metronome.beatsPerBar = 1
+        metronome.subdivision = .eighths
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        let data = try XCTUnwrap(buffer.floatChannelData?[0])
+        let beatPeak = (0..<600).map { abs(data[$0]) }.max() ?? 0
+        let offPeak = (22_050..<22_650).map { abs(data[$0]) }.max() ?? 0
+        XCTAssertLessThan(offPeak, beatPeak * 0.8,
+                          "the off-beat is as loud as the beat, so the bar has no shape")
+        XCTAssertGreaterThan(offPeak, 0.01, "the subdivision is inaudible")
+    }
+
+    func testClicksCannotOverlapAtTheFastEnd() throws {
+        // 500 BPM in sixteenths is a click every 30ms, shorter than the click.
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 500
+        metronome.beatsPerBar = 1
+        metronome.subdivision = .sixteenths
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        // The hold-off has to clear the shortened click (1190 frames here)
+        // without reaching the next one (1323), or the detector re-triggers
+        // on a zero crossing inside a click and counts it twice.
+        XCTAssertEqual(clickOnsets(buffer, holdOff: 1_250).count, 4,
+                       "clicks ran together at the top of the range")
+        assertOnsets(buffer, are: [0, 1_323, 2_646, 3_969], holdOff: 1_250)
+    }
+
+    func testSubdivisionSurvivesRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Metronome(defaults: defaults)
+        first.subdivision = .triplets
+        XCTAssertEqual(Metronome(defaults: defaults).subdivision, .triplets)
+    }
+
+
+    // MARK: - The tuning fork (PRD §5.1)
+
+    func testForkPitchesAreTheOnesTheKeyboardHas() {
+        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 0, octave: 4, referenceA: 440), 261.6256, accuracy: 0.001)
+        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 9, octave: 4, referenceA: 440), 440, accuracy: 0.0001)
+        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 11, octave: 6, referenceA: 440), 1975.533, accuracy: 0.01)
+    }
+
+    func testTheForkFollowsTheReference() {
+        // A baroque player's fork is a baroque fork.
+        let a415 = Tuner.forkFrequency(pitchClass: 9, octave: 4, referenceA: 415)
+        XCTAssertEqual(a415, 415, accuracy: 0.0001)
+        XCTAssertEqual(1200 * log2(a415 / 440), -100, accuracy: 2, "A415 is a semitone under A440")
+    }
+
+    func testTheForkSoundsWhateverNoteIsChosen() throws {
+        // Synthesis into detection, as the drone test does for A.
+        //
+        // Two cents rather than one, and both reasons are inaudible. The loop
+        // snaps to a whole number of cycles so its wrap is silent, which at
+        // B6 costs about 0.4 cents; and a 1975Hz period is 24 samples at
+        // 48kHz, where one whole sample is 71 cents, so the parabola through
+        // YIN's minimum is doing well to land inside two.
+        let rate = 48_000.0
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        for (pitchClass, octave) in [(0, 4), (5, 5), (11, 6)] {
+            tuner.forkPitchClass = pitchClass
+            tuner.forkOctave = octave
+            let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
+            let data = try XCTUnwrap(buffer.floatChannelData?[0])
+            let window = (0..<PitchDetector.windowFrames).map { data[$0] }
+            assertHears(Tuner.forkFrequency(pitchClass: pitchClass, octave: octave, referenceA: 440),
+                        in: window, sampleRate: rate, withinCents: 2, ceilingHz: 2_200)
+        }
+    }
+
+    func testTheForkIsClampedToTheOctavesOffered() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.forkOctave = 1
+        XCTAssertEqual(tuner.forkOctave, 4)
+        tuner.forkOctave = 9
+        XCTAssertEqual(tuner.forkOctave, 6)
+    }
+
+
+    func testNoClickIsTruncatedAtTheLoopBoundary() throws {
+        // Dotted on one beat to the bar is the only case where the room after
+        // the last click is smaller than any gap inside the bar, so measuring
+        // only inside it cut that click off at the buffer's end — a step
+        // landing immediately before every downbeat, eight times a second.
+        for rate in [44_100.0, 48_000.0] {
+            for bpm in [429, 460, 500] {
+                let metronome = Metronome(defaults: Self.scratchDefaults())
+                metronome.bpm = bpm
+                metronome.beatsPerBar = 1
+                metronome.subdivision = .dotted
+                let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: rate))
+                let data = try XCTUnwrap(buffer.floatChannelData?[0])
+                let last = abs(Double(data[Int(buffer.frameLength) - 1]))
+                XCTAssertLessThan(
+                    last, 0.002,
+                    "\(bpm) BPM dotted at \(Int(rate))Hz: the bar ends mid-click at \(last)"
+                )
+            }
+        }
+    }
+
+    func testTheSpokenReferenceKeepsItsHalfHertz() {
+        // The reference steps in halves now. Int() truncation named the wrong
+        // pitch to VoiceOver on half of every reachable setting, while the
+        // visible label said the right one.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 442.5
+        XCTAssertEqual(tuner.referenceHz, 442.5, accuracy: 0.001)
+        // The card builds its spoken string from the same helper the label
+        // uses; assert the value it is given cannot round to a different A.
+        XCTAssertNotEqual(Int(tuner.referenceHz), Int(tuner.referenceHz.rounded()),
+                          "this test proves nothing if 442.5 truncates to itself")
     }
 
 }

@@ -19,6 +19,13 @@ struct MetronomeCard: View {
             reading
             lamps.padding(.vertical, 18)
             slider
+            // Both rows are digits and the first four overlap, so each says
+            // which question it answers. Without them "1 2 3 4" under
+            // "1 2 3 4 5 6 7" is a guess.
+            rowLabel("Beats to the bar").padding(.top, 16)
+            meterPicker.padding(.top, 6)
+            rowLabel("Rhythm").padding(.top, 12)
+            rhythm.padding(.top, 6)
             transport.padding(.top, 18)
         }
         .padding(24)
@@ -42,15 +49,42 @@ struct MetronomeCard: View {
 
             Spacer()
 
-            meterPicker
+            stepper("minus", enabled: metronome.bpm > Metronome.minBPM) {
+                metronome.bpm -= 1
+            }
+            stepper("plus", enabled: metronome.bpm < Metronome.maxBPM) {
+                metronome.bpm += 1
+            }
         }
+    }
+
+    /// Single-BPM precision, which the slider cannot give: 485 BPM across a
+    /// card's width is roughly two beats a point, so the slow end — where one
+    /// beat matters most — is unreachable by dragging.
+    private func stepper(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            Haptics.selection()
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(enabled ? theme.ink : theme.faint)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Tokens.Radius.smallControl)
+                        .stroke(theme.line2, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(symbol == "minus" ? "Slower" : "Faster")
     }
 
     /// Beats to the bar. A plain segmented row of figures — the numerator of
     /// the time signature, which is the only part a click can express.
     private var meterPicker: some View {
         HStack(spacing: 4) {
-            ForEach(2...6, id: \.self) { count in
+            ForEach(1...7, id: \.self) { count in
                 let selected = metronome.beatsPerBar == count
                 Button {
                     metronome.beatsPerBar = count
@@ -59,7 +93,8 @@ struct MetronomeCard: View {
                     Text("\(count)")
                         .font(VFont.mono(12))
                         .foregroundStyle(selected ? theme.paper : theme.muted)
-                        .frame(width: 28, height: 28)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 28)
                         .background(selected ? theme.ink : .clear)
                         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
                         .overlay(
@@ -103,18 +138,52 @@ struct MetronomeCard: View {
 
     // MARK: - Tempo
 
+    /// Logarithmic, per PRD §5.1. Tempo perception is logarithmic, and a
+    /// linear track across 485 BPM spends nine tenths of itself above 60 —
+    /// the slow end, where a single beat matters most, would be a few points
+    /// wide. Mapped this way the midpoint of the track is 87 BPM and a
+    /// thousandth of the track is a tenth of a beat at 15.
     private var slider: some View {
         Slider(
             value: Binding(
-                get: { Double(metronome.bpm) },
-                set: { metronome.bpm = Int($0.rounded()) }
+                get: { log(Double(metronome.bpm)) },
+                set: { metronome.bpm = Int(exp($0).rounded()) }
             ),
-            in: Double(Metronome.minBPM)...Double(Metronome.maxBPM),
-            step: 1
+            in: log(Double(Metronome.minBPM))...log(Double(Metronome.maxBPM))
         )
         .tint(theme.accent)
         .accessibilityLabel("Tempo")
         .accessibilityValue("\(metronome.bpm) beats per minute, \(metronome.tempoWord)")
+    }
+
+    private func rowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(VFont.metadata)
+            .foregroundStyle(theme.faint)
+    }
+
+    /// Six across. The beat's own division, as a third quieter click voice.
+    private var rhythm: some View {
+        HStack(spacing: 4) {
+            ForEach(Subdivision.allCases) { option in
+                let selected = metronome.subdivision == option
+                Button {
+                    metronome.subdivision = option
+                    Haptics.selection()
+                } label: {
+                    Text(option.label)
+                        .font(VFont.mono(11))
+                        .foregroundStyle(selected ? theme.paper : theme.muted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(selected ? theme.ink : theme.wash)
+                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(option.spoken)
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+            }
+        }
     }
 
     // MARK: - Transport
