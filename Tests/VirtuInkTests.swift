@@ -100,8 +100,10 @@ final class VirtuInkTests: XCTestCase {
     }
 
     private func waitForJournal() {
-        // StrokeJournal writes on a background queue.
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.6))
+        // A real barrier on the journal's own queue. This was a fixed 0.6s
+        // sleep, which was a guess — and one that got slower and flakier as
+        // the suite wrote more, since every save carries an fsync.
+        StrokeJournal.shared.drainForTesting()
     }
 
     // MARK: - Rendering: ink must be visible
@@ -2399,57 +2401,88 @@ final class VirtuInkTests: XCTestCase {
     // which is the whole promise. The out-of-process half — a real SIGKILL and
     // a real relaunch — is PLAN Part III, B4.
 
-    func testNoAcknowledgedStrokeIsLostAtAnyStoppingPoint() throws {
+    func testInkSurvivesACrashBetweenTheJournalAndTheRecord() throws {
+        // THE crash window. `save` writes a journal entry, then the compacted
+        // record, then deletes the journal. A kill between steps 1 and 2
+        // leaves a journal entry and a stale record, and `replayPendingJournals`
+        // at launch is the only thing that turns that back into ink. Letting
+        // the queue drain first — which every earlier version of this test did
+        // — deletes the journal and tests nothing but "write k, read k".
         let pageSize = CGSize(width: 612, height: 792)
 
-        // A fixed sequence, so a failure can be reproduced exactly.
-        var seed: UInt64 = 0x9E3779B97F4A7C15
+        var seed: UInt64 = 0x2545F4914F6CDD1D
         func nextRandom(below limit: Int) -> Int {
             seed = seed &* 6364136223846793005 &+ 1442695040888963407
             return Int((seed >> 33) % UInt64(limit))
         }
 
-        // All fifty runs are written first and verified afterwards, against
-        // one wait rather than fifty. Each has its own part, so they cannot
-        // collide, and nothing about the contract depends on them being
-        // interleaved — waiting per trial cost thirty seconds a build, which
-        // is how a test ends up deleted.
-        var trials: [(partID: UUID, killAfter: Int)] = []
-        for _ in 0..<50 {
+        for trial in 0..<25 {
             let partID = UUID()
-            let strokeCount = 3 + nextRandom(below: 8)
-            let killAfter = 1 + nextRandom(below: strokeCount)
-            trials.append((partID, killAfter))
+            let layer = AnnotationLayers.first
 
-            var committed: [PKStroke] = []
-            for index in 0..<strokeCount {
-                committed.append(makeStroke(
-                    from: CGPoint(x: 40 + index * 12, y: 60),
-                    to: CGPoint(x: 40 + index * 12, y: 300)
-                ))
-                // Each pencil-up saves the whole page's ink, as the reading
-                // surface does.
-                StrokeJournal.shared.save(
-                    makeDrawing(committed),
-                    partID: partID, pageIndex: 0,
-                    layer: AnnotationLayers.first, pageSize: pageSize
-                )
-                if index + 1 == killAfter { break }   // "the power went out here"
+            // What was safely on disk before the crash.
+            let before = (0...nextRandom(below: 3)).map { i in
+                makeStroke(from: CGPoint(x: 40 + i * 15, y: 60), to: CGPoint(x: 40 + i * 15, y: 300))
             }
+            StrokeJournal.shared.save(makeDrawing(before), partID: partID,
+                                      pageIndex: 0, layer: layer, pageSize: pageSize)
+            waitForJournal()
+
+            // The stroke the musician just made. Acknowledged at pencil-up,
+            // journalled — and then the power went out.
+            let after = before + (0...nextRandom(below: 3)).map { i in
+                makeStroke(from: CGPoint(x: 300 + i * 15, y: 60), to: CGPoint(x: 300 + i * 15, y: 300))
+            }
+            StrokeJournal.shared.stageCrashedWriteForTesting(
+                makeDrawing(after), partID: partID, pageIndex: 0, layer: layer, pageSize: pageSize)
+
+            // The compacted record is still the pre-crash ink: without replay,
+            // those strokes are gone. If this ever stops being true the test
+            // below is proving nothing, so assert it.
+            let stale = try XCTUnwrap(
+                StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: layer))
+            XCTAssertEqual(stale.strokes.count, before.count,
+                           "trial \(trial): the crash window was not staged")
+
+            // Launch.
+            StrokeJournal.shared.replayPendingJournals()
+            waitForJournal()
+
+            let recovered = try XCTUnwrap(
+                StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: layer),
+                "trial \(trial): relaunch found nothing at all")
+            XCTAssertEqual(
+                recovered.strokes.count, after.count,
+                "trial \(trial): \(after.count) strokes were journalled, \(recovered.strokes.count) came back"
+            )
         }
+    }
+
+    func testReplayNeverOverwritesNewerInkWithOlder() throws {
+        // The replay is guarded on the entry being newer than the record. If
+        // that guard inverted, a stale journal left by an earlier crash would
+        // silently eat everything written since — which is the failure §0.3
+        // exists to prevent, wearing a recovery costume.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        let layer = AnnotationLayers.first
+
+        let old = [makeStroke(from: CGPoint(x: 20, y: 20), to: CGPoint(x: 20, y: 200))]
+        StrokeJournal.shared.save(makeDrawing(old), partID: partID,
+                                  pageIndex: 0, layer: layer, pageSize: pageSize)
         waitForJournal()
 
-        for (trial, spec) in trials.enumerated() {
-            let recovered = try XCTUnwrap(
-                StrokeJournal.shared.load(
-                    partID: spec.partID, pageIndex: 0, layer: AnnotationLayers.first),
-                "trial \(trial): everything written before the kill at stroke \(spec.killAfter) is gone"
-            )
-            XCTAssertEqual(
-                recovered.strokes.count, spec.killAfter,
-                "trial \(trial): \(spec.killAfter) strokes were acknowledged, \(recovered.strokes.count) survived"
-            )
-        }
+        // A journal entry stamped in the past — an orphan from an older crash.
+        StrokeJournal.shared.stageStaleJournalForTesting(
+            makeDrawing([]), partID: partID, pageIndex: 0, layer: layer, pageSize: pageSize)
+
+        StrokeJournal.shared.replayPendingJournals()
+        waitForJournal()
+
+        let recovered = try XCTUnwrap(
+            StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: layer))
+        XCTAssertEqual(recovered.strokes.count, 1,
+                       "an older journal entry overwrote newer ink")
     }
 
     func testInkSurvivesAReaderThatNeverSawItWritten() throws {
@@ -2527,6 +2560,43 @@ final class VirtuInkTests: XCTestCase {
         let pencilPresent = AnnotationInput.policy(pencilEverPaired: true, fingerDrawing: true)
         XCTAssertFalse(AnnotationInput.allowedTouchTypes(for: pencilPresent).contains(finger),
                        "a paired Pencil let a finger into the ink pipeline")
+    }
+
+
+    func testEveryInkSurfaceIsShutToFingersBeforeAnythingIsInjected() {
+        // The Right Page margin is configured on a different path from the two
+        // spread pages, so it never receives a Preferences object. When the
+        // touch-type gate was set only from that injection, the margin kept
+        // UIGestureRecognizer's default — which includes .direct — and took
+        // finger ink on every iPad, Pencil present or not, hatch or no hatch.
+        // A page must be shut before anyone tells it anything.
+        let untouched = ReadingPageView()
+        let finger = NSNumber(value: UITouch.TouchType.direct.rawValue)
+        XCTAssertFalse(
+            untouched.inkObserver.allowedTouchTypes.contains(finger),
+            "a page nobody configured accepts finger ink — §0.2 is open by default"
+        )
+        XCTAssertEqual(
+            untouched.inkObserver.allowedTouchTypes,
+            [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        )
+    }
+
+    func testOpeningTheHatchOnAPageOpensThatPagesGate() {
+        let page = ReadingPageView()
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        prefs.fingerDrawing = true
+        page.preferences = prefs
+
+        let finger = NSNumber(value: UITouch.TouchType.direct.rawValue)
+        XCTAssertTrue(page.inkObserver.allowedTouchTypes.contains(finger),
+                      "the hatch is open and the gate is still shut")
+
+        // And a Pencil arriving anywhere shuts it again.
+        prefs.notePencilSeen()
+        page.refreshInputPolicy()
+        XCTAssertFalse(page.inkObserver.allowedTouchTypes.contains(finger),
+                       "a Pencil wrote and fingers still reach the ink pipeline")
     }
 
 }

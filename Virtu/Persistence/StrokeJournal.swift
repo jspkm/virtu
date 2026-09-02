@@ -58,27 +58,34 @@ final class StrokeJournal {
             guard let self else { return }
 
             // 1. Write to journal first (append-only, atomic)
-            let journalURL = self.journalURL(for: key)
-            let entry = JournalEntry(timestamp: Date(), drawingData: payload)
-            if let entryData = try? JSONEncoder().encode(entry) {
-                let line = entryData + Data([0x0A]) // newline-delimited
-                if FileManager.default.fileExists(atPath: journalURL.path) {
-                    if let handle = try? FileHandle(forWritingTo: journalURL) {
-                        handle.seekToEndOfFile()
-                        handle.write(line)
-                        try? handle.synchronize()
-                        handle.closeFile()
-                    }
-                } else {
-                    try? line.write(to: journalURL, options: .atomic)
-                }
-            }
+            self.appendJournalEntry(payload: payload, key: key)
 
             // 2. Write compacted record
             try? payload.write(to: self.recordURL(for: key), options: .atomic)
 
             // 3. Clear journal after successful compact write
-            try? FileManager.default.removeItem(at: journalURL)
+            try? FileManager.default.removeItem(at: self.journalURL(for: key))
+        }
+    }
+
+    /// Step 1 of `save`, on its own: the write-ahead entry that makes §0.3
+    /// true across a crash. Factored out so a test can stage the exact state
+    /// a kill between steps 1 and 2 leaves behind, using this writer rather
+    /// than a copy of it that could drift from the format.
+    private func appendJournalEntry(payload: Data, key: String, at date: Date = Date()) {
+        let journalURL = self.journalURL(for: key)
+        let entry = JournalEntry(timestamp: date, drawingData: payload)
+        guard let entryData = try? JSONEncoder().encode(entry) else { return }
+        let line = entryData + Data([0x0A]) // newline-delimited
+        if FileManager.default.fileExists(atPath: journalURL.path) {
+            if let handle = try? FileHandle(forWritingTo: journalURL) {
+                handle.seekToEndOfFile()
+                handle.write(line)
+                try? handle.synchronize()
+                handle.closeFile()
+            }
+        } else {
+            try? line.write(to: journalURL, options: .atomic)
         }
     }
 
@@ -128,7 +135,9 @@ final class StrokeJournal {
 
     // MARK: - Journal replay
 
-    private func replayPendingJournals() {
+    /// Not private: this is the only code that makes §0.3 true across a
+    /// crash, and a test that cannot call it cannot test the promise.
+    func replayPendingJournals() {
         queue.async { [weak self] in
             guard let self else { return }
             let fm = FileManager.default
@@ -182,6 +191,56 @@ final class StrokeJournal {
         directory.appendingPathComponent("\(partID.uuidString)-page\(pageIndex).pkdrawing")
     }
 }
+
+#if DEBUG
+extension StrokeJournal {
+    /// Blocks until everything queued has been written. Replaces a fixed
+    /// sleep in the tests, which was a guess that got slower and flakier as
+    /// the suite wrote more.
+    func drainForTesting() {
+        queue.sync {}
+    }
+
+    /// An orphaned journal entry from an older crash, stamped in the past.
+    /// Replay must leave newer ink alone.
+    func stageStaleJournalForTesting(
+        _ drawing: PKDrawing, partID: UUID, pageIndex: Int, layer: Int, pageSize: CGSize
+    ) {
+        let record = PageInkRecord(
+            pageWidth: Double(pageSize.width),
+            pageHeight: Double(pageSize.height),
+            drawingData: drawing.dataRepresentation()
+        )
+        guard let payload = try? JSONEncoder().encode(record) else { return }
+        let key = storageKey(partID: partID, pageIndex: pageIndex, layer: layer)
+        queue.sync {
+            self.appendJournalEntry(payload: payload, key: key, at: Date().addingTimeInterval(-3600))
+        }
+    }
+
+    /// Leaves disk in exactly the state a crash between `save`'s step 1 and
+    /// step 2 leaves it: a journal entry newer than the compacted record,
+    /// and the record still holding the previous ink. Nothing here
+    /// reimplements the format — it calls the same writer `save` does.
+    func stageCrashedWriteForTesting(
+        _ drawing: PKDrawing, partID: UUID, pageIndex: Int, layer: Int, pageSize: CGSize
+    ) {
+        let record = PageInkRecord(
+            pageWidth: Double(pageSize.width),
+            pageHeight: Double(pageSize.height),
+            drawingData: drawing.dataRepresentation()
+        )
+        guard let payload = try? JSONEncoder().encode(record) else { return }
+        let key = storageKey(partID: partID, pageIndex: pageIndex, layer: layer)
+        queue.sync {
+            // A second in the future, so the entry is unambiguously newer
+            // than the record's modification date on any filesystem
+            // timestamp granularity.
+            self.appendJournalEntry(payload: payload, key: key, at: Date().addingTimeInterval(1))
+        }
+    }
+}
+#endif
 
 private extension PageInkRecord {
     var drawing: PKDrawing? { try? PKDrawing(data: drawingData) }

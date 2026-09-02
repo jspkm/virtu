@@ -6,12 +6,6 @@ struct NavRailView: View {
     // Observed so the dot appears and clears with the tools themselves.
     @State private var metronome = Metronome.shared
     @State private var tuner = Tuner.shared
-    /// Set when a long press has just stopped the bench, and consumed by the
-    /// tap that follows it. A gesture attached outside a `Button` runs
-    /// *alongside* the button's own tap rather than instead of it, so without
-    /// this, pressing to stop the click also navigated to Tools — the walk
-    /// this feature exists to avoid.
-    @State private var swallowNextTap = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,10 +18,6 @@ struct NavRailView: View {
                     destination: dest,
                     isActive: state.destination == dest
                 ) {
-                    if swallowNextTap {
-                        swallowNextTap = false
-                        return
-                    }
                     state.destination = dest
                     state.chromeVisible = true
                 }
@@ -50,26 +40,37 @@ struct NavRailView: View {
                         ? "A practice tool is running. Press and hold to stop it."
                         : ""
                 )
-                // High priority, and armed ONLY on the tools button while
-                // something is running. A simultaneous gesture let the
-                // button's own tap through as well, so pressing to stop the
-                // click also yanked you off the page you were reading —
-                // which is the walk back to Tools this exists to avoid.
-                // `.none` disables the gesture outright everywhere else, so
-                // a normal tap still navigates.
-                .highPriorityGesture(
-                    LongPressGesture(minimumDuration: 0.4).onEnded { _ in
-                        PracticeTools.stopAll()
-                        Haptics.rigid()
-                        swallowNextTap = true
-                        // If the tap never arrives — a finger dragged off the
-                        // icon — do not swallow a later, legitimate one.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            swallowNextTap = false
-                        }
-                    },
-                    including: dest == .tools && PracticeTools.isRunning ? .all : .none
-                )
+            }
+
+            // A labelled control, not a hidden gesture. The first version
+            // was a long press on the Tools icon, which meant depending on
+            // whether SwiftUI delivers a Button's tap alongside a
+            // high-priority long press — it does in some arrangements and
+            // not others, the mask here flips mid-press because stopping is
+            // what changes it, and the workaround swallowed the user's next
+            // tap anywhere in the rail for a second afterwards. A control
+            // you can see is better than a gesture nobody can discover, and
+            // it is the same one tap.
+            if PracticeTools.isRunning {
+                Button {
+                    PracticeTools.stopAll()
+                    Haptics.rigid()
+                } label: {
+                    VStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(theme.railInk)
+                            .frame(width: 9, height: 9)
+                        Text("Stop")
+                            .font(VFont.railLabel)
+                            .foregroundStyle(theme.railInk)
+                    }
+                    .frame(width: 46, height: 42)
+                    .background(theme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.toolButton))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
+                .accessibilityLabel("Stop the metronome and tuner")
             }
 
             Spacer()

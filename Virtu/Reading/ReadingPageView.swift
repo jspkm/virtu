@@ -277,7 +277,8 @@ final class ReadingPageView: UIView {
             // latch the Pencil flag and shut the hatch it is using.
             if observer.currentTouchType == .pencil, !self.preferences.pencilEverPaired {
                 self.preferences.notePencilSeen()
-                self.applyDrawingPolicy()
+                self.refreshInputPolicy()
+                self.onPencilLatched?()
             }
             self.inkGestureBegan(samples)
         }
@@ -294,27 +295,39 @@ final class ReadingPageView: UIView {
     /// The canvas is built before this arrives, so setting it re-applies the
     /// policy rather than waiting for the next rebirth.
     var preferences = Preferences() {
-        didSet { applyDrawingPolicy() }
+        didSet { refreshInputPolicy() }
     }
+
+    /// Fired when THIS page latches the Pencil. `allowedTouchTypes` is a
+    /// per-recognizer value, so the surface has to re-gate the siblings —
+    /// otherwise a Pencil writing on the left page leaves fingers drawing on
+    /// the right one.
+    var onPencilLatched: (() -> Void)?
 
     /// The recognizer that feeds the wet preview and, since 2026-08-20, is
     /// the whole of inking — PencilKit's own recognizer runs only for the
     /// eraser and the lasso now.
-    private let inkObserver = PencilObserverRecognizer()
+    /// Not private: the gate it carries is the whole of §0.2 at runtime, and
+    /// a test that cannot read it cannot prove the gate is shut.
+    private(set) var inkObserver = PencilObserverRecognizer()
 
-    /// Also called after a Pencil is first seen: the hatch closes the moment
-    /// a Pencil writes, which is what the setting's own copy promises.
-    ///
-    /// Both gates move together, and the second one is the one that matters.
-    /// `drawingPolicy` governs only PencilKit, which no longer inks — so
-    /// setting it alone left the hatch switched on and a fingertip still
-    /// unable to draw a thing. What actually admits a touch to the ink
-    /// pipeline is the observer's `allowedTouchTypes`.
-    private func applyDrawingPolicy() {
-        let policy = AnnotationInput.policy(
+    private var inputPolicy: PKCanvasViewDrawingPolicy {
+        AnnotationInput.policy(
             pencilEverPaired: preferences.pencilEverPaired,
             fingerDrawing: preferences.fingerDrawing
         )
+    }
+
+    /// Both gates move together, and the second one is the one that matters.
+    /// `drawingPolicy` governs only PencilKit, which no longer inks — so
+    /// setting it alone leaves the hatch switched on and a fingertip unable to
+    /// draw a thing. What admits a touch to the ink pipeline is the observer's
+    /// `allowedTouchTypes`.
+    ///
+    /// Called after a Pencil is first seen, so the hatch closes the moment one
+    /// writes — which is what the setting's own copy promises.
+    func refreshInputPolicy() {
+        let policy = inputPolicy
         canvas.drawingPolicy = policy
         inkObserver.allowedTouchTypes = AnnotationInput.allowedTouchTypes(for: policy)
     }
@@ -322,10 +335,15 @@ final class ReadingPageView: UIView {
     /// Shared canvas configuration — used at init and every rebirth, so a
     /// fresh canvas can never regress the inset/offset guarantees.
     private func configureAndAttachCanvas(_ c: ScoreCanvasView) {
-        c.drawingPolicy = AnnotationInput.policy(
-            pencilEverPaired: preferences.pencilEverPaired,
-            fingerDrawing: preferences.fingerDrawing
-        )
+        // Set on `c` rather than through refreshInputPolicy(): during a
+        // rebirth this runs before `self.canvas` is the new canvas. The
+        // observer is shared, so it is gated here too — without this line the
+        // Right Page margin, which is never injected with preferences, kept
+        // UIGestureRecognizer's default touch types (which include .direct)
+        // and took finger ink on every iPad.
+        let policy = inputPolicy
+        c.drawingPolicy = policy
+        inkObserver.allowedTouchTypes = AnnotationInput.allowedTouchTypes(for: policy)
         c.backgroundColor = .clear
         c.isOpaque = false
         c.delegate = self
