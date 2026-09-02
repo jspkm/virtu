@@ -2386,4 +2386,126 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertFalse(PracticeTools.isRunning)
     }
 
+
+    // MARK: - §0.3: a stroke is never lost
+    //
+    // PRD §8.4 calls this the single most important missing test in the
+    // project, and §0.3 — "a stroke is never lost" — is the product.
+    //
+    // A unit test cannot kill the process, so this kills the *writer*: strokes
+    // go down through the real journal, the run stops at a randomised point,
+    // and the bytes on disk are read back by a path that shares no state with
+    // the writer. If a stroke that was acknowledged is not there, this fails,
+    // which is the whole promise. The out-of-process half — a real SIGKILL and
+    // a real relaunch — is PLAN Part III, B4.
+
+    func testNoAcknowledgedStrokeIsLostAtAnyStoppingPoint() throws {
+        let pageSize = CGSize(width: 612, height: 792)
+
+        // A fixed sequence, so a failure can be reproduced exactly.
+        var seed: UInt64 = 0x9E3779B97F4A7C15
+        func nextRandom(below limit: Int) -> Int {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Int((seed >> 33) % UInt64(limit))
+        }
+
+        // All fifty runs are written first and verified afterwards, against
+        // one wait rather than fifty. Each has its own part, so they cannot
+        // collide, and nothing about the contract depends on them being
+        // interleaved — waiting per trial cost thirty seconds a build, which
+        // is how a test ends up deleted.
+        var trials: [(partID: UUID, killAfter: Int)] = []
+        for _ in 0..<50 {
+            let partID = UUID()
+            let strokeCount = 3 + nextRandom(below: 8)
+            let killAfter = 1 + nextRandom(below: strokeCount)
+            trials.append((partID, killAfter))
+
+            var committed: [PKStroke] = []
+            for index in 0..<strokeCount {
+                committed.append(makeStroke(
+                    from: CGPoint(x: 40 + index * 12, y: 60),
+                    to: CGPoint(x: 40 + index * 12, y: 300)
+                ))
+                // Each pencil-up saves the whole page's ink, as the reading
+                // surface does.
+                StrokeJournal.shared.save(
+                    makeDrawing(committed),
+                    partID: partID, pageIndex: 0,
+                    layer: AnnotationLayers.first, pageSize: pageSize
+                )
+                if index + 1 == killAfter { break }   // "the power went out here"
+            }
+        }
+        waitForJournal()
+
+        for (trial, spec) in trials.enumerated() {
+            let recovered = try XCTUnwrap(
+                StrokeJournal.shared.load(
+                    partID: spec.partID, pageIndex: 0, layer: AnnotationLayers.first),
+                "trial \(trial): everything written before the kill at stroke \(spec.killAfter) is gone"
+            )
+            XCTAssertEqual(
+                recovered.strokes.count, spec.killAfter,
+                "trial \(trial): \(spec.killAfter) strokes were acknowledged, \(recovered.strokes.count) survived"
+            )
+        }
+    }
+
+    func testInkSurvivesAReaderThatNeverSawItWritten() throws {
+        // Relaunch, in the only sense a test can stage it: the record is read
+        // back off disk, not from anything held in memory.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        let mark = makeStroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 400, y: 100))
+
+        StrokeJournal.shared.save(
+            makeDrawing([mark]), partID: partID, pageIndex: 0,
+            layer: AnnotationLayers.first, pageSize: pageSize)
+        waitForJournal()
+
+        let record = try XCTUnwrap(
+            StrokeJournal.shared.record(
+                partID: partID, pageIndex: 0, layer: AnnotationLayers.first),
+            "no record on disk — there is nothing for a relaunch to replay")
+        XCTAssertEqual(record.pageWidth, Double(pageSize.width), accuracy: 0.01,
+                       "the authored page size did not survive, so the ink will land rescaled")
+        XCTAssertEqual(record.pageHeight, Double(pageSize.height), accuracy: 0.01)
+        XCTAssertFalse(record.drawingData.isEmpty)
+    }
+
+    func testEveryLayerOfEveryPageSurvivesItsOwnStoppingPoint() throws {
+        // The randomised test above walks one page on one layer. Ink is keyed
+        // by part/page/layer, and a durability bug in the key is exactly the
+        // kind that only shows up when more than one of them is in play.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        var expected: [String: Int] = [:]
+
+        for page in 0..<3 {
+            for layer in 1...3 {
+                let count = 1 + (page + layer) % 4
+                let strokes = (0..<count).map { i in
+                    makeStroke(from: CGPoint(x: 20 + i * 10, y: 40),
+                               to: CGPoint(x: 20 + i * 10, y: 200))
+                }
+                StrokeJournal.shared.save(
+                    makeDrawing(strokes), partID: partID, pageIndex: page,
+                    layer: layer, pageSize: pageSize)
+                expected["\(page).\(layer)"] = count
+            }
+        }
+        waitForJournal()
+
+        for page in 0..<3 {
+            for layer in 1...3 {
+                let recovered = try XCTUnwrap(
+                    StrokeJournal.shared.load(partID: partID, pageIndex: page, layer: layer),
+                    "page \(page) layer \(layer) lost everything")
+                XCTAssertEqual(recovered.strokes.count, expected["\(page).\(layer)"],
+                               "page \(page) layer \(layer) came back with the wrong ink")
+            }
+        }
+    }
+
 }

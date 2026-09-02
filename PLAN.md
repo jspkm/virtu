@@ -843,7 +843,7 @@ Expected: both pass, `Executed 107 tests, with 0 failures`.
 >
 > **If a trial fails**, do not weaken the assertion. A stroke that was acknowledged and is not on disk is PRD §0.3 broken, and it is the most important bug the project can have. Read `StrokeJournal.save`'s queue semantics and fix the journal.
 
-- [ ] **Step 3: Record it in the test plan**
+- [x] **Step 3: Record it in the test plan** — done 2026-09-01.
 
 In this file, under **Part V → Half 1 — Automated**, replace the `27 tests in ...` sentence with:
 
@@ -2186,11 +2186,14 @@ xcodebuild test -project Virtu.xcodeproj -scheme Virtu \
   -destination 'platform=iOS Simulator,id=<booted-ipad>'
 ```
 
-27 tests in `Tests/VirtuInkTests.swift`: data integrity, geometry round-trips,
+115 tests in `Tests/VirtuInkTests.swift`: data integrity, geometry round-trips,
 ink-layer rendering and position, canvas input space (inset/offset), display-
 ownership state machine (normalization timing, lasso handoff, tool idempotence),
 layer isolation and persistence, journal v2 (authored page size, pre-layer ink
-read forward), line-style carriers, the nib ladder, and tool persistence.
+read forward), line-style carriers, the nib ladder, tool persistence, the
+metronome's bar clock, the tuner's pitch detection and reference arithmetic,
+who is allowed to draw (§0.2), the screen's keep-awake refcount, and **crash
+durability at 50 randomised stopping points (§0.3)**.
 
 ## Half 2 — Hand protocol on hardware (every ink-touching build)
 
