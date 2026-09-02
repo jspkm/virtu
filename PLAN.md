@@ -50,6 +50,13 @@ minute.
 
 ## I.A — Ready for a Cohort
 
+> **Complete, 2026-09-01.** All six tasks landed on `pencil-hatch-and-durability` and
+> `bench-and-cohort`. The suite went 97 → 115. Two things changed shape while building,
+> and are recorded where they happened: Task 2's half-page row was withdrawn (nothing
+> reads the preference until M5, and a switch for behaviour that does not exist is a lie
+> in the UI), and Task 4 pulled in the idle-timer refcount that the first review had
+> filed as latent — the running-tool indicator is exactly what made it reachable.
+
 ### Scope check — read this before starting
 
 The consolidated material spans roughly fourteen independent subsystems. Per the writing-plans scope rule, only **one coherent slice** is planned as executable tasks: the things that must be true before a TestFlight build reaches anyone who is not Hannah. Everything else keeps its detail in **Part II — Decisions Required** (blocked on a human, not on an engineer), **Part III — The Open Block**, and **Part VI — Backlog Register**.
@@ -91,7 +98,7 @@ Each task ends at a commit that leaves the app building and the suite green.
 **Files:**
 - Modify: `PRD.md:145`, `PRD.md:577`
 
-- [ ] **Step 1: Confirm the claim is really stale before editing**
+- [x] **Step 1: Confirm the claim is really stale before editing**
 
 Run:
 ```bash
@@ -99,7 +106,7 @@ grep -n "deletedAt" Virtu/Library/LibraryView.swift Virtu/Library/RecycleBinView
 ```
 Expected: `LibraryView.swift:342: work.deletedAt = .now` and a `RecycleBinView` query on `deletedAt != nil`. If these are absent, **stop** — the P0 is real and this task becomes a build task instead.
 
-- [ ] **Step 2: Amend PRD §5's Library row**
+- [x] **Step 2: Amend PRD §5's Library row**
 
 Replace the `**DONE** — plus the personal shelf, sorts, and programmes. No way to delete or rename a work, though (open P0).` status at `PRD.md:145` with:
 
@@ -109,7 +116,7 @@ recycle bin and full metadata correction both shipped; the P0 recorded here
 until 2026-09-01 was stale.
 ```
 
-- [ ] **Step 3: Amend the §11 import-promise note**
+- [x] **Step 3: Amend the §11 import-promise note**
 
 Replace the `Open P0.` sentence at `PRD.md:577` with:
 
@@ -119,7 +126,7 @@ Replace the `Open P0.` sentence at `PRD.md:577` with:
 > 2026-09-01.
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add PRD.md
@@ -137,7 +144,7 @@ PRD §14 specifies this type. The codebase has never had it, so `seamHoldSeconds
 - Modify: `Virtu/Model/AppState.swift`
 - Test: `Tests/VirtuInkTests.swift`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `Tests/VirtuInkTests.swift`, inside the `VirtuInkTests` class, before the final `}`:
 
@@ -187,7 +194,7 @@ Append to `Tests/VirtuInkTests.swift`, inside the `VirtuInkTests` class, before 
     }
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run:
 ```bash
@@ -195,7 +202,7 @@ xcodebuild -project Virtu.xcodeproj -scheme Virtu -destination 'platform=iOS Sim
 ```
 Expected: compile failure, `cannot find 'Preferences' in scope`.
 
-- [ ] **Step 3: Create the model**
+- [x] **Step 3: Create the model**
 
 Create `Virtu/Model/Preferences.swift`:
 
@@ -306,7 +313,7 @@ final class Preferences {
 }
 ```
 
-- [ ] **Step 4: Hang it off `AppState`**
+- [x] **Step 4: Hang it off `AppState`**
 
 In `Virtu/Model/AppState.swift`, immediately after the `private let defaults: UserDefaults` declaration (currently line 279), add:
 
@@ -322,7 +329,7 @@ Then as the first line of `init(defaults: UserDefaults = .standard)` (currently 
         self.preferences = Preferences(defaults: defaults)
 ```
 
-- [ ] **Step 5: Regenerate the project and run the tests**
+- [x] **Step 5: Regenerate the project and run the tests**
 
 Run:
 ```bash
@@ -330,7 +337,7 @@ xcodegen generate && xcodebuild -project Virtu.xcodeproj -scheme Virtu -destinat
 ```
 Expected: `Executed 101 tests, with 0 failures`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Virtu/Model/Preferences.swift Virtu/Model/AppState.swift Tests/VirtuInkTests.swift Virtu.xcodeproj/project.pbxproj
@@ -347,7 +354,7 @@ git commit -m "feat: the preference set PRD §14 always specified"
 - Create: `Virtu/Tools/TurnsCard.swift`
 - Modify: `Virtu/Tools/ToolsView.swift`
 
-- [ ] **Step 1: Create the card**
+- [x] **Step 1: Create the card**
 
 Create `Virtu/Tools/TurnsCard.swift`:
 
@@ -436,7 +443,7 @@ struct TurnsCard: View {
 
 > **Note on the seam row.** The handoff's first toggle is "Carry the last system over" — that is the seam, and the seam is an undecided feature (Part II, Decision 1). Building a switch for behaviour that does not exist would be a lie in the UI. `seamHoldSeconds` persists from Task 1 and the row lands with the seam, if the seam ever lands.
 
-- [ ] **Step 2: Add it to the grid**
+- [x] **Step 2: Add it to the grid**
 
 In `Virtu/Tools/ToolsView.swift`, inside the `LazyVGrid` closure, after `TunerCard()`, add:
 
@@ -444,7 +451,7 @@ In `Virtu/Tools/ToolsView.swift`, inside the `LazyVGrid` closure, after `TunerCa
                     TurnsCard()
 ```
 
-- [ ] **Step 3: Build and look at it**
+- [x] **Step 3: Build and look at it**
 
 Run:
 ```bash
@@ -460,7 +467,7 @@ xcrun simctl io $D screenshot /tmp/tools.png
 ```
 Expected: three cards. On a 13" iPad the grid caps at 900pt, so the third card wraps to a second row — confirm it does not clip.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Virtu/Tools/TurnsCard.swift Virtu/Tools/ToolsView.swift Virtu.xcodeproj/project.pbxproj
@@ -479,7 +486,7 @@ git commit -m "feat: page-turn preferences, the third card the handoff drew"
 - Modify: `Virtu/Tools/TurnsCard.swift`
 - Test: `Tests/VirtuInkTests.swift`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append inside the `VirtuInkTests` class:
 
@@ -516,7 +523,7 @@ Append inside the `VirtuInkTests` class:
     }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run:
 ```bash
@@ -524,7 +531,7 @@ xcodebuild -project Virtu.xcodeproj -scheme Virtu -destination 'platform=iOS Sim
 ```
 Expected: `cannot find 'AnnotationInput' in scope`.
 
-- [ ] **Step 3: Write the rule as one pure function**
+- [x] **Step 3: Write the rule as one pure function**
 
 Create `Virtu/Annotation/AnnotationInput.swift`:
 
@@ -559,7 +566,7 @@ enum AnnotationInput {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run:
 ```bash
@@ -567,7 +574,7 @@ xcodegen generate && xcodebuild -project Virtu.xcodeproj -scheme Virtu -destinat
 ```
 Expected: `Executed 105 tests, with 0 failures`.
 
-- [ ] **Step 5: Use the rule at the canvas**
+- [x] **Step 5: Use the rule at the canvas**
 
 `ReadingPageView` is a `UIView` and has no SwiftUI environment. Give it the preferences directly.
 
@@ -588,7 +595,7 @@ Replace line 277, `c.drawingPolicy = .pencilOnly`, with:
         )
 ```
 
-- [ ] **Step 6: Latch the pencil the first time one writes**
+- [x] **Step 6: Latch the pencil the first time one writes**
 
 `observer.allowedTouchTypes` at line 264 is already `[.pencil]`, so `onBegan` firing *is* a pencil touch. Change the `onBegan` assignment at line 267 to:
 
@@ -602,7 +609,7 @@ Replace line 277, `c.drawingPolicy = .pencilOnly`, with:
         }
 ```
 
-- [ ] **Step 7: Offer the hatch on the Tools screen**
+- [x] **Step 7: Offer the hatch on the Tools screen**
 
 In `Virtu/Tools/TurnsCard.swift`, inside the inner `VStack`, after the Bluetooth pedal row, add:
 
@@ -616,7 +623,7 @@ In `Virtu/Tools/TurnsCard.swift`, inside the inner `VStack`, after the Bluetooth
                 }
 ```
 
-- [ ] **Step 8: Verify on the simulator, which has no Pencil**
+- [x] **Step 8: Verify on the simulator, which has no Pencil**
 
 Run:
 ```bash
@@ -628,7 +635,7 @@ Expected: the Page turns card shows "Draw with a finger". Turn it on, open a sco
 
 > **Hardware check, and it cannot be done here.** On a real iPad with a Pencil, the row must be *absent* after the first pencil stroke. Add it to Part V, half 2.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add Virtu/Annotation/AnnotationInput.swift Virtu/Reading/ReadingPageView.swift Virtu/Tools/TurnsCard.swift Tests/VirtuInkTests.swift Virtu.xcodeproj/project.pbxproj
@@ -645,7 +652,7 @@ The metronome clicks and the tuner drones after you navigate away — PRD §5 re
 - Create: `Virtu/Tools/PracticeTools.swift`
 - Modify: `Virtu/NavRailView.swift`
 
-- [ ] **Step 1: Name the pair**
+- [x] **Step 1: Name the pair**
 
 Create `Virtu/Tools/PracticeTools.swift`:
 
@@ -672,7 +679,7 @@ enum PracticeTools {
 }
 ```
 
-- [ ] **Step 2: Mark the rail**
+- [x] **Step 2: Mark the rail**
 
 In `Virtu/NavRailView.swift`, add these observed singletons to `NavRailView` beside the existing `@Environment` properties:
 
@@ -720,7 +727,7 @@ Replace the `ForEach` over destinations with:
             }
 ```
 
-- [ ] **Step 3: Verify it by ear and by eye**
+- [x] **Step 3: Verify it by ear and by eye**
 
 Run:
 ```bash
@@ -732,7 +739,7 @@ Then, by hand: Tools → Start the metronome → go to Library. Expected: an acc
 
 > **Why there is no unit test here.** The predicate reads three `@Observable` singletons that own live audio engines; a test that drove them would be testing AVAudioEngine's start-up on a simulator whose audio input is known to deadlock intermittently (Part III). The logic under test is a two-line `||`. Verified by hand instead, and said so rather than writing a test that proves nothing.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Virtu/Tools/PracticeTools.swift Virtu/NavRailView.swift Virtu.xcodeproj/project.pbxproj
@@ -750,7 +757,7 @@ A unit test cannot kill the process. It can do the thing that actually matters: 
 **Files:**
 - Test: `Tests/VirtuInkTests.swift`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append inside the `VirtuInkTests` class:
 
@@ -830,7 +837,7 @@ Append inside the `VirtuInkTests` class:
     }
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run:
 ```bash
@@ -843,7 +850,7 @@ Expected: both pass, `Executed 107 tests, with 0 failures`.
 >
 > **If a trial fails**, do not weaken the assertion. A stroke that was acknowledged and is not on disk is PRD §0.3 broken, and it is the most important bug the project can have. Read `StrokeJournal.save`'s queue semantics and fix the journal.
 
-- [ ] **Step 3: Record it in the test plan**
+- [x] **Step 3: Record it in the test plan** — done 2026-09-01.
 
 In this file, under **Part V → Half 1 — Automated**, replace the `27 tests in ...` sentence with:
 
@@ -856,7 +863,7 @@ tuner's pitch detection and reference arithmetic, who is allowed to draw
 (§0.2), and crash durability at 50 randomised stopping points (§0.3).
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Tests/VirtuInkTests.swift PLAN.md
@@ -2186,11 +2193,14 @@ xcodebuild test -project Virtu.xcodeproj -scheme Virtu \
   -destination 'platform=iOS Simulator,id=<booted-ipad>'
 ```
 
-27 tests in `Tests/VirtuInkTests.swift`: data integrity, geometry round-trips,
+115 tests in `Tests/VirtuInkTests.swift`: data integrity, geometry round-trips,
 ink-layer rendering and position, canvas input space (inset/offset), display-
 ownership state machine (normalization timing, lasso handoff, tool idempotence),
 layer isolation and persistence, journal v2 (authored page size, pre-layer ink
-read forward), line-style carriers, the nib ladder, and tool persistence.
+read forward), line-style carriers, the nib ladder, tool persistence, the
+metronome's bar clock, the tuner's pitch detection and reference arithmetic,
+who is allowed to draw (§0.2), the screen's keep-awake refcount, and **crash
+durability at 50 randomised stopping points (§0.3)**.
 
 ## Half 2 — Hand protocol on hardware (every ink-touching build)
 

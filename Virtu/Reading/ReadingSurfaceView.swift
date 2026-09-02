@@ -547,7 +547,23 @@ final class ReadingPageViewController: UIViewController {
         }
     }
 
+    /// Every ink surface gets the one shared preference set, the Right Page
+    /// margin included — it is configured on a different path from the two
+    /// spread pages and was missed when this was done per-page, which left
+    /// its ink gate at UIKit's default and open to fingers.
+    private func propagatePreferences() {
+        for page in inkViews {
+            page.preferences = appState.preferences
+            page.onPencilLatched = { [weak self] in
+                // allowedTouchTypes is per-recognizer, so a Pencil latching on
+                // one page has to re-gate the others.
+                self?.inkViews.forEach { $0.refreshInputPolicy() }
+            }
+        }
+    }
+
     private func applyToolState() {
+        propagatePreferences()
         let tool = appState.currentPKTool()
         let copyArmed = appState.tool == .lasso && appState.lassoMode == .copy
         let areaErase = appState.tool == .eraser && appState.eraserMode == .area

@@ -17,7 +17,9 @@ import SwiftUI
 ///   preference persists; nothing reads it yet, so there is nothing to flip.
 ///
 /// The pedal row IS wired — `ReadingSurfaceView.keyCommands` consults it — so
-/// it ships.
+/// it ships. So is the finger-drawing hatch (PRD §7.2), which appears only on
+/// an iPad that has never seen a Pencil write, and vanishes the moment one
+/// does.
 struct TurnsCard: View {
     @Environment(\.theme) private var theme
     @Environment(AppState.self) private var state
@@ -37,6 +39,14 @@ struct TurnsCard: View {
                     hint: "AirTurn and PageFlip pedals arrive as key presses",
                     isOn: state.preferences.bluetoothPedal
                 ) { state.preferences.bluetoothPedal.toggle() }
+
+                if AnnotationInput.offersHatch(state.preferences) {
+                    row(
+                        label: "Draw with a finger",
+                        hint: "No Apple Pencil has written here. Turn this on to mark up with a fingertip; it switches itself off the moment a Pencil does.",
+                        isOn: state.preferences.fingerDrawing
+                    ) { state.preferences.fingerDrawing.toggle() }
+                }
             }
         }
         .padding(24)

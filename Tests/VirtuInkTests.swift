@@ -100,8 +100,10 @@ final class VirtuInkTests: XCTestCase {
     }
 
     private func waitForJournal() {
-        // StrokeJournal writes on a background queue.
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.6))
+        // A real barrier on the journal's own queue. This was a fixed 0.6s
+        // sleep, which was a guess — and one that got slower and flakier as
+        // the suite wrote more, since every save carries an fsync.
+        StrokeJournal.shared.drainForTesting()
     }
 
     // MARK: - Rendering: ink must be visible
@@ -2306,6 +2308,295 @@ final class VirtuInkTests: XCTestCase {
                                          "at \(rate)Hz, heard \(heard) for 220")
             }
         }
+    }
+
+
+    // MARK: - Who may draw (PRD §0.2, §7.2)
+
+    func testAPairedPencilAlwaysMeansPencilOnly() {
+        // The rule, and it does not bend: if a Pencil has ever written here,
+        // fingers do not draw — even if the hatch was somehow left on.
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: true, fingerDrawing: false), .pencilOnly)
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: true, fingerDrawing: true), .pencilOnly,
+            "a paired Pencil was overridden by the finger-drawing hatch")
+    }
+
+    func testAPencillessIPadStillDefaultsToPencilOnly() {
+        // §0.2: never auto-enabled. An iPad with no Pencil is inert until
+        // someone deliberately opens the hatch.
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: false, fingerDrawing: false), .pencilOnly)
+    }
+
+    func testTheHatchOpensOnlyWhereThereIsNoPencil() {
+        XCTAssertEqual(
+            AnnotationInput.policy(pencilEverPaired: false, fingerDrawing: true), .anyInput)
+    }
+
+    func testTheHatchIsOfferedOnlyWhereThereIsNoPencil() {
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        XCTAssertTrue(AnnotationInput.offersHatch(prefs), "a Pencil-less iPad was given no way out")
+        prefs.notePencilSeen()
+        XCTAssertFalse(AnnotationInput.offersHatch(prefs), "the hatch is clutter once a Pencil exists")
+    }
+
+
+    // MARK: - The screen's keep-awake has one owner (PLAN Task 4)
+
+    func testTheScreenStaysAwakeWhileAnyoneStillWantsIt() {
+        let wake = ScreenWake.shared
+        var decisions: [Bool] = []
+        let original = wake.apply
+        wake.apply = { decisions.append($0) }
+        defer { wake.apply = original; wake.release("test.a"); wake.release("test.b") }
+
+        wake.claim("test.a")
+        wake.claim("test.b")
+        XCTAssertTrue(wake.isAwake)
+
+        // The bug this replaces: one owner releasing put the screen to sleep
+        // under the other, and nothing re-armed it.
+        wake.release("test.a")
+        XCTAssertTrue(wake.isAwake, "one owner releasing let the screen sleep under the other")
+        XCTAssertEqual(decisions.last, true)
+
+        wake.release("test.b")
+        XCTAssertFalse(wake.isAwake)
+        XCTAssertEqual(decisions.last, false)
+    }
+
+    func testClaimingTwiceIsNotTwoClaims() {
+        let wake = ScreenWake.shared
+        let original = wake.apply
+        wake.apply = { _ in }
+        defer { wake.apply = original; wake.release("test.c") }
+
+        wake.claim("test.c")
+        wake.claim("test.c")
+        wake.release("test.c")
+        XCTAssertFalse(wake.isAwake, "a repeated claim was counted twice and never released")
+    }
+
+    func testNothingIsRunningAtRestAndStoppingIsSafe() {
+        XCTAssertFalse(PracticeTools.isRunning)
+        // Idempotent: the rail's long-press can land on an already-stopped
+        // bench, and must not throw or leave a claim behind.
+        PracticeTools.stopAll()
+        PracticeTools.stopAll()
+        XCTAssertFalse(PracticeTools.isRunning)
+    }
+
+
+    // MARK: - §0.3: a stroke is never lost
+    //
+    // PRD §8.4 calls this the single most important missing test in the
+    // project, and §0.3 — "a stroke is never lost" — is the product.
+    //
+    // A unit test cannot kill the process, so this kills the *writer*: strokes
+    // go down through the real journal, the run stops at a randomised point,
+    // and the bytes on disk are read back by a path that shares no state with
+    // the writer. If a stroke that was acknowledged is not there, this fails,
+    // which is the whole promise. The out-of-process half — a real SIGKILL and
+    // a real relaunch — is PLAN Part III, B4.
+
+    func testInkSurvivesACrashBetweenTheJournalAndTheRecord() throws {
+        // THE crash window. `save` writes a journal entry, then the compacted
+        // record, then deletes the journal. A kill between steps 1 and 2
+        // leaves a journal entry and a stale record, and `replayPendingJournals`
+        // at launch is the only thing that turns that back into ink. Letting
+        // the queue drain first — which every earlier version of this test did
+        // — deletes the journal and tests nothing but "write k, read k".
+        let pageSize = CGSize(width: 612, height: 792)
+
+        var seed: UInt64 = 0x2545F4914F6CDD1D
+        func nextRandom(below limit: Int) -> Int {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Int((seed >> 33) % UInt64(limit))
+        }
+
+        for trial in 0..<25 {
+            let partID = UUID()
+            let layer = AnnotationLayers.first
+
+            // What was safely on disk before the crash.
+            let before = (0...nextRandom(below: 3)).map { i in
+                makeStroke(from: CGPoint(x: 40 + i * 15, y: 60), to: CGPoint(x: 40 + i * 15, y: 300))
+            }
+            StrokeJournal.shared.save(makeDrawing(before), partID: partID,
+                                      pageIndex: 0, layer: layer, pageSize: pageSize)
+            waitForJournal()
+
+            // The stroke the musician just made. Acknowledged at pencil-up,
+            // journalled — and then the power went out.
+            let after = before + (0...nextRandom(below: 3)).map { i in
+                makeStroke(from: CGPoint(x: 300 + i * 15, y: 60), to: CGPoint(x: 300 + i * 15, y: 300))
+            }
+            StrokeJournal.shared.stageCrashedWriteForTesting(
+                makeDrawing(after), partID: partID, pageIndex: 0, layer: layer, pageSize: pageSize)
+
+            // The compacted record is still the pre-crash ink: without replay,
+            // those strokes are gone. If this ever stops being true the test
+            // below is proving nothing, so assert it.
+            let stale = try XCTUnwrap(
+                StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: layer))
+            XCTAssertEqual(stale.strokes.count, before.count,
+                           "trial \(trial): the crash window was not staged")
+
+            // Launch.
+            StrokeJournal.shared.replayPendingJournals()
+            waitForJournal()
+
+            let recovered = try XCTUnwrap(
+                StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: layer),
+                "trial \(trial): relaunch found nothing at all")
+            XCTAssertEqual(
+                recovered.strokes.count, after.count,
+                "trial \(trial): \(after.count) strokes were journalled, \(recovered.strokes.count) came back"
+            )
+        }
+    }
+
+    func testReplayNeverOverwritesNewerInkWithOlder() throws {
+        // The replay is guarded on the entry being newer than the record. If
+        // that guard inverted, a stale journal left by an earlier crash would
+        // silently eat everything written since — which is the failure §0.3
+        // exists to prevent, wearing a recovery costume.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        let layer = AnnotationLayers.first
+
+        let old = [makeStroke(from: CGPoint(x: 20, y: 20), to: CGPoint(x: 20, y: 200))]
+        StrokeJournal.shared.save(makeDrawing(old), partID: partID,
+                                  pageIndex: 0, layer: layer, pageSize: pageSize)
+        waitForJournal()
+
+        // A journal entry stamped in the past — an orphan from an older crash.
+        StrokeJournal.shared.stageStaleJournalForTesting(
+            makeDrawing([]), partID: partID, pageIndex: 0, layer: layer, pageSize: pageSize)
+
+        StrokeJournal.shared.replayPendingJournals()
+        waitForJournal()
+
+        let recovered = try XCTUnwrap(
+            StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: layer))
+        XCTAssertEqual(recovered.strokes.count, 1,
+                       "an older journal entry overwrote newer ink")
+    }
+
+    func testInkSurvivesAReaderThatNeverSawItWritten() throws {
+        // Relaunch, in the only sense a test can stage it: the record is read
+        // back off disk, not from anything held in memory.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        let mark = makeStroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 400, y: 100))
+
+        StrokeJournal.shared.save(
+            makeDrawing([mark]), partID: partID, pageIndex: 0,
+            layer: AnnotationLayers.first, pageSize: pageSize)
+        waitForJournal()
+
+        let record = try XCTUnwrap(
+            StrokeJournal.shared.record(
+                partID: partID, pageIndex: 0, layer: AnnotationLayers.first),
+            "no record on disk — there is nothing for a relaunch to replay")
+        XCTAssertEqual(record.pageWidth, Double(pageSize.width), accuracy: 0.01,
+                       "the authored page size did not survive, so the ink will land rescaled")
+        XCTAssertEqual(record.pageHeight, Double(pageSize.height), accuracy: 0.01)
+        XCTAssertFalse(record.drawingData.isEmpty)
+    }
+
+    func testEveryLayerOfEveryPageSurvivesItsOwnStoppingPoint() throws {
+        // The randomised test above walks one page on one layer. Ink is keyed
+        // by part/page/layer, and a durability bug in the key is exactly the
+        // kind that only shows up when more than one of them is in play.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        var expected: [String: Int] = [:]
+
+        for page in 0..<3 {
+            for layer in 1...3 {
+                let count = 1 + (page + layer) % 4
+                let strokes = (0..<count).map { i in
+                    makeStroke(from: CGPoint(x: 20 + i * 10, y: 40),
+                               to: CGPoint(x: 20 + i * 10, y: 200))
+                }
+                StrokeJournal.shared.save(
+                    makeDrawing(strokes), partID: partID, pageIndex: page,
+                    layer: layer, pageSize: pageSize)
+                expected["\(page).\(layer)"] = count
+            }
+        }
+        waitForJournal()
+
+        for page in 0..<3 {
+            for layer in 1...3 {
+                let recovered = try XCTUnwrap(
+                    StrokeJournal.shared.load(partID: partID, pageIndex: page, layer: layer),
+                    "page \(page) layer \(layer) lost everything")
+                XCTAssertEqual(recovered.strokes.count, expected["\(page).\(layer)"],
+                               "page \(page) layer \(layer) came back with the wrong ink")
+            }
+        }
+    }
+
+
+    func testTheGateThatActuallyDecidesWhoCanDraw() {
+        // drawingPolicy governs PencilKit, and PencilKit stopped inking on
+        // 2026-08-20. The observer's allowedTouchTypes is what a fingertip
+        // has to get past — gating only the policy left the hatch switched on
+        // and a finger still unable to draw a thing.
+        let pencil = NSNumber(value: UITouch.TouchType.pencil.rawValue)
+        let finger = NSNumber(value: UITouch.TouchType.direct.rawValue)
+
+        XCTAssertEqual(AnnotationInput.allowedTouchTypes(for: .pencilOnly), [pencil])
+        XCTAssertEqual(AnnotationInput.allowedTouchTypes(for: .anyInput), [pencil, finger],
+                       "the hatch is open and a fingertip still cannot reach the ink pipeline")
+
+        // And end to end from the two booleans, which is how it is used.
+        let hatchOpen = AnnotationInput.policy(pencilEverPaired: false, fingerDrawing: true)
+        XCTAssertTrue(AnnotationInput.allowedTouchTypes(for: hatchOpen).contains(finger))
+        let pencilPresent = AnnotationInput.policy(pencilEverPaired: true, fingerDrawing: true)
+        XCTAssertFalse(AnnotationInput.allowedTouchTypes(for: pencilPresent).contains(finger),
+                       "a paired Pencil let a finger into the ink pipeline")
+    }
+
+
+    func testEveryInkSurfaceIsShutToFingersBeforeAnythingIsInjected() {
+        // The Right Page margin is configured on a different path from the two
+        // spread pages, so it never receives a Preferences object. When the
+        // touch-type gate was set only from that injection, the margin kept
+        // UIGestureRecognizer's default — which includes .direct — and took
+        // finger ink on every iPad, Pencil present or not, hatch or no hatch.
+        // A page must be shut before anyone tells it anything.
+        let untouched = ReadingPageView()
+        let finger = NSNumber(value: UITouch.TouchType.direct.rawValue)
+        XCTAssertFalse(
+            untouched.inkObserver.allowedTouchTypes.contains(finger),
+            "a page nobody configured accepts finger ink — §0.2 is open by default"
+        )
+        XCTAssertEqual(
+            untouched.inkObserver.allowedTouchTypes,
+            [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        )
+    }
+
+    func testOpeningTheHatchOnAPageOpensThatPagesGate() {
+        let page = ReadingPageView()
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        prefs.fingerDrawing = true
+        page.preferences = prefs
+
+        let finger = NSNumber(value: UITouch.TouchType.direct.rawValue)
+        XCTAssertTrue(page.inkObserver.allowedTouchTypes.contains(finger),
+                      "the hatch is open and the gate is still shut")
+
+        // And a Pencil arriving anywhere shuts it again.
+        prefs.notePencilSeen()
+        page.refreshInputPolicy()
+        XCTAssertFalse(page.inkObserver.allowedTouchTypes.contains(finger),
+                       "a Pencil wrote and fingers still reach the ink pipeline")
     }
 
 }

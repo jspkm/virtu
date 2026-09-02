@@ -3,6 +3,9 @@ import SwiftUI
 struct NavRailView: View {
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
+    // Observed so the dot appears and clears with the tools themselves.
+    @State private var metronome = Metronome.shared
+    @State private var tuner = Tuner.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,6 +21,56 @@ struct NavRailView: View {
                     state.destination = dest
                     state.chromeVisible = true
                 }
+                .overlay(alignment: .topTrailing) {
+                    if dest == .tools && PracticeTools.isRunning {
+                        // Static, never pulsing. The design language forbids
+                        // idle chrome animation outright, and a blinking dot
+                        // in a dark pit during bar 340 is the exact thing
+                        // that rule exists to prevent.
+                        Circle()
+                            .fill(theme.accent)
+                            .frame(width: 7, height: 7)
+                            .padding(.trailing, 12)
+                            .padding(.top, 4)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .accessibilityValue(
+                    dest == .tools && PracticeTools.isRunning
+                        ? "A practice tool is running. Press and hold to stop it."
+                        : ""
+                )
+            }
+
+            // A labelled control, not a hidden gesture. The first version
+            // was a long press on the Tools icon, which meant depending on
+            // whether SwiftUI delivers a Button's tap alongside a
+            // high-priority long press — it does in some arrangements and
+            // not others, the mask here flips mid-press because stopping is
+            // what changes it, and the workaround swallowed the user's next
+            // tap anywhere in the rail for a second afterwards. A control
+            // you can see is better than a gesture nobody can discover, and
+            // it is the same one tap.
+            if PracticeTools.isRunning {
+                Button {
+                    PracticeTools.stopAll()
+                    Haptics.rigid()
+                } label: {
+                    VStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(theme.railInk)
+                            .frame(width: 9, height: 9)
+                        Text("Stop")
+                            .font(VFont.railLabel)
+                            .foregroundStyle(theme.railInk)
+                    }
+                    .frame(width: 46, height: 42)
+                    .background(theme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.toolButton))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
+                .accessibilityLabel("Stop the metronome and tuner")
             }
 
             Spacer()

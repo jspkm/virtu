@@ -27,11 +27,11 @@ The incumbent ships this as a buried setting because fifteen years of users draw
 
 A "let me draw with my finger" escape hatch may exist in Settings for Pencil-less users, but it is never the default when a Pencil is present, and it is never auto-enabled.
 
-> **Status: kept, and then some — except for the Pencil-less case.** Fingers
-> never ink, and the surrounding gestures are hardened past the rule (§7.2).
-> But the policy is hardcoded rather than conditional on `pencilEverPaired`, so
-> a Pencil-less iPad cannot draw at all and gives no reason why. The rule is
-> intact; the escape hatch is missing. Open P0.
+> **Status: kept, and then some.** Fingers never ink, and the surrounding
+> gestures are hardened past the rule (§7.2). The escape hatch shipped
+> 2026-09-01 and closes the P0 recorded here: a Pencil-less iPad is offered
+> "Draw with a finger" on the Tools screen, never on by default, and the
+> offer disappears the moment a Pencil writes.
 
 ### 0.3 A stroke is never lost
 
@@ -426,9 +426,17 @@ if pencilEverPaired {
 
 **Status:**
 
-- **PARTIAL** — the policy is hardcoded to `.pencilOnly`; the `pencilEverPaired`
-  branch does not exist. On an iPad that has never seen a Pencil, Study mode is
-  silently inert and reads as broken. Open P0.
+- **DONE** — `AnnotationInput.policy(pencilEverPaired:fingerDrawing:)` resolves
+  §0.2's two halves in one place, and a Pencil-less iPad is no longer silently
+  inert. `pencilEverPaired` has no API behind it; the proxy is having seen a
+  Pencil write, latched on the ink observer's first pencil touch.
+
+  **Worth knowing, because it caught the first implementation out:** setting
+  `PKCanvasView.drawingPolicy` does not decide who may ink. PencilKit stopped
+  participating in inking on 2026-08-20 (§6.0(2)) and its recognizer now runs
+  only for the eraser and the lasso. The gate that admits a touch to the ink
+  pipeline is our own recognizer's `allowedTouchTypes`. Both are derived from
+  the one policy so they cannot drift apart.
 - **DONE, and hardened past the spec** — finger contact is navigation only.
   Beyond that: the scroll view's pan and pinch are finger-only, so a stray
   pencil touch cannot move the page out from under a mark, and in Perform the

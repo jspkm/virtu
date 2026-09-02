@@ -28,6 +28,8 @@ final class AudioSession {
         case record
     }
 
+    private static let wakeOwner = "audio"
+
     private var claims: [String: Need] = [:]
 
     private init() {}
@@ -55,10 +57,7 @@ final class AudioSession {
         let session = AVAudioSession.sharedInstance()
 
         guard !claims.isEmpty else {
-            // The reading surface owns the idle timer while a score is open
-            // and sets it on appear, so releasing it here cannot strand a lit
-            // screen — and cannot leave one lit either.
-            UIApplication.shared.isIdleTimerDisabled = false
+            ScreenWake.shared.release(Self.wakeOwner)
             try? session.setActive(false, options: [.notifyOthersOnDeactivation])
             return true
         }
@@ -87,8 +86,10 @@ final class AudioSession {
             }
             try session.setActive(true)
             // A tool you started and then stopped watching still has to be
-            // there when you look up from the cello.
-            UIApplication.shared.isIdleTimerDisabled = true
+            // there when you look up from the cello. Refcounted rather than
+            // set directly: the reading surface wants the screen awake too,
+            // and one of them releasing must not put the other to sleep.
+            ScreenWake.shared.claim(Self.wakeOwner)
             return true
         } catch {
             // The caller does not start. There is nothing useful to say to a
