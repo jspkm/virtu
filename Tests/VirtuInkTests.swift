@@ -1914,10 +1914,17 @@ final class VirtuInkTests: XCTestCase {
 
     private func assertHears(
         _ expected: Double, in samples: [Float], sampleRate: Double,
-        withinCents tolerance: Double = 1,
+        withinCents tolerance: Double = 1, ceilingHz: Double? = nil,
         file: StaticString = #filePath, line: UInt = #line
     ) {
-        let detector = PitchDetector(sampleRate: sampleRate)
+        var detector = PitchDetector(sampleRate: sampleRate)
+        // The tuner listens to 1500Hz, which is above every note anyone
+        // tunes. The fork *sounds* to B6 (1975Hz), which is a different job —
+        // and the two never run at once. Raising the ceiling here tests the
+        // oscillator rather than the detector's range; without it the
+        // detector answers a clean octave down and the failure looks like a
+        // synthesis bug.
+        if let ceilingHz { detector.highestHz = ceilingHz }
         guard let heard = detector.frequency(in: samples) else {
             return XCTFail("heard nothing where \(expected)Hz was playing", file: file, line: line)
         }
@@ -1993,6 +2000,8 @@ final class VirtuInkTests: XCTestCase {
         for reference in Tuner.references {
             let tuner = Tuner(defaults: Self.scratchDefaults())
             tuner.referenceHz = reference
+            tuner.forkPitchClass = 9        // A
+            tuner.forkOctave = 4
             let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
             let data = try XCTUnwrap(buffer.floatChannelData?[0])
             let window = (0..<PitchDetector.windowFrames).map { data[$0] }
@@ -2006,6 +2015,8 @@ final class VirtuInkTests: XCTestCase {
         let rate = 48_000.0
         let tuner = Tuner(defaults: Self.scratchDefaults())
         tuner.referenceHz = 442
+        tuner.forkPitchClass = 9        // A
+        tuner.forkOctave = 4
         let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
         let cycles = Double(buffer.frameLength) * 442 / rate
         XCTAssertEqual(cycles, cycles.rounded(), accuracy: 0.002,
@@ -2017,16 +2028,79 @@ final class VirtuInkTests: XCTestCase {
                        "the end of the loop does not meet its beginning")
     }
 
-    func testTheReferenceSnapsToAPresetAndSurvivesRelaunch() {
+    func testTheReferenceSurvivesRelaunch() {
         let defaults = Self.scratchDefaults()
         let first = Tuner(defaults: defaults)
         XCTAssertEqual(first.referenceHz, 442, "the default A is not the handoff's")
-        first.referenceHz = 439          // nothing on the card offers this
-        XCTAssertEqual(first.referenceHz, 440, "an off-card reference was kept")
-
         first.referenceHz = 415
         let relaunched = Tuner(defaults: defaults)
         XCTAssertEqual(relaunched.referenceHz, 415, "the A you chose was not there when you came back")
+    }
+
+    // MARK: - Calibration, target note and spelling (PRD §5.1)
+
+    func testTheReferenceIsContinuousAcrossItsRange() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 443.5
+        XCTAssertEqual(tuner.referenceHz, 443.5, accuracy: 0.001,
+                       "the reference still snaps to a preset")
+        tuner.referenceHz = 500
+        XCTAssertEqual(tuner.referenceHz, Tuner.maxReferenceHz, accuracy: 0.001)
+        tuner.referenceHz = 100
+        XCTAssertEqual(tuner.referenceHz, Tuner.minReferenceHz, accuracy: 0.001)
+        XCTAssertEqual(Tuner.minReferenceHz, 415)
+        XCTAssertEqual(Tuner.maxReferenceHz, 456)
+    }
+
+    func testResetReturnsToConcertPitch() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 415
+        XCTAssertTrue(tuner.isOffStandardPitch, "the reset affordance would be hidden when it is needed")
+        tuner.resetReference()
+        XCTAssertEqual(tuner.referenceHz, 440, accuracy: 0.001)
+        XCTAssertFalse(tuner.isOffStandardPitch, "the reset affordance is still showing at 440")
+    }
+
+    func testSpellingRenamesTheBlackNotes() {
+        let sharp = Pitch(frequency: 466.164, referenceA: 440, spelling: .sharps)
+        XCTAssertEqual(sharp.letter, "A")
+        XCTAssertEqual(sharp.accidental, "\u{266F}")
+
+        let flat = Pitch(frequency: 466.164, referenceA: 440, spelling: .flats)
+        XCTAssertEqual(flat.letter, "B")
+        XCTAssertEqual(flat.accidental, "\u{266D}")
+
+        // The white notes are the same either way.
+        for spelling in [Pitch.Spelling.sharps, .flats] {
+            XCTAssertNil(Pitch(frequency: 440, referenceA: 440, spelling: spelling).accidental)
+        }
+    }
+
+    func testPinningANoteKeepsTheNameWhileTheStringIsFlat() {
+        // A D string a hair over a semitone flat. Chromatic naming calls it
+        // C sharp and says "nearly in tune", which is the exact failure a
+        // target note exists to prevent.
+        let veryFlatD = 146.832 * pow(2, -110.0 / 1200)
+        let chromatic = Pitch(frequency: veryFlatD, referenceA: 440, spelling: .sharps)
+        XCTAssertNotEqual(chromatic.letter, "D", "this test proves nothing if auto already says D")
+
+        let pinned = Pitch(frequency: veryFlatD, referenceA: 440, spelling: .sharps, pinnedTo: 2)
+        XCTAssertEqual(pinned.letter, "D")
+        XCTAssertEqual(pinned.octave, 3, "pinning must find the nearest D, not a fixed one")
+        XCTAssertEqual(pinned.cents, -110, accuracy: 0.5)
+        XCTAssertFalse(pinned.isInTune)
+    }
+
+    func testPinningReadsThroughTheTuner() throws {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.targetPitchClass = 2          // D
+        tuner.hear(146.832)
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).letter, "D")
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).cents, 0, accuracy: 0.5)
+
+        tuner.targetPitchClass = nil        // back to chromatic
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).letter, "D")
     }
 
     func testChangingTheReferenceRereadsTheStringYouAreHolding() {
@@ -2692,6 +2766,52 @@ final class VirtuInkTests: XCTestCase {
         let first = Metronome(defaults: defaults)
         first.subdivision = .triplets
         XCTAssertEqual(Metronome(defaults: defaults).subdivision, .triplets)
+    }
+
+
+    // MARK: - The tuning fork (PRD §5.1)
+
+    func testForkPitchesAreTheOnesTheKeyboardHas() {
+        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 0, octave: 4, referenceA: 440), 261.6256, accuracy: 0.001)
+        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 9, octave: 4, referenceA: 440), 440, accuracy: 0.0001)
+        XCTAssertEqual(Tuner.forkFrequency(pitchClass: 11, octave: 6, referenceA: 440), 1975.533, accuracy: 0.01)
+    }
+
+    func testTheForkFollowsTheReference() {
+        // A baroque player's fork is a baroque fork.
+        let a415 = Tuner.forkFrequency(pitchClass: 9, octave: 4, referenceA: 415)
+        XCTAssertEqual(a415, 415, accuracy: 0.0001)
+        XCTAssertEqual(1200 * log2(a415 / 440), -100, accuracy: 2, "A415 is a semitone under A440")
+    }
+
+    func testTheForkSoundsWhateverNoteIsChosen() throws {
+        // Synthesis into detection, as the drone test does for A.
+        //
+        // Two cents rather than one, and both reasons are inaudible. The loop
+        // snaps to a whole number of cycles so its wrap is silent, which at
+        // B6 costs about 0.4 cents; and a 1975Hz period is 24 samples at
+        // 48kHz, where one whole sample is 71 cents, so the parabola through
+        // YIN's minimum is doing well to land inside two.
+        let rate = 48_000.0
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        for (pitchClass, octave) in [(0, 4), (5, 5), (11, 6)] {
+            tuner.forkPitchClass = pitchClass
+            tuner.forkOctave = octave
+            let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
+            let data = try XCTUnwrap(buffer.floatChannelData?[0])
+            let window = (0..<PitchDetector.windowFrames).map { data[$0] }
+            assertHears(Tuner.forkFrequency(pitchClass: pitchClass, octave: octave, referenceA: 440),
+                        in: window, sampleRate: rate, withinCents: 2, ceilingHz: 2_200)
+        }
+    }
+
+    func testTheForkIsClampedToTheOctavesOffered() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.forkOctave = 1
+        XCTAssertEqual(tuner.forkOctave, 4)
+        tuner.forkOctave = 9
+        XCTAssertEqual(tuner.forkOctave, 6)
     }
 
 }
