@@ -19,7 +19,13 @@ struct MetronomeCard: View {
             reading
             lamps.padding(.vertical, 18)
             slider
-            meterPicker.padding(.top, 14)
+            // Both rows are digits and the first four overlap, so each says
+            // which question it answers. Without them "1 2 3 4" under
+            // "1 2 3 4 5 6 7" is a guess.
+            rowLabel("Beats to the bar").padding(.top, 16)
+            meterPicker.padding(.top, 6)
+            rowLabel("Rhythm").padding(.top, 12)
+            rhythm.padding(.top, 6)
             transport.padding(.top, 18)
         }
         .padding(24)
@@ -144,6 +150,36 @@ struct MetronomeCard: View {
         .tint(theme.accent)
         .accessibilityLabel("Tempo")
         .accessibilityValue("\(metronome.bpm) beats per minute, \(metronome.tempoWord)")
+    }
+
+    private func rowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(VFont.metadata)
+            .foregroundStyle(theme.faint)
+    }
+
+    /// Six across. The beat's own division, as a third quieter click voice.
+    private var rhythm: some View {
+        HStack(spacing: 4) {
+            ForEach(Subdivision.allCases) { option in
+                let selected = metronome.subdivision == option
+                Button {
+                    metronome.subdivision = option
+                    Haptics.selection()
+                } label: {
+                    Text(option.label)
+                        .font(VFont.mono(11))
+                        .foregroundStyle(selected ? theme.paper : theme.muted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(selected ? theme.ink : theme.wash)
+                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(option.spoken)
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+            }
+        }
     }
 
     // MARK: - Transport

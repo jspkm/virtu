@@ -39,6 +39,7 @@ final class Metronome {
 
     private var storedBPM = 92
     private var storedBeatsPerBar = 4
+    private var storedSubdivision = Subdivision.quarter
 
     var bpm: Int {
         get { storedBPM }
@@ -63,6 +64,17 @@ final class Metronome {
             guard clamped != storedBeatsPerBar else { return }
             storedBeatsPerBar = clamped
             defaults.set(clamped, forKey: "metronomeBeatsPerBar")
+            reloadIfRunning()
+        }
+    }
+
+    /// How each beat is divided. A third, quieter click voice.
+    var subdivision: Subdivision {
+        get { storedSubdivision }
+        set {
+            guard newValue != storedSubdivision else { return }
+            storedSubdivision = newValue
+            defaults.set(newValue.rawValue, forKey: "metronomeSubdivision")
             reloadIfRunning()
         }
     }
@@ -107,6 +119,10 @@ final class Metronome {
     private static let clickSeconds = 0.035
     private static let decay = 90.0
     private static let level = 0.5
+    // A third voice, under the accent and the beat. Lower and quieter, so a
+    // subdivided bar still has a shape you can hear the downbeat in.
+    private static let subdivisionHz = 760.0
+    private static let subdivisionLevel = 0.22
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -116,6 +132,10 @@ final class Metronome {
         }
         if let stored = defaults.object(forKey: "metronomeBeatsPerBar") as? Int {
             beatsPerBar = stored
+        }
+        if let raw = defaults.string(forKey: "metronomeSubdivision"),
+           let value = Subdivision(rawValue: raw) {
+            subdivision = value
         }
     }
 
@@ -229,13 +249,31 @@ final class Metronome {
             channels[channel].update(repeating: 0, count: totalFrames)
         }
 
-        let clickFrames = min(Int(rate * Self.clickSeconds), beatFrames)
+        // Every click in the bar, as (frame offset, frequency, level).
+        var clicks: [(Int, Double, Double)] = []
         for beat in 0..<beatsPerBar {
-            let offset = beat * beatFrames
-            let frequency = beat == 0 ? Self.accentHz : Self.beatHz
-            for i in 0..<clickFrames {
+            let base = beat * beatFrames
+            clicks.append((base, beat == 0 ? Self.accentHz : Self.beatHz, Self.level))
+            for fraction in subdivision.offsets {
+                let offset = base + Int(Double(beatFrames) * fraction)
+                clicks.append((offset, Self.subdivisionHz, Self.subdivisionLevel))
+            }
+        }
+        clicks.sort { $0.0 < $1.0 }
+
+        // A click must end before the next one starts. 500 BPM in sixteenths
+        // is a click every 30ms, which is shorter than the click itself — so
+        // the click shortens rather than the clicks running together.
+        var shortest = beatFrames
+        for (a, b) in zip(clicks, clicks.dropFirst()) {
+            shortest = min(shortest, b.0 - a.0)
+        }
+        let clickFrames = max(1, min(Int(rate * Self.clickSeconds), Int(Double(shortest) * 0.9)))
+
+        for (offset, frequency, level) in clicks {
+            for i in 0..<clickFrames where offset + i < totalFrames {
                 let t = Double(i) / rate
-                let value = Float(sin(2 * .pi * frequency * t) * exp(-t * Self.decay) * Self.level)
+                let value = Float(sin(2 * .pi * frequency * t) * exp(-t * Self.decay) * level)
                 for channel in 0..<channelCount {
                     channels[channel][offset + i] = value
                 }

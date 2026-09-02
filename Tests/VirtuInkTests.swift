@@ -1663,9 +1663,11 @@ final class VirtuInkTests: XCTestCase {
     /// A click is a decaying sine, so it crosses zero dozens of times inside
     /// its own envelope — an onset needs a hold-off longer than the click, or
     /// every half-cycle reads as a new one.
-    private func clickOnsets(_ buffer: AVAudioPCMBuffer, sampleRate: Double = 44_100) -> [Int] {
+    private func clickOnsets(
+        _ buffer: AVAudioPCMBuffer, sampleRate: Double = 44_100, holdOff: Int? = nil
+    ) -> [Int] {
         guard let data = buffer.floatChannelData?[0] else { return [] }
-        let holdOff = Int(sampleRate * 0.05)   // longer than Metronome.clickSeconds
+        let holdOff = holdOff ?? Int(sampleRate * 0.05)   // longer than Metronome.clickSeconds
         var onsets: [Int] = []
         var i = 0
         while i < Int(buffer.frameLength) {
@@ -1682,10 +1684,10 @@ final class VirtuInkTests: XCTestCase {
     /// Clicks land on their beats, to within a sample or two — the first
     /// sample of a sine burst is sin(0), which is exactly silent.
     private func assertOnsets(
-        _ buffer: AVAudioPCMBuffer, are expected: [Int],
+        _ buffer: AVAudioPCMBuffer, are expected: [Int], holdOff: Int? = nil,
         file: StaticString = #filePath, line: UInt = #line
     ) {
-        let onsets = clickOnsets(buffer)
+        let onsets = clickOnsets(buffer, holdOff: holdOff)
         XCTAssertEqual(
             onsets.count, expected.count,
             "expected \(expected.count) clicks to the bar, got \(onsets.count)",
@@ -2623,6 +2625,73 @@ final class VirtuInkTests: XCTestCase {
         page.refreshInputPolicy()
         XCTAssertFalse(page.inkObserver.allowedTouchTypes.contains(finger),
                        "a Pencil wrote and fingers still reach the ink pipeline")
+    }
+
+
+    // MARK: - Subdivisions (PRD §5.1)
+
+    func testSubdivisionsPutTheRightNumberOfClicksInABeat() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 60           // one beat = 44_100 frames
+        metronome.beatsPerBar = 1
+
+        let expected: [(Subdivision, [Int])] = [
+            (.quarter,    [0]),
+            (.eighths,    [0, 22_050]),
+            (.triplets,   [0, 14_700, 29_400]),
+            (.sixteenths, [0, 11_025, 22_050, 33_075]),
+            (.swing,      [0, 29_400]),
+            (.dotted,     [0, 33_075])
+        ]
+        for (subdivision, onsets) in expected {
+            metronome.subdivision = subdivision
+            let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+            assertOnsets(buffer, are: onsets)
+        }
+    }
+
+    func testSwingIsNotAnEvenEighth() {
+        // The whole point of the setting. If these ever match, swing has
+        // silently become eighths — which is the most common way to practise
+        // swing wrong.
+        XCTAssertNotEqual(Subdivision.swing.offsets, Subdivision.eighths.offsets)
+        XCTAssertEqual(Subdivision.swing.offsets.first ?? 0, 2.0 / 3, accuracy: 0.0001)
+    }
+
+    func testTheSubdivisionIsQuieterThanTheBeatItDivides() throws {
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 60
+        metronome.beatsPerBar = 1
+        metronome.subdivision = .eighths
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        let data = try XCTUnwrap(buffer.floatChannelData?[0])
+        let beatPeak = (0..<600).map { abs(data[$0]) }.max() ?? 0
+        let offPeak = (22_050..<22_650).map { abs(data[$0]) }.max() ?? 0
+        XCTAssertLessThan(offPeak, beatPeak * 0.8,
+                          "the off-beat is as loud as the beat, so the bar has no shape")
+        XCTAssertGreaterThan(offPeak, 0.01, "the subdivision is inaudible")
+    }
+
+    func testClicksCannotOverlapAtTheFastEnd() throws {
+        // 500 BPM in sixteenths is a click every 30ms, shorter than the click.
+        let metronome = Metronome(defaults: Self.scratchDefaults())
+        metronome.bpm = 500
+        metronome.beatsPerBar = 1
+        metronome.subdivision = .sixteenths
+        let buffer = try XCTUnwrap(metronome.testBarBuffer(sampleRate: 44_100))
+        // The hold-off has to clear the shortened click (1190 frames here)
+        // without reaching the next one (1323), or the detector re-triggers
+        // on a zero crossing inside a click and counts it twice.
+        XCTAssertEqual(clickOnsets(buffer, holdOff: 1_250).count, 4,
+                       "clicks ran together at the top of the range")
+        assertOnsets(buffer, are: [0, 1_323, 2_646, 3_969], holdOff: 1_250)
+    }
+
+    func testSubdivisionSurvivesRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Metronome(defaults: defaults)
+        first.subdivision = .triplets
+        XCTAssertEqual(Metronome(defaults: defaults).subdivision, .triplets)
     }
 
 }

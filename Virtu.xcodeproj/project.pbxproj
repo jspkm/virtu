@@ -36,6 +36,7 @@
 		5BF8786C61383A861579ED32 /* NavRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470085E4A1BB516D6F599BCF /* NavRailView.swift */; };
 		5FDD4B81E74389BCB45EFEBE /* Archivo-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 48236BE2D525BEC327353494 /* Archivo-SemiBold.ttf */; };
 		686AE9B60F7789C1AAEC5C66 /* TurnsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50F148CC8E9F809702C43D9 /* TurnsCard.swift */; };
+		698363D379C324CDE6C3AB37 /* Subdivision.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5340A8BAC0957CED6D8A29C /* Subdivision.swift */; };
 		708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */; };
 		72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD13E0C987E87F6A734F83AD /* SeedData.swift */; };
 		731891BD46C1FDD43743316A /* ScreenWake.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80486AF9E5E0D61719FC434 /* ScreenWake.swift */; };
@@ -132,6 +133,7 @@
 		D80486AF9E5E0D61719FC434 /* ScreenWake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenWake.swift; sourceTree = "<group>"; };
 		DD2EA59D5336A1F306180094 /* VirtuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtuApp.swift; sourceTree = "<group>"; };
 		E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		E5340A8BAC0957CED6D8A29C /* Subdivision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subdivision.swift; sourceTree = "<group>"; };
 		E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "bach-cello-suite-1.pdf"; sourceTree = "<group>"; };
 		ECA850179DE9196A71EC1F97 /* WorkCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkCardView.swift; sourceTree = "<group>"; };
 		ECF058F13B694D0B1F08C603 /* schubert-string-quintet.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "schubert-string-quintet.pdf"; sourceTree = "<group>"; };
@@ -282,6 +284,7 @@
 				ED891107FC4C6D7C5696FB1E /* PitchDetector.swift */,
 				F8FBAE5E0F483E6896696265 /* PracticeTools.swift */,
 				D80486AF9E5E0D61719FC434 /* ScreenWake.swift */,
+				E5340A8BAC0957CED6D8A29C /* Subdivision.swift */,
 				19348EE6BE543E728C816058 /* ToolsView.swift */,
 				CEF16B44C226E47AE6106E69 /* Tuner.swift */,
 				6DE623654C0232EA0810EFC2 /* TunerCard.swift */,
@@ -448,6 +451,7 @@
 				72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */,
 				5174770ED1BE67FAFACF84EB /* StageInk.swift in Sources */,
 				409E3596CFC20BFD1EA7E549 /* StrokeJournal.swift in Sources */,
+				698363D379C324CDE6C3AB37 /* Subdivision.swift in Sources */,
 				8EBE9ACF7ACD26187CF9C5D8 /* Surfaces.swift in Sources */,
 				C80C284EC488745603CB03D4 /* Tokens.swift in Sources */,
 				4CC1B5DD903DD3175B501135 /* ToolRailView.swift in Sources */,
