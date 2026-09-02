@@ -1787,4 +1787,525 @@ final class VirtuInkTests: XCTestCase {
         }
     }
 
+
+    // MARK: - Tuner: naming what is heard
+    //
+    // Every one of these depends on the A in force, which is the whole point
+    // of the four buttons: the same string is a clean D against A 415 and
+    // eleven cents sharp against A 442.
+
+    func testAReferenceNamesItselfWithNothingLeftOver() {
+        for reference in Tuner.references {
+            let pitch = Pitch(frequency: reference, referenceA: reference)
+            XCTAssertEqual(pitch.letter, "A")
+            XCTAssertNil(pitch.accidental)
+            XCTAssertEqual(pitch.octave, 4)
+            XCTAssertEqual(pitch.cents, 0, accuracy: 0.001, "A \(Int(reference)) is not A \(Int(reference))")
+        }
+    }
+
+    func testTheOpenStringsOfACelloAreNamedCorrectly() {
+        // Scientific pitch notation against A 440: middle C is C4, so the
+        // cello's top string is A3 and its bottom is C2.
+        let strings: [(Double, String, String?, Int)] = [
+            (65.406, "C", nil, 2),
+            (97.999, "G", nil, 2),
+            (146.832, "D", nil, 3),
+            (220.000, "A", nil, 3)
+        ]
+        for (hz, letter, accidental, octave) in strings {
+            let pitch = Pitch(frequency: hz, referenceA: 440)
+            XCTAssertEqual(pitch.letter, letter, "\(hz)Hz named \(pitch.letter)")
+            XCTAssertEqual(pitch.accidental, accidental)
+            XCTAssertEqual(pitch.octave, octave, "\(hz)Hz put in octave \(pitch.octave)")
+            XCTAssertEqual(pitch.cents, 0, accuracy: 1)
+        }
+    }
+
+    func testAccidentalsAreSpelledWithSharps() {
+        // 466.16 is the semitone above A 440. A tuner names a pitch, not a
+        // key, so it has no basis for choosing B flat and says A sharp.
+        let pitch = Pitch(frequency: 466.164, referenceA: 440)
+        XCTAssertEqual(pitch.letter, "A")
+        XCTAssertEqual(pitch.accidental, "\u{266F}")
+        XCTAssertEqual(pitch.octave, 4)
+    }
+
+    func testCentsAreSignedFlatBelowAndSharpAbove() {
+        let flat = Pitch(frequency: 435, referenceA: 440)
+        XCTAssertLessThan(flat.cents, 0, "435 against A 440 is flat, not sharp")
+        XCTAssertEqual(flat.cents, -19.78, accuracy: 0.05)
+        XCTAssertFalse(flat.isInTune)
+
+        let sharp = Pitch(frequency: 445, referenceA: 440)
+        XCTAssertGreaterThan(sharp.cents, 0)
+        XCTAssertTrue(sharp.spoken.hasSuffix("sharp"), "spoke it as '\(sharp.spoken)'")
+    }
+
+    func testTheSameStringReadsDifferentlyAgainstADifferentA() {
+        // An A 440 string, held still, while the reference moves under it.
+        XCTAssertEqual(Pitch(frequency: 440, referenceA: 440).cents, 0, accuracy: 0.001)
+        XCTAssertEqual(Pitch(frequency: 440, referenceA: 442).cents, -7.85, accuracy: 0.05)
+        XCTAssertEqual(Pitch(frequency: 440, referenceA: 432).cents, 31.77, accuracy: 0.05)
+        // A 415 is a semitone down, so the note itself changes name.
+        XCTAssertEqual(Pitch(frequency: 440, referenceA: 415).letter, "A")
+        XCTAssertEqual(Pitch(frequency: 440, referenceA: 415).accidental, "\u{266F}")
+    }
+
+    func testTheInTuneWindowIsFiveCentsEitherSide() {
+        let inside = Pitch(frequency: 440 * pow(2, 4.0 / 1200), referenceA: 440)
+        XCTAssertTrue(inside.isInTune, "four cents off read as out of tune")
+        let outside = Pitch(frequency: 440 * pow(2, 7.0 / 1200), referenceA: 440)
+        XCTAssertFalse(outside.isInTune, "seven cents off read as in tune")
+        XCTAssertTrue(inside.spoken.hasSuffix("in tune"), "spoke it as '\(inside.spoken)'")
+    }
+
+    // MARK: - Tuner: finding the pitch
+    //
+    // The detector is the half that can be wrong quietly. A needle that is
+    // confidently ten cents off is worse than one that admits it cannot hear,
+    // so these test both what it finds and what it refuses to.
+
+    /// A note with a body to it — a bare sine is the easiest possible signal
+    /// and the one a real instrument never sends.
+    private func tone(
+        hz: Double, sampleRate: Double, frames: Int,
+        partials: [Double] = [1, 0.6, 0.4, 0.25, 0.15, 0.1]
+    ) -> [Float] {
+        (0..<frames).map { i in
+            let t = Double(i) / sampleRate
+            var sum = 0.0
+            for (index, amplitude) in partials.enumerated() {
+                sum += amplitude * sin(2 * .pi * hz * Double(index + 1) * t)
+            }
+            return Float(sum / partials.reduce(0, +) * 0.5)
+        }
+    }
+
+    private func assertHears(
+        _ expected: Double, in samples: [Float], sampleRate: Double,
+        withinCents tolerance: Double = 1,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let detector = PitchDetector(sampleRate: sampleRate)
+        guard let heard = detector.frequency(in: samples) else {
+            return XCTFail("heard nothing where \(expected)Hz was playing", file: file, line: line)
+        }
+        let cents = 1200 * log2(heard / expected)
+        XCTAssertLessThanOrEqual(
+            abs(cents), tolerance,
+            "heard \(heard)Hz for \(expected)Hz — \(Int(cents)) cents out",
+            file: file, line: line
+        )
+    }
+
+    func testTheDetectorFindsANoteAcrossTheRangeAnyoneTunes() {
+        let rate = 48_000.0
+        let frames = PitchDetector.windowFrames
+        // Double bass E1, cello C2, viola C3, violin G3, violin E5.
+        for hz in [41.203, 65.406, 130.813, 195.998, 659.255] {
+            assertHears(hz, in: tone(hz: hz, sampleRate: rate, frames: frames), sampleRate: rate)
+        }
+    }
+
+    func testTheDetectorResolvesSingleCents() {
+        // The whole job. An integer number of samples per period quantises a
+        // violin's open E to about eight cents at 48kHz; only the parabola
+        // through the minimum gets under that.
+        let rate = 48_000.0
+        let inTune = 659.255
+        for offset in [-11.0, -4.0, 0.0, 4.0, 11.0] {
+            let hz = inTune * pow(2, offset / 1200)
+            assertHears(hz, in: tone(hz: hz, sampleRate: rate, frames: PitchDetector.windowFrames),
+                        sampleRate: rate, withinCents: 1)
+        }
+    }
+
+    func testTheDetectorDoesNotAnswerAnOctaveLow() {
+        // Plain autocorrelation's signature failure, and it bites hardest
+        // exactly where it matters — a bowed low string is almost all
+        // harmonics. A signal with a weak fundamental is the trap.
+        let rate = 48_000.0
+        let hz = 98.0
+        let samples = tone(hz: hz, sampleRate: rate, frames: PitchDetector.windowFrames,
+                           partials: [0.2, 1, 0.8, 0.6, 0.4, 0.3, 0.2])
+        assertHears(hz, in: samples, sampleRate: rate, withinCents: 2)
+    }
+
+    func testTheDetectorSaysNothingRatherThanGuess() {
+        let rate = 48_000.0
+        let frames = PitchDetector.windowFrames
+        let detector = PitchDetector(sampleRate: rate)
+
+        XCTAssertNil(detector.frequency(in: [Float](repeating: 0, count: frames)),
+                     "an empty room read as a note")
+
+        // A room, not a rest: quiet enough that the needle must not move.
+        let quiet = tone(hz: 220, sampleRate: rate, frames: frames).map { $0 * 0.002 }
+        XCTAssertNil(detector.frequency(in: quiet), "a whisper moved the needle")
+
+        // Broadband noise, from a fixed sequence so this cannot flake.
+        var state: UInt64 = 0x2545F4914F6CDD1D
+        let noise: [Float] = (0..<frames).map { _ in
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return Float(Double(state >> 11) / Double(1 << 53)) * 2 - 1
+        }
+        XCTAssertNil(detector.frequency(in: noise), "noise read as a note")
+    }
+
+    // MARK: - Tuner: the reference tone
+
+    func testTheDroneIsExactlyThePitchOnTheButton() throws {
+        // Synthesis into detection: the drone is generated and then read back
+        // by the same code that reads a real string. If either half is wrong
+        // about what a hertz is, this fails.
+        let rate = 48_000.0
+        for reference in Tuner.references {
+            let tuner = Tuner(defaults: Self.scratchDefaults())
+            tuner.referenceHz = reference
+            let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
+            let data = try XCTUnwrap(buffer.floatChannelData?[0])
+            let window = (0..<PitchDetector.windowFrames).map { data[$0] }
+            assertHears(reference, in: window, sampleRate: rate, withinCents: 1)
+        }
+    }
+
+    func testTheDroneLoopsWithoutASeam() throws {
+        // A whole number of cycles is what makes the wrap silent. If the
+        // buffer ended mid-cycle you would hear a tick once a second.
+        let rate = 48_000.0
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 442
+        let buffer = try XCTUnwrap(tuner.testDroneBuffer(sampleRate: rate))
+        let cycles = Double(buffer.frameLength) * 442 / rate
+        XCTAssertEqual(cycles, cycles.rounded(), accuracy: 0.002,
+                       "the loop holds \(cycles) cycles, so its wrap is a click")
+
+        let data = try XCTUnwrap(buffer.floatChannelData?[0])
+        let last = data[Int(buffer.frameLength) - 1]
+        XCTAssertEqual(Double(last), Double(data[0]), accuracy: 0.05,
+                       "the end of the loop does not meet its beginning")
+    }
+
+    func testTheReferenceSnapsToAPresetAndSurvivesRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Tuner(defaults: defaults)
+        XCTAssertEqual(first.referenceHz, 442, "the default A is not the handoff's")
+        first.referenceHz = 439          // nothing on the card offers this
+        XCTAssertEqual(first.referenceHz, 440, "an off-card reference was kept")
+
+        first.referenceHz = 415
+        let relaunched = Tuner(defaults: defaults)
+        XCTAssertEqual(relaunched.referenceHz, 415, "the A you chose was not there when you came back")
+    }
+
+    func testChangingTheReferenceRereadsTheStringYouAreHolding() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.hear(440)
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).cents, 0, accuracy: 0.001)
+
+        // Without lifting the bow.
+        tuner.referenceHz = 442
+        XCTAssertEqual(try XCTUnwrap(tuner.reading).cents, -7.85, accuracy: 0.05)
+    }
+
+    // MARK: - Tuner: steadying the needle
+
+    func testOneWildFrameDoesNotMoveTheNeedle() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        for _ in 0..<4 { tuner.hear(220) }
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001)
+
+        tuner.hear(440)     // one octave slip
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001,
+                       "the needle jumped an octave on a single bad frame")
+        tuner.hear(220)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001)
+    }
+
+    func testMovingToTheNextStringIsFollowedAtOnce() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        for _ in 0..<5 { tuner.hear(220) }
+        // Two consecutive readings from somewhere else is a new string, not
+        // a glitch — and two frames is under a tenth of a second.
+        tuner.hear(146.832)
+        tuner.hear(146.832)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 146.832, accuracy: 0.001,
+                       "moved to the D string and the needle stayed on the A")
+    }
+
+    func testASmallWobbleIsMedianedAwayRatherThanFollowed() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        // Four good frames and one a few cents out, inside the same note.
+        for hz in [220.0, 220.0, 220.0, 224.0, 220.0] { tuner.hear(hz) }
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001,
+                       "the mean would have moved here; the median must not")
+    }
+
+    func testTheReadingIsHeldThroughAGapBetweenStrokes() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        for _ in 0..<5 { tuner.hear(220) }
+        // Lifting the bow must not blank the card mid-adjustment.
+        for _ in 0..<Tuner.holdFrames { tuner.hear(nil) }
+        XCTAssertNotNil(tuner.heardHz, "the reading vanished between two bow strokes")
+        tuner.hear(nil)
+        XCTAssertNil(tuner.heardHz, "the reading outlived the note by too far")
+    }
+
+    // MARK: - The shared loop player
+    //
+    // Both tools' clocks now come from one place, and nothing above this
+    // point actually starts an engine — these buffers could all be correct
+    // with the playback path dead. This is the only test that plays.
+
+    func testTheLoopPlayerActuallyRunsAndItsClockAdvances() throws {
+        var built = 0
+        let player = LoopPlayer { format in
+            built += 1
+            let frames = AVAudioFrameCount(format.sampleRate)   // one second
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)
+            else { return nil }
+            buffer.frameLength = frames
+            return buffer
+        }
+        guard player.start() else {
+            throw XCTSkip("no audio output on this host — the playback path cannot be exercised")
+        }
+        XCTAssertEqual(built, 1, "the loop was started without asking for a buffer")
+
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
+        let elapsed = try XCTUnwrap(player.elapsedSeconds, "the loop is running but its clock is not")
+        XCTAssertGreaterThan(elapsed, 0.05, "the playhead did not move in a quarter of a second")
+
+        player.stop()
+        XCTAssertFalse(player.isPlaying)
+        XCTAssertNil(player.elapsedSeconds, "a stopped loop still reports a playhead")
+    }
+
+
+    // MARK: - Tuner: microphone buffers all the way to a reading
+    //
+    // Everything between a capture buffer and the needle: the window slide,
+    // the detector, and the publish. The one thing left uncovered is
+    // AVAudioEngine's own capture, which cannot run here — the simulator's
+    // audio input deadlocks inside AURemoteIO::Initialize — see the
+    // backlog register in PLAN.md, Part VI.
+
+    /// A capture buffer, the shape a microphone tap hands over.
+    private func captureBuffer(
+        hz: Double, sampleRate: Double, frames: Int, startingAt offset: Int
+    ) throws -> AVAudioPCMBuffer {
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1))
+        let buffer = try XCTUnwrap(
+            AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames))
+        )
+        buffer.frameLength = AVAudioFrameCount(frames)
+        let data = try XCTUnwrap(buffer.floatChannelData?[0])
+        let partials: [Double] = [1, 0.6, 0.4, 0.25]
+        for i in 0..<frames {
+            let t = Double(offset + i) / sampleRate
+            var sum = 0.0
+            for (index, amplitude) in partials.enumerated() {
+                sum += amplitude * sin(2 * .pi * hz * Double(index + 1) * t)
+            }
+            data[i] = Float(sum / partials.reduce(0, +) * 0.5)
+        }
+        return buffer
+    }
+
+    private func settle() {
+        // `consume` publishes onto the main queue.
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+    }
+
+    func testCaptureBuffersBecomeAReadingOnTheCard() throws {
+        let rate = 48_000.0
+        let chunk = 2_048
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+
+        // The cello's A string, arriving the way a tap delivers it: in
+        // chunks, each one sliding the window along.
+        for index in 0..<8 {
+            tuner.consume(try captureBuffer(
+                hz: 220, sampleRate: rate, frames: chunk, startingAt: index * chunk
+            ))
+            settle()
+        }
+
+        let pitch = try XCTUnwrap(tuner.reading, "eight buffers of a clean A and the card says nothing")
+        XCTAssertEqual(pitch.letter, "A")
+        XCTAssertNil(pitch.accidental)
+        XCTAssertEqual(pitch.octave, 3, "named the octave wrong — A3 is the cello's, A4 the violin's")
+        XCTAssertTrue(pitch.isInTune, "a mathematically exact A read as \(pitch.cents) cents out")
+    }
+
+    func testTheWindowSlidesRatherThanRestarting() throws {
+        // A buffer larger than the whole window takes the other branch, and
+        // the seam between the two is where an off-by-one would live: a
+        // window stitched together wrongly is still periodic, just at the
+        // wrong period.
+        let rate = 48_000.0
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        // 146.832Hz is D3 against A 440; left at the default A 442 it is a
+        // legitimately flat D, which is a fact about the reference and not
+        // about the window.
+        tuner.referenceHz = 440
+
+        tuner.consume(try captureBuffer(hz: 146.832, sampleRate: rate,
+                                        frames: PitchDetector.windowFrames * 2, startingAt: 0))
+        settle()
+        var pitch = try XCTUnwrap(tuner.reading)
+        XCTAssertEqual(pitch.letter, "D")
+        XCTAssertEqual(pitch.octave, 3)
+
+        // Now walk the same note through in small pieces, which is the
+        // memmove path, and it must still read as the same note.
+        for index in 0..<10 {
+            tuner.consume(try captureBuffer(
+                hz: 146.832, sampleRate: rate, frames: 512, startingAt: index * 512
+            ))
+            settle()
+        }
+        pitch = try XCTUnwrap(tuner.reading)
+        XCTAssertEqual(pitch.letter, "D")
+        XCTAssertEqual(pitch.octave, 3)
+        XCTAssertTrue(pitch.isInTune, "the sliding window drifted the pitch by \(pitch.cents) cents")
+    }
+
+    func testAQuietRoomLeavesTheNeedleAlone() throws {
+        let rate = 48_000.0
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1))
+        for _ in 0...Tuner.holdFrames {
+            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 2_048))
+            buffer.frameLength = 2_048
+            buffer.floatChannelData?[0].update(repeating: 0, count: 2_048)
+            tuner.consume(buffer)
+            settle()
+        }
+        XCTAssertNil(tuner.reading, "an empty room put a note on the card")
+    }
+
+
+    // MARK: - Preferences (PRD §14)
+
+    func testPreferencesDefaultsMatchThePRD() {
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        XCTAssertEqual(prefs.seamHoldSeconds, 4)
+        XCTAssertFalse(prefs.halfPageTurns)
+        XCTAssertTrue(prefs.bluetoothPedal, "the pedal path is always-on today; the default must not change that")
+        XCTAssertFalse(prefs.fingerDrawing, "§0.2: finger drawing is never auto-enabled")
+        XCTAssertFalse(prefs.pencilEverPaired)
+    }
+
+    func testPreferencesSurviveRelaunch() {
+        let defaults = Self.scratchDefaults()
+        let first = Preferences(defaults: defaults)
+        first.seamHoldSeconds = 6
+        first.halfPageTurns = true
+        first.bluetoothPedal = false
+
+        let relaunched = Preferences(defaults: defaults)
+        XCTAssertEqual(relaunched.seamHoldSeconds, 6)
+        XCTAssertTrue(relaunched.halfPageTurns)
+        XCTAssertFalse(relaunched.bluetoothPedal)
+    }
+
+    func testSeamHoldIsClampedToSomethingAMusicianCanUse() {
+        let prefs = Preferences(defaults: Self.scratchDefaults())
+        prefs.seamHoldSeconds = 99
+        XCTAssertEqual(prefs.seamHoldSeconds, Preferences.maxSeamHoldSeconds)
+        prefs.seamHoldSeconds = -3
+        XCTAssertEqual(prefs.seamHoldSeconds, Preferences.minSeamHoldSeconds)
+    }
+
+    func testPencilEverPairedIsALatchAndNeverUnsets() {
+        let defaults = Self.scratchDefaults()
+        let prefs = Preferences(defaults: defaults)
+        prefs.notePencilSeen()
+        XCTAssertTrue(prefs.pencilEverPaired)
+
+        // A pencil that was paired once stays paired: the escape hatch must
+        // not reappear on a device that simply has the Pencil in a drawer.
+        prefs.notePencilSeen()
+        XCTAssertTrue(Preferences(defaults: defaults).pencilEverPaired)
+    }
+
+
+    // MARK: - Review fixes, 2026-09-01
+    //
+    // One test per defect found reviewing the branch. Each fails against the
+    // code as it was.
+
+    func testAReadingComputedBeforeTheStopIsDropped() {
+        // A tap callback mid-analysis when Listen goes off still has its
+        // main-queue hop in flight. It used to land after stopListening had
+        // cleared everything and repopulate the card with a string that was
+        // no longer being heard — for ever, since no further tap would come.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        let current = tuner.listenGeneration
+        tuner.hear(220, generation: current)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001)
+
+        // Deliberately within a semitone, so that WITHOUT the generation
+        // check it takes the ordinary path and moves the needle. A wider
+        // interval would be rejected as an outlier for an unrelated reason
+        // and the test would pass against the bug.
+        tuner.hear(225, generation: current &- 1)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001,
+                       "a reading from before the stop was published anyway")
+    }
+
+    func testTwoArtefactsThatDisagreeDoNotConfirmEachOther() {
+        // Two frames both far from the current note but far from each other
+        // are two different glitches, not a string change. They used to be
+        // taken as confirmation, and the median of an even-length array
+        // picked the upper one — so an octave slip won.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        for _ in 0..<5 { tuner.hear(220) }
+        tuner.hear(440)          // an octave up
+        tuner.hear(110)          // an octave down: disagrees with the first
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001,
+                       "two contradictory artefacts moved the needle")
+
+        // Two that agree still count as a new string.
+        tuner.hear(146.832)
+        tuner.hear(146.832)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 146.832, accuracy: 0.001)
+    }
+
+    func testWhatIsSpokenAndWhatIsDrawnAgreeAtTheBoundary() {
+        // 5.4 cents rounds to 5, so the spoken label said "in tune" while the
+        // needle and the note glyph drew out-of-tune. A sighted and a blind
+        // musician got opposite answers from one reading.
+        let justOut = Pitch(frequency: 440 * pow(2, 5.4 / 1200), referenceA: 440)
+        XCTAssertFalse(justOut.isInTune)
+        XCTAssertFalse(justOut.spoken.hasSuffix("in tune"),
+                       "spoke '\(justOut.spoken)' for a reading drawn as out of tune")
+
+        let justIn = Pitch(frequency: 440 * pow(2, 4.6 / 1200), referenceA: 440)
+        XCTAssertTrue(justIn.isInTune)
+        XCTAssertTrue(justIn.spoken.hasSuffix("in tune"))
+    }
+
+    func testTheDetectorStillHearsAtAnInterfaceSampleRate() {
+        // An iPad with a USB-C audio interface runs at 88.2 or 96kHz. A fixed
+        // 4096-frame window cannot satisfy its own guard there, so every
+        // analysis returned nil and the card said "listening" for ever.
+        for rate in [44_100.0, 48_000.0, 88_200.0, 96_000.0] {
+            let detector = PitchDetector(sampleRate: rate)
+            XCTAssertGreaterThan(detector.analysisFrames, Int(rate / detector.lowestHz) * 2,
+                                 "the window at \(rate) cannot hold two periods of the lowest note")
+            let samples = tone(hz: 220, sampleRate: rate, frames: detector.analysisFrames)
+            let heard = detector.frequency(in: samples)
+            XCTAssertNotNil(heard, "heard nothing at \(rate)Hz")
+            if let heard {
+                XCTAssertLessThanOrEqual(abs(1200 * log2(heard / 220)), 1,
+                                         "at \(rate)Hz, heard \(heard) for 220")
+            }
+        }
+    }
+
 }

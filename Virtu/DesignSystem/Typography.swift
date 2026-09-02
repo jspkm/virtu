@@ -50,6 +50,10 @@ enum VFont {
     static let metadata = sans(11, weight: .regular)
 
     static let bpmTools = mono(60, weight: .medium)
+    /// The note the tuner is hearing. Serif, not mono, and at the handoff's
+    /// 40pt — a note name is a letter, not a figure, and setting it in the
+    /// metronome's mono made the two cards read as one instrument.
+    static let tunerNote = serif(40)
     static let catalogueNumber = mono(10.5)
     static let pageNumber = mono(9)
 }

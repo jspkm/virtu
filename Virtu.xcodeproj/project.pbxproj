@@ -29,17 +29,23 @@
 		54978DB0B013517BF81D65C2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 17D694569F8FDDDCA3715FB9 /* Assets.xcassets */; };
 		5832B9371D75AE7E9184A1A3 /* RecycleBinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C8A1F0EEFB974CB16767D8 /* RecycleBinView.swift */; };
 		5915C8972EC9F5C9E8DD8772 /* InkRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */; };
+		5B589B7C4838CFAA9A160893 /* PitchDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED891107FC4C6D7C5696FB1E /* PitchDetector.swift */; };
 		5BD00051895A7FADDDBE8553 /* ProgramEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */; };
 		5BF8786C61383A861579ED32 /* NavRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470085E4A1BB516D6F599BCF /* NavRailView.swift */; };
 		5FDD4B81E74389BCB45EFEBE /* Archivo-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 48236BE2D525BEC327353494 /* Archivo-SemiBold.ttf */; };
+		686AE9B60F7789C1AAEC5C66 /* TurnsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50F148CC8E9F809702C43D9 /* TurnsCard.swift */; };
 		708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */; };
 		72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD13E0C987E87F6A734F83AD /* SeedData.swift */; };
 		813AF30D48DABA0A616DB416 /* ToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19348EE6BE543E728C816058 /* ToolsView.swift */; };
 		8EBE9ACF7ACD26187CF9C5D8 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96179BBEFD4BA14DA63D82FC /* Surfaces.swift */; };
+		9579BEB5F625E3D1FD5DDEA4 /* LoopPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20201F9D4F06EF67D6D4EAB /* LoopPlayer.swift */; };
+		96A53D22A386BB30D6C7B1A9 /* AudioSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7E0CF166C91F555E9F9754 /* AudioSession.swift */; };
 		9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */; };
+		9F90264C3A25E5E2B3455FEB /* Tuner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF16B44C226E47AE6106E69 /* Tuner.swift */; };
 		A4A2CBF0020A8D0A6075B4FC /* ClippingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794D29A636F8848C35B6F8A7 /* ClippingStore.swift */; };
 		A5EB9096F149A58F0A5DE512 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */; };
 		AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322133D65AC57D316B417AE6 /* BottomChromeView.swift */; };
+		AB687D5FE22AC5262D0E9797 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D2D5D778CC5EC67EFFC16E /* Preferences.swift */; };
 		ACE6812A629D83B1B7FC8D2F /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */; };
 		AFCBB76A8A50363A3A09DE56 /* ReadingPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EDAD94D75938D56086D5774 /* ReadingPageView.swift */; };
 		BA27E822B5C6857D63BAEFB0 /* ImportMetadataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C7C9F1985034FF10DC84BC /* ImportMetadataSheet.swift */; };
@@ -52,6 +58,7 @@
 		DD0A96F5854065C3A282AA54 /* test-score.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 20626071F1844938848A894E /* test-score.pdf */; };
 		DFCA38F078CD2E06CEC3F4BA /* ReadingSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7689CD2217ABC90444CE5FA6 /* ReadingSurfaceView.swift */; };
 		E68050F304A79A25928D4A71 /* WorkCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECA850179DE9196A71EC1F97 /* WorkCardView.swift */; };
+		EEEA15C530ED3473977A46E9 /* TunerCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DE623654C0232EA0810EFC2 /* TunerCard.swift */; };
 		F0AFEEA9511C612CA50E4A37 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 166A41580EFF8747A0F9ABDE /* Typography.swift */; };
 		F0D17506857FCA88CE93F8B6 /* VirtuInkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29CD7488AAD3DCA4CA8D0B6F /* VirtuInkTests.swift */; };
 		F4DB76DFF7DE4B549733AB18 /* VirtuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD2EA59D5336A1F306180094 /* VirtuApp.swift */; };
@@ -71,6 +78,7 @@
 /* Begin PBXFileReference section */
 		08350680897D4BC031EDC736 /* MetronomeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetronomeCard.swift; sourceTree = "<group>"; };
 		0AFE91D8F08145C59690645F /* Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatting.swift; sourceTree = "<group>"; };
+		0C7E0CF166C91F555E9F9754 /* AudioSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSession.swift; sourceTree = "<group>"; };
 		11A0AFD80A381DF6C25CB92D /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		166A41580EFF8747A0F9ABDE /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		17D694569F8FDDDCA3715FB9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -94,6 +102,7 @@
 		5C4857AAA8B2A372E09FE82E /* WorkInfoSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkInfoSheet.swift; sourceTree = "<group>"; };
 		60526D50DD2CB0AF921C5AA0 /* Newsreader-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Regular.ttf"; sourceTree = "<group>"; };
 		69A78623A24E0FADAD4A486D /* Part.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Part.swift; sourceTree = "<group>"; };
+		6DE623654C0232EA0810EFC2 /* TunerCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunerCard.swift; sourceTree = "<group>"; };
 		6EF6295DF2B83EE11908F6AF /* AnnotationLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationLayer.swift; sourceTree = "<group>"; };
 		717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Archivo-Medium.ttf"; sourceTree = "<group>"; };
 		7689CD2217ABC90444CE5FA6 /* ReadingSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingSurfaceView.swift; sourceTree = "<group>"; };
@@ -107,16 +116,21 @@
 		A9F4B6847F74900389A116B9 /* Program.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Program.swift; sourceTree = "<group>"; };
 		AD915F76C0C91D178D8486FF /* ProgramEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgramEditorSheet.swift; sourceTree = "<group>"; };
 		AD9E3C139EEBE58F976E037A /* ReadingContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingContainerView.swift; sourceTree = "<group>"; };
+		B20201F9D4F06EF67D6D4EAB /* LoopPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopPlayer.swift; sourceTree = "<group>"; };
 		C3485586FDA4910CF3B3216F /* Newsreader-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Newsreader-Italic.ttf"; sourceTree = "<group>"; };
+		C50F148CC8E9F809702C43D9 /* TurnsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnsCard.swift; sourceTree = "<group>"; };
 		C592AD3F6E92ED07B6CCA021 /* brahms-piano-quartet-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "brahms-piano-quartet-1.pdf"; sourceTree = "<group>"; };
 		CD13E0C987E87F6A734F83AD /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
 		CDEBBAECC8CFE4785FB910AE /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
+		CEF16B44C226E47AE6106E69 /* Tuner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tuner.swift; sourceTree = "<group>"; };
+		D1D2D5D778CC5EC67EFFC16E /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		D61561F7BD63B32AE86FE9AD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		DD2EA59D5336A1F306180094 /* VirtuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtuApp.swift; sourceTree = "<group>"; };
 		E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "bach-cello-suite-1.pdf"; sourceTree = "<group>"; };
 		ECA850179DE9196A71EC1F97 /* WorkCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkCardView.swift; sourceTree = "<group>"; };
 		ECF058F13B694D0B1F08C603 /* schubert-string-quintet.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "schubert-string-quintet.pdf"; sourceTree = "<group>"; };
+		ED891107FC4C6D7C5696FB1E /* PitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchDetector.swift; sourceTree = "<group>"; };
 		F0949CFF42733FEA2237BD8B /* ToolRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRailView.swift; sourceTree = "<group>"; };
 		F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkRenderer.swift; sourceTree = "<group>"; };
@@ -169,6 +183,7 @@
 				D61561F7BD63B32AE86FE9AD /* AppState.swift */,
 				0AFE91D8F08145C59690645F /* Formatting.swift */,
 				69A78623A24E0FADAD4A486D /* Part.swift */,
+				D1D2D5D778CC5EC67EFFC16E /* Preferences.swift */,
 				A9F4B6847F74900389A116B9 /* Program.swift */,
 				CD13E0C987E87F6A734F83AD /* SeedData.swift */,
 				9C163DA4E621F5A22F1EF81A /* Work.swift */,
@@ -253,9 +268,15 @@
 		E141A84A6035BA02AF2679A4 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				0C7E0CF166C91F555E9F9754 /* AudioSession.swift */,
+				B20201F9D4F06EF67D6D4EAB /* LoopPlayer.swift */,
 				7C95F29DA752C85064BCDD44 /* Metronome.swift */,
 				08350680897D4BC031EDC736 /* MetronomeCard.swift */,
+				ED891107FC4C6D7C5696FB1E /* PitchDetector.swift */,
 				19348EE6BE543E728C816058 /* ToolsView.swift */,
+				CEF16B44C226E47AE6106E69 /* Tuner.swift */,
+				6DE623654C0232EA0810EFC2 /* TunerCard.swift */,
+				C50F148CC8E9F809702C43D9 /* TurnsCard.swift */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -388,6 +409,7 @@
 			files = (
 				9719FA81C42CA0CDF443C8C1 /* AnnotationLayer.swift in Sources */,
 				346B69C299F9034E95BF180C /* AppState.swift in Sources */,
+				96A53D22A386BB30D6C7B1A9 /* AudioSession.swift in Sources */,
 				AAB849B72BBC8031EEA9587C /* BottomChromeView.swift in Sources */,
 				A4A2CBF0020A8D0A6075B4FC /* ClippingStore.swift in Sources */,
 				20A38EA95E0DA46FFDEAF6D4 /* ExportButton.swift in Sources */,
@@ -396,12 +418,15 @@
 				BA27E822B5C6857D63BAEFB0 /* ImportMetadataSheet.swift in Sources */,
 				5915C8972EC9F5C9E8DD8772 /* InkRenderer.swift in Sources */,
 				1880CA884974B3513B6ADA8D /* LibraryView.swift in Sources */,
+				9579BEB5F625E3D1FD5DDEA4 /* LoopPlayer.swift in Sources */,
 				32039D9D1CA8D9CBA779900C /* MainView.swift in Sources */,
 				0C6928A22A6BC0B800F442D2 /* Metronome.swift in Sources */,
 				0F9494486B1E8D0B23B1946E /* MetronomeCard.swift in Sources */,
 				5BF8786C61383A861579ED32 /* NavRailView.swift in Sources */,
 				3DB97B6E69AF3B0993C9D7C8 /* PageRenderer.swift in Sources */,
 				38172D62A4C05FF73FB91A24 /* Part.swift in Sources */,
+				5B589B7C4838CFAA9A160893 /* PitchDetector.swift in Sources */,
+				AB687D5FE22AC5262D0E9797 /* Preferences.swift in Sources */,
 				CE91BF8E0DBD2725A89196D7 /* Program.swift in Sources */,
 				5BD00051895A7FADDDBE8553 /* ProgramEditorSheet.swift in Sources */,
 				32D384E7943729CC0DB0E5EE /* ReadingContainerView.swift in Sources */,
@@ -416,6 +441,9 @@
 				4CC1B5DD903DD3175B501135 /* ToolRailView.swift in Sources */,
 				813AF30D48DABA0A616DB416 /* ToolsView.swift in Sources */,
 				35AE5F1C6D532F09B648885C /* TopChromeView.swift in Sources */,
+				9F90264C3A25E5E2B3455FEB /* Tuner.swift in Sources */,
+				EEEA15C530ED3473977A46E9 /* TunerCard.swift in Sources */,
+				686AE9B60F7789C1AAEC5C66 /* TurnsCard.swift in Sources */,
 				F0AFEEA9511C612CA50E4A37 /* Typography.swift in Sources */,
 				F4DB76DFF7DE4B549733AB18 /* VirtuApp.swift in Sources */,
 				F571E6D459600442EEAFCAAB /* Work.swift in Sources */,
