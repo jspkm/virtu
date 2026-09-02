@@ -20,6 +20,7 @@
 		346B69C299F9034E95BF180C /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61561F7BD63B32AE86FE9AD /* AppState.swift */; };
 		35AE5F1C6D532F09B648885C /* TopChromeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E9923AFC591D23234CC440F /* TopChromeView.swift */; };
 		38172D62A4C05FF73FB91A24 /* Part.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69A78623A24E0FADAD4A486D /* Part.swift */; };
+		3B890A4CEA548ABCE9E2C29F /* PracticeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8FBAE5E0F483E6896696265 /* PracticeTools.swift */; };
 		3DB97B6E69AF3B0993C9D7C8 /* PageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA50A1D670FBCF0E6761048 /* PageRenderer.swift */; };
 		409E3596CFC20BFD1EA7E549 /* StrokeJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46054EDE258E5D9B852DD4F9 /* StrokeJournal.swift */; };
 		45030C3B6BD3D95835F2E648 /* Newsreader-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 83471927DB01F93DF16A84E1 /* Newsreader-Medium.ttf */; };
@@ -37,6 +38,7 @@
 		686AE9B60F7789C1AAEC5C66 /* TurnsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50F148CC8E9F809702C43D9 /* TurnsCard.swift */; };
 		708FF66059B28EECFCD963FE /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 717B0DC7BEB97E8565228CCA /* Archivo-Medium.ttf */; };
 		72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD13E0C987E87F6A734F83AD /* SeedData.swift */; };
+		731891BD46C1FDD43743316A /* ScreenWake.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80486AF9E5E0D61719FC434 /* ScreenWake.swift */; };
 		813AF30D48DABA0A616DB416 /* ToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19348EE6BE543E728C816058 /* ToolsView.swift */; };
 		8EBE9ACF7ACD26187CF9C5D8 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96179BBEFD4BA14DA63D82FC /* Surfaces.swift */; };
 		9579BEB5F625E3D1FD5DDEA4 /* LoopPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20201F9D4F06EF67D6D4EAB /* LoopPlayer.swift */; };
@@ -127,6 +129,7 @@
 		CEF16B44C226E47AE6106E69 /* Tuner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tuner.swift; sourceTree = "<group>"; };
 		D1D2D5D778CC5EC67EFFC16E /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		D61561F7BD63B32AE86FE9AD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		D80486AF9E5E0D61719FC434 /* ScreenWake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenWake.swift; sourceTree = "<group>"; };
 		DD2EA59D5336A1F306180094 /* VirtuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtuApp.swift; sourceTree = "<group>"; };
 		E0C6CDB9517DB30B3A3D573B /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		E6D7880302B323416E4FEC71 /* bach-cello-suite-1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "bach-cello-suite-1.pdf"; sourceTree = "<group>"; };
@@ -135,6 +138,7 @@
 		ED891107FC4C6D7C5696FB1E /* PitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchDetector.swift; sourceTree = "<group>"; };
 		F0949CFF42733FEA2237BD8B /* ToolRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolRailView.swift; sourceTree = "<group>"; };
 		F1275122ED05D25DFE1466BA /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
+		F8FBAE5E0F483E6896696265 /* PracticeTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeTools.swift; sourceTree = "<group>"; };
 		FF78AD2AB4E5CBB6AFFB18EE /* InkRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkRenderer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -276,6 +280,8 @@
 				7C95F29DA752C85064BCDD44 /* Metronome.swift */,
 				08350680897D4BC031EDC736 /* MetronomeCard.swift */,
 				ED891107FC4C6D7C5696FB1E /* PitchDetector.swift */,
+				F8FBAE5E0F483E6896696265 /* PracticeTools.swift */,
+				D80486AF9E5E0D61719FC434 /* ScreenWake.swift */,
 				19348EE6BE543E728C816058 /* ToolsView.swift */,
 				CEF16B44C226E47AE6106E69 /* Tuner.swift */,
 				6DE623654C0232EA0810EFC2 /* TunerCard.swift */,
@@ -430,6 +436,7 @@
 				3DB97B6E69AF3B0993C9D7C8 /* PageRenderer.swift in Sources */,
 				38172D62A4C05FF73FB91A24 /* Part.swift in Sources */,
 				5B589B7C4838CFAA9A160893 /* PitchDetector.swift in Sources */,
+				3B890A4CEA548ABCE9E2C29F /* PracticeTools.swift in Sources */,
 				AB687D5FE22AC5262D0E9797 /* Preferences.swift in Sources */,
 				CE91BF8E0DBD2725A89196D7 /* Program.swift in Sources */,
 				5BD00051895A7FADDDBE8553 /* ProgramEditorSheet.swift in Sources */,
@@ -437,6 +444,7 @@
 				AFCBB76A8A50363A3A09DE56 /* ReadingPageView.swift in Sources */,
 				DFCA38F078CD2E06CEC3F4BA /* ReadingSurfaceView.swift in Sources */,
 				5832B9371D75AE7E9184A1A3 /* RecycleBinView.swift in Sources */,
+				731891BD46C1FDD43743316A /* ScreenWake.swift in Sources */,
 				72119A9E674FC1F2A30F7630 /* SeedData.swift in Sources */,
 				5174770ED1BE67FAFACF84EB /* StageInk.swift in Sources */,
 				409E3596CFC20BFD1EA7E549 /* StrokeJournal.swift in Sources */,

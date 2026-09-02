@@ -47,8 +47,8 @@ struct ReadingContainerView: View {
             // arrive together and leave together.
             .statusBarHidden(!state.chromeVisible)
             .persistentSystemOverlays(state.annotating ? .automatic : .hidden)
-            .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
-            .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+            .onAppear { ScreenWake.shared.claim("reading") }
+            .onDisappear { ScreenWake.shared.release("reading") }
             .task(id: performChromeToken) {
                 // Chrome is a visitor in BOTH modes: summoned by touching the
                 // top of the score, gone again on its own. Nobody needs the

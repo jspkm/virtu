@@ -3,6 +3,15 @@ import SwiftUI
 struct NavRailView: View {
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
+    // Observed so the dot appears and clears with the tools themselves.
+    @State private var metronome = Metronome.shared
+    @State private var tuner = Tuner.shared
+    /// Set when a long press has just stopped the bench, and consumed by the
+    /// tap that follows it. A gesture attached outside a `Button` runs
+    /// *alongside* the button's own tap rather than instead of it, so without
+    /// this, pressing to stop the click also navigated to Tools — the walk
+    /// this feature exists to avoid.
+    @State private var swallowNextTap = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,9 +24,52 @@ struct NavRailView: View {
                     destination: dest,
                     isActive: state.destination == dest
                 ) {
+                    if swallowNextTap {
+                        swallowNextTap = false
+                        return
+                    }
                     state.destination = dest
                     state.chromeVisible = true
                 }
+                .overlay(alignment: .topTrailing) {
+                    if dest == .tools && PracticeTools.isRunning {
+                        // Static, never pulsing. The design language forbids
+                        // idle chrome animation outright, and a blinking dot
+                        // in a dark pit during bar 340 is the exact thing
+                        // that rule exists to prevent.
+                        Circle()
+                            .fill(theme.accent)
+                            .frame(width: 7, height: 7)
+                            .padding(.trailing, 12)
+                            .padding(.top, 4)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .accessibilityValue(
+                    dest == .tools && PracticeTools.isRunning
+                        ? "A practice tool is running. Press and hold to stop it."
+                        : ""
+                )
+                // High priority, and armed ONLY on the tools button while
+                // something is running. A simultaneous gesture let the
+                // button's own tap through as well, so pressing to stop the
+                // click also yanked you off the page you were reading —
+                // which is the walk back to Tools this exists to avoid.
+                // `.none` disables the gesture outright everywhere else, so
+                // a normal tap still navigates.
+                .highPriorityGesture(
+                    LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                        PracticeTools.stopAll()
+                        Haptics.rigid()
+                        swallowNextTap = true
+                        // If the tap never arrives — a finger dragged off the
+                        // icon — do not swallow a later, legitimate one.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                            swallowNextTap = false
+                        }
+                    },
+                    including: dest == .tools && PracticeTools.isRunning ? .all : .none
+                )
             }
 
             Spacer()

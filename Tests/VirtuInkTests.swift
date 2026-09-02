@@ -2340,4 +2340,50 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertFalse(AnnotationInput.offersHatch(prefs), "the hatch is clutter once a Pencil exists")
     }
 
+
+    // MARK: - The screen's keep-awake has one owner (PLAN Task 4)
+
+    func testTheScreenStaysAwakeWhileAnyoneStillWantsIt() {
+        let wake = ScreenWake.shared
+        var decisions: [Bool] = []
+        let original = wake.apply
+        wake.apply = { decisions.append($0) }
+        defer { wake.apply = original; wake.release("test.a"); wake.release("test.b") }
+
+        wake.claim("test.a")
+        wake.claim("test.b")
+        XCTAssertTrue(wake.isAwake)
+
+        // The bug this replaces: one owner releasing put the screen to sleep
+        // under the other, and nothing re-armed it.
+        wake.release("test.a")
+        XCTAssertTrue(wake.isAwake, "one owner releasing let the screen sleep under the other")
+        XCTAssertEqual(decisions.last, true)
+
+        wake.release("test.b")
+        XCTAssertFalse(wake.isAwake)
+        XCTAssertEqual(decisions.last, false)
+    }
+
+    func testClaimingTwiceIsNotTwoClaims() {
+        let wake = ScreenWake.shared
+        let original = wake.apply
+        wake.apply = { _ in }
+        defer { wake.apply = original; wake.release("test.c") }
+
+        wake.claim("test.c")
+        wake.claim("test.c")
+        wake.release("test.c")
+        XCTAssertFalse(wake.isAwake, "a repeated claim was counted twice and never released")
+    }
+
+    func testNothingIsRunningAtRestAndStoppingIsSafe() {
+        XCTAssertFalse(PracticeTools.isRunning)
+        // Idempotent: the rail's long-press can land on an already-stopped
+        // bench, and must not throw or leave a claim behind.
+        PracticeTools.stopAll()
+        PracticeTools.stopAll()
+        XCTAssertFalse(PracticeTools.isRunning)
+    }
+
 }
