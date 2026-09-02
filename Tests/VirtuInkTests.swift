@@ -2233,4 +2233,79 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertTrue(Preferences(defaults: defaults).pencilEverPaired)
     }
 
+
+    // MARK: - Review fixes, 2026-09-01
+    //
+    // One test per defect found reviewing the branch. Each fails against the
+    // code as it was.
+
+    func testAReadingComputedBeforeTheStopIsDropped() {
+        // A tap callback mid-analysis when Listen goes off still has its
+        // main-queue hop in flight. It used to land after stopListening had
+        // cleared everything and repopulate the card with a string that was
+        // no longer being heard — for ever, since no further tap would come.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        let current = tuner.listenGeneration
+        tuner.hear(220, generation: current)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001)
+
+        // Deliberately within a semitone, so that WITHOUT the generation
+        // check it takes the ordinary path and moves the needle. A wider
+        // interval would be rejected as an outlier for an unrelated reason
+        // and the test would pass against the bug.
+        tuner.hear(225, generation: current &- 1)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001,
+                       "a reading from before the stop was published anyway")
+    }
+
+    func testTwoArtefactsThatDisagreeDoNotConfirmEachOther() {
+        // Two frames both far from the current note but far from each other
+        // are two different glitches, not a string change. They used to be
+        // taken as confirmation, and the median of an even-length array
+        // picked the upper one — so an octave slip won.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        for _ in 0..<5 { tuner.hear(220) }
+        tuner.hear(440)          // an octave up
+        tuner.hear(110)          // an octave down: disagrees with the first
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 220, accuracy: 0.001,
+                       "two contradictory artefacts moved the needle")
+
+        // Two that agree still count as a new string.
+        tuner.hear(146.832)
+        tuner.hear(146.832)
+        XCTAssertEqual(try XCTUnwrap(tuner.heardHz), 146.832, accuracy: 0.001)
+    }
+
+    func testWhatIsSpokenAndWhatIsDrawnAgreeAtTheBoundary() {
+        // 5.4 cents rounds to 5, so the spoken label said "in tune" while the
+        // needle and the note glyph drew out-of-tune. A sighted and a blind
+        // musician got opposite answers from one reading.
+        let justOut = Pitch(frequency: 440 * pow(2, 5.4 / 1200), referenceA: 440)
+        XCTAssertFalse(justOut.isInTune)
+        XCTAssertFalse(justOut.spoken.hasSuffix("in tune"),
+                       "spoke '\(justOut.spoken)' for a reading drawn as out of tune")
+
+        let justIn = Pitch(frequency: 440 * pow(2, 4.6 / 1200), referenceA: 440)
+        XCTAssertTrue(justIn.isInTune)
+        XCTAssertTrue(justIn.spoken.hasSuffix("in tune"))
+    }
+
+    func testTheDetectorStillHearsAtAnInterfaceSampleRate() {
+        // An iPad with a USB-C audio interface runs at 88.2 or 96kHz. A fixed
+        // 4096-frame window cannot satisfy its own guard there, so every
+        // analysis returned nil and the card said "listening" for ever.
+        for rate in [44_100.0, 48_000.0, 88_200.0, 96_000.0] {
+            let detector = PitchDetector(sampleRate: rate)
+            XCTAssertGreaterThan(detector.analysisFrames, Int(rate / detector.lowestHz) * 2,
+                                 "the window at \(rate) cannot hold two periods of the lowest note")
+            let samples = tone(hz: 220, sampleRate: rate, frames: detector.analysisFrames)
+            let heard = detector.frequency(in: samples)
+            XCTAssertNotNil(heard, "heard nothing at \(rate)Hz")
+            if let heard {
+                XCTAssertLessThanOrEqual(abs(1200 * log2(heard / 220)), 1,
+                                         "at \(rate)Hz, heard \(heard) for 220")
+            }
+        }
+    }
+
 }

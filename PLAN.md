@@ -2280,6 +2280,28 @@ Not a permission problem (`tccd` is never consulted) and not the host (built-in 
 
 **Trigger:** next time an iPad is in hand. Part V half-2 work.
 
+## The idle timer has two owners and no arbiter
+
+**What:** `AudioSession.apply()` sets `UIApplication.isIdleTimerDisabled` false whenever the
+last tool claim drops, and `ReadingContainerView` sets it true in `onAppear`. The comment in
+`AudioSession` argues this is safe because "the reading surface owns the idle timer while a
+score is open and sets it on appear" — but `onAppear` fires *once*, so any release that
+happens while a score is open turns the screen's keep-awake off underneath it and nothing
+re-arms it.
+
+**Why it is filed rather than fixed:** found in review 2026-09-01, and no reachable path
+today — `MainView` treats Reading and Tools as alternate destinations, so a tool cannot be
+stopped while the reading surface is on screen. It becomes real the moment anything can,
+which is exactly what PLAN Task 4's running-tool indicator invites (a stop control reachable
+from anywhere) and what a metronome control in the reading chrome would guarantee.
+
+**The fix when it lands:** refcount the idle timer the way the audio session is refcounted,
+rather than letting two owners write the same global flag.
+
+**Trigger:** before any control that stops a practice tool from outside the Tools screen.
+
+---
+
 ## Open in the PRD, not planned here
 
 - **PDF import doors** (PRD §6 M1, PARTIAL) — Files picker only. No share-sheet target, no `CFBundleDocumentTypes`, no drag-and-drop. For a product whose adoption story is "one piece at a time out of forScore", this is the narrowest possible door.

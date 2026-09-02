@@ -88,17 +88,26 @@ final class LoopPlayer {
         return true
     }
 
-    func stop() {
-        guard isPlaying else { return }
+    /// `completion` runs once the engine has actually stopped — which, with a
+    /// fade, is some tens of milliseconds after this returns. Anything that
+    /// tears down shared audio state (the session, say) has to wait for it.
+    func stop(completion: (() -> Void)? = nil) {
+        guard isPlaying else {
+            completion?()
+            return
+        }
         isPlaying = false
 
         guard fadeOutSeconds > 0 else {
             player.stop()
             engine.pause()
+            completion?()
             return
         }
 
-        fade(from: Self.fadeSteps, interval: fadeOutSeconds / Double(Self.fadeSteps))
+        fade(from: Self.fadeSteps,
+             interval: fadeOutSeconds / Double(Self.fadeSteps),
+             completion: completion)
     }
 
     private static let fadeSteps = 6
@@ -108,17 +117,21 @@ final class LoopPlayer {
     /// every step is a chance to notice that the tool was started again, in
     /// which case `start()` has already put the level back and the only
     /// correct thing left to do is leave.
-    private func fade(from step: Int, interval: Double) {
+    private func fade(from step: Int, interval: Double, completion: (() -> Void)?) {
+        // Started again mid-fade: `start()` has already put the level back, so
+        // the only correct thing left is to leave — and NOT to run the
+        // completion, which would tear down a session now in use.
         guard !isPlaying else { return }
         guard step > 0 else {
             player.stop()
             player.volume = 1
             engine.pause()
+            completion?()
             return
         }
         player.volume = Float(step - 1) / Float(Self.fadeSteps)
         DispatchQueue.main.asyncAfter(deadline: .now() + interval) { [weak self] in
-            self?.fade(from: step - 1, interval: interval)
+            self?.fade(from: step - 1, interval: interval, completion: completion)
         }
     }
 

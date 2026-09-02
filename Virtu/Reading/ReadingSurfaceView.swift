@@ -976,6 +976,12 @@ final class ReadingPageViewController: UIViewController {
     override var canBecomeFirstResponder: Bool { true }
 
     override var keyCommands: [UIKeyCommand]? {
+        // Pedals arrive as keyboards, so switching the pedal off has to switch
+        // off the key path — there is nothing else to switch off. A hardware
+        // keyboard loses its arrows along with it, which is the honest reading
+        // of a preference that says "Bluetooth pedal": both are the same
+        // input as far as iPadOS is concerned.
+        guard appState?.preferences.bluetoothPedal ?? true else { return nil }
         let next = [UIKeyCommand.inputRightArrow, UIKeyCommand.inputDownArrow, UIKeyCommand.inputPageDown, " "]
         let prev = [UIKeyCommand.inputLeftArrow, UIKeyCommand.inputUpArrow, UIKeyCommand.inputPageUp]
 

@@ -135,11 +135,29 @@ final class Metronome {
         AudioSession.shared.release(Self.claimID)
     }
 
-    /// Tempo and meter changes take effect on the next bar by restarting the
-    /// loop: the buffer IS the tempo, so there is nothing to adjust in place.
+    /// Tempo and meter changes rebuild the loop, because the buffer IS the
+    /// tempo — there is nothing to adjust in place.
+    ///
+    /// Coalesced, because a `Slider` fires its setter on every pixel of a
+    /// drag. Rebuilding per step re-synthesised a whole bar (half a million
+    /// frames at the slow end) on the main thread and restarted the loop from
+    /// beat one each time, so dragging the tempo produced a burst of downbeat
+    /// accents and a lamp frozen on beat one instead of a click track. One
+    /// rebuild lands after the drag settles.
     private func reloadIfRunning() {
-        loop.reload()
+        guard isRunning else { return }
+        reloadGeneration &+= 1
+        let generation = reloadGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.reloadCoalescing) { [weak self] in
+            guard let self, self.reloadGeneration == generation, self.isRunning else { return }
+            self.loop.reload()
+        }
     }
+
+    /// Long enough to swallow a drag, short enough that a deliberate single
+    /// change still feels immediate.
+    private static let reloadCoalescing: TimeInterval = 0.12
+    @ObservationIgnored private var reloadGeneration = 0
 
     // MARK: - The lamps
 

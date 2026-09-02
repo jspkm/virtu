@@ -60,7 +60,11 @@ struct Pitch: Equatable {
     var spoken: String {
         let name = letter + (Self.spokenAccidentals[pitchClass] ?? "") + " \(octave)"
         let rounded = Int(cents.rounded())
-        if abs(rounded) <= Int(Tuner.inTuneCents) { return "\(name), in tune" }
+        // Asks `isInTune` rather than re-deriving it: rounding first put a
+        // 5.4-cent reading in tune for VoiceOver and out of tune on screen,
+        // so a sighted and a blind musician got opposite answers from the
+        // same needle.
+        if isInTune { return "\(name), in tune" }
         return "\(name), \(abs(rounded)) cents \(rounded > 0 ? "sharp" : "flat")"
     }
 }
@@ -82,8 +86,8 @@ struct Pitch: Equatable {
 /// no third-party CV dependency" — the same rule applied to audio.
 struct PitchDetector {
 
-    /// One analysis window. Long enough to hold better than two periods of
-    /// the lowest note we accept, which is what YIN needs to see.
+    /// The analysis window at 44.1/48kHz — long enough to hold better than two
+    /// periods of the lowest note we accept, which is what YIN needs to see.
     static let windowFrames = 4_096
 
     let sampleRate: Double
@@ -107,6 +111,18 @@ struct PitchDetector {
     /// Below this the room is quiet and the needle should not move.
     var silenceRMS: Float = 0.005
 
+    /// How many frames an analysis needs at this sample rate.
+    ///
+    /// A fixed 4096 is enough to 48kHz and silently fatal above it: the lag
+    /// search needs `rate / lowestHz` samples and the integration window needs
+    /// more than that again, so at 88.2 or 96kHz — an iPad with a USB-C audio
+    /// interface — a 4096-frame window cannot satisfy its own guard and every
+    /// single analysis returns nil, with the card showing "listening" for ever
+    /// and no way to tell why. The window grows with the rate instead.
+    var analysisFrames: Int {
+        max(Self.windowFrames, Int((sampleRate / lowestHz).rounded()) * 3)
+    }
+
     /// The frequency of the note in this window, or nil if there isn't one.
     func frequency(in samples: [Float]) -> Double? {
         let count = samples.count
@@ -120,6 +136,9 @@ struct PitchDetector {
         // over the same number of samples, which is what makes d(tau)
         // comparable across tau at all.
         let window = count - tauMax
+        // Not an assertion: a caller may hand over a buffer sized for a
+        // different rate, and the honest answer is "I cannot hear this"
+        // rather than a crash or a wrong note.
         guard window > tauMax else { return nil }
 
         var rms: Float = 0

@@ -32,7 +32,11 @@ final class Tuner {
     /// believing. This is where the reading turns.
     static let inTuneCents = 5.0
 
-    private static let claimID = "tuner"
+    // Two ids, not one. The arbiter keys claims by owner, so a single id
+    // means a release for either half drops both — harmless while the two are
+    // mutually exclusive, and a silent bug the moment they are not.
+    private static let droneClaimID = "tuner.drone"
+    private static let micClaimID = "tuner.mic"
 
     private let defaults: UserDefaults
 
@@ -111,9 +115,9 @@ final class Tuner {
     func startSounding() {
         guard !isSounding else { return }
         stopListening()
-        guard AudioSession.shared.claim(.play, by: Self.claimID) else { return }
+        guard AudioSession.shared.claim(.play, by: Self.droneClaimID) else { return }
         guard drone.start() else {
-            AudioSession.shared.release(Self.claimID)
+            AudioSession.shared.release(Self.droneClaimID)
             return
         }
         isSounding = true
@@ -122,8 +126,16 @@ final class Tuner {
     func stopSounding() {
         guard isSounding else { return }
         isSounding = false
-        drone.stop()
-        AudioSession.shared.release(Self.claimID)
+        // The drone fades out over ~40ms, so `stop()` returns before the
+        // engine has actually stopped. Releasing the session here would call
+        // setActive(false) on a session still running I/O — which fails with
+        // "is busy", is swallowed by the try?, and leaves the arbiter
+        // believing it tore down a session that is still up. So the release
+        // waits for the fade.
+        drone.stop { [weak self] in
+            AudioSession.shared.release(Self.droneClaimID)
+            _ = self
+        }
     }
 
     /// One loop of the reference tone.
@@ -172,6 +184,12 @@ final class Tuner {
     // None of this is anything a view reads, and `window` in particular is
     // written from the tap's thread — observation machinery has no business
     // running there.
+    /// Guards `window` and `detector`, which the tap thread reads and writes
+    /// and main reassigns. `removeTap` does not promise that an in-flight
+    /// callback has returned, so stopping and restarting — a headset arriving
+    /// at a different sample rate, say — can reassign the buffer out from
+    /// under a tap that is still inside it. Uncontended in the normal case.
+    @ObservationIgnored private let analysisLock = NSLock()
     @ObservationIgnored private var tapInstalled = false
     @ObservationIgnored private var detector: PitchDetector?
     @ObservationIgnored private var window = [Float]()
@@ -205,18 +223,23 @@ final class Tuner {
         // The category has to be `.playAndRecord` BEFORE the input node's
         // format is asked for; under `.playback` there is no input and the
         // format comes back as nothing.
-        guard AudioSession.shared.claim(.record, by: Self.claimID) else { return }
+        guard AudioSession.shared.claim(.record, by: Self.micClaimID) else { return }
 
         let node = input.inputNode
         let format = node.inputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else {
-            AudioSession.shared.release(Self.claimID)
+            AudioSession.shared.release(Self.micClaimID)
             return
         }
 
+        if tapInstalled {
+            node.removeTap(onBus: 0)
+            tapInstalled = false
+        }
+        analysisLock.lock()
         prepareAnalysis(sampleRate: format.sampleRate)
+        analysisLock.unlock()
 
-        if tapInstalled { node.removeTap(onBus: 0) }
         node.installTap(onBus: 0, bufferSize: 2_048, format: format) { [weak self] buffer, _ in
             self?.consume(buffer)
         }
@@ -228,7 +251,7 @@ final class Tuner {
         } catch {
             node.removeTap(onBus: 0)
             tapInstalled = false
-            AudioSession.shared.release(Self.claimID)
+            AudioSession.shared.release(Self.micClaimID)
             return
         }
         isListening = true
@@ -237,6 +260,8 @@ final class Tuner {
     func stopListening() {
         guard isListening else { return }
         isListening = false
+        // Anything already computed against the old generation is stale.
+        listenGeneration &+= 1
         if tapInstalled {
             input.inputNode.removeTap(onBus: 0)
             tapInstalled = false
@@ -246,7 +271,7 @@ final class Tuner {
         recent.removeAll()
         outliers.removeAll()
         silentFrames = 0
-        AudioSession.shared.release(Self.claimID)
+        AudioSession.shared.release(Self.micClaimID)
     }
 
     /// Called on the tap's own thread. Slides the newest samples into the
@@ -259,6 +284,8 @@ final class Tuner {
     /// the only way to exercise that without a microphone in the room.
     func consume(_ buffer: AVAudioPCMBuffer) {
         guard let data = buffer.floatChannelData?[0] else { return }
+        analysisLock.lock()
+        defer { analysisLock.unlock() }
         prepareAnalysis(sampleRate: buffer.format.sampleRate)
         guard let detector else { return }
         let incoming = Int(buffer.frameLength)
@@ -277,8 +304,9 @@ final class Tuner {
         }
 
         let hz = detector.frequency(in: window)
+        let generation = listenGeneration
         DispatchQueue.main.async { [weak self] in
-            self?.hear(hz)
+            self?.hear(hz, generation: generation)
         }
     }
 
@@ -288,8 +316,11 @@ final class Tuner {
     private func prepareAnalysis(sampleRate: Double) {
         guard sampleRate > 0 else { return }
         guard detector?.sampleRate != sampleRate else { return }
-        detector = PitchDetector(sampleRate: sampleRate)
-        window = [Float](repeating: 0, count: PitchDetector.windowFrames)
+        let detector = PitchDetector(sampleRate: sampleRate)
+        self.detector = detector
+        // Sized by the detector, which needs a longer window at a higher rate
+        // to still reach its lowest note.
+        window = [Float](repeating: 0, count: detector.analysisFrames)
     }
 
     // MARK: - Steadying the needle
@@ -306,11 +337,23 @@ final class Tuner {
     /// How many consecutive readings from somewhere else it takes to move.
     static let jumpFrames = 2
 
+    /// Bumped by `stopListening`, so a reading computed before the stop can
+    /// tell that it is stale.
+    @ObservationIgnored private(set) var listenGeneration = 0
+
     /// One analysis in, the published reading out. Not private: the whole of
     /// the needle's behaviour lives here — what it ignores and what it
     /// follows — and it is the half of this class that can be tested without
     /// a microphone in the room.
-    func hear(_ hz: Double?) {
+    /// `generation` is what the tap held when it started analysing. A tap
+    /// callback that was mid-analysis when Listen was switched off still has
+    /// its main-queue hop in flight and lands *after* `stopListening` has
+    /// cleared everything; without this it repopulates the reading and the
+    /// card shows a phantom string for ever, because no further tap will
+    /// arrive to clear it. Callers that are not the tap — tests, and anything
+    /// driving the needle directly — pass nothing and are always current.
+    func hear(_ hz: Double?, generation: Int? = nil) {
+        if let generation, generation != listenGeneration { return }
         guard let hz else {
             silentFrames += 1
             if silentFrames > Self.holdFrames {
@@ -327,6 +370,15 @@ final class Tuner {
             // frame, and on a bowed low string an octave slip is common
             // enough that the needle must not follow the first one it sees.
             // It follows the second.
+            // Each candidate is checked against the previous candidate, not
+            // only against the note we are on. Two readings that are both far
+            // from the current note but far from *each other* are two
+            // different artefacts, not a string change, and must not confirm
+            // one another.
+            if let previous = outliers.last, abs(12 * log2(hz / previous)) > 1 {
+                outliers = [hz]
+                return
+            }
             outliers.append(hz)
             guard outliers.count >= Self.jumpFrames else { return }
             recent = outliers

@@ -8,10 +8,16 @@ import SwiftUI
 /// why `Preferences.seamHoldSeconds`, `halfPageTurns` and `bluetoothPedal`
 /// had nowhere to be set.
 ///
-/// The handoff's first toggle is "Carry the last system over" — that is the
-/// seam, and the seam is undecided (PLAN Part II, Decision 1). A switch for
-/// behaviour that does not exist would be a lie in the UI, so the row lands
-/// with the seam, if the seam ever lands.
+/// Two of the handoff's three rows are not here, on the same principle: a
+/// switch for behaviour that does not exist is a lie in the UI.
+///
+/// - "Carry the last system over" is the seam, which is undecided
+///   (PLAN Part II, Decision 1).
+/// - "Half-page turns" is a per-piece portrait option scheduled for M5. The
+///   preference persists; nothing reads it yet, so there is nothing to flip.
+///
+/// The pedal row IS wired — `ReadingSurfaceView.keyCommands` consults it — so
+/// it ships.
 struct TurnsCard: View {
     @Environment(\.theme) private var theme
     @Environment(AppState.self) private var state
@@ -26,12 +32,6 @@ struct TurnsCard: View {
                 .padding(.bottom, 16)
 
             VStack(alignment: .leading, spacing: 12) {
-                row(
-                    label: "Half-page turns",
-                    hint: "Advance one page at a time inside a spread",
-                    isOn: state.preferences.halfPageTurns
-                ) { state.preferences.halfPageTurns.toggle() }
-
                 row(
                     label: "Bluetooth pedal",
                     hint: "AirTurn and PageFlip pedals arrive as key presses",
