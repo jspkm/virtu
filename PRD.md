@@ -142,7 +142,7 @@ Five surfaces, fully specified for appearance in the design handoff. Scope per r
 
 | Surface | Purpose | Handoff § | Status |
 |---|---|---|---|
-| **Library** | Choose what to play. Works addressed by composer / title / catalogue / edition / part — never by filename. | Screens § 1 | **DONE** — plus the personal shelf, sorts, and programmes. No way to delete or rename a work, though (open P0). |
+| **Library** | Choose what to play. Works addressed by composer / title / catalogue / edition / part — never by filename. | Screens § 1 | **DONE** — plus the personal shelf, sorts, and programmes. Binning with a recycle bin and full metadata correction both shipped; the P0 recorded here until 2026-09-01 was stale. |
 | **Reading** | Play from the score. Two-page spread, edge taps to turn, centre tap to hide all chrome. | Screens § 2 | **DONE** — plus the Perform/Study wall, Corner Peek, Stage, pedals, scrubber. |
 | **Annotation** | Non-modal tool rail: pencil, pen, highlighter, text, erase; four inks. No "done" button; page turns keep working while marking. | Screens § 2 | **PARTIAL** — everything but **text**. Layers, nib widths, line styles and free colour go past the spec. |
 | **Find** | One field over the shelf. (Public-archive and in-score search are later — §6.) | Screens § 3 | **NOT BUILT** — the rail destination is a stub reading "Coming in M1". |
@@ -682,11 +682,10 @@ the annotation layers are **DONE**, in SwiftData. Divergences worth knowing:
 
 Metadata on import: attempt to parse composer / title / catalogue from the PDF's title page and embedded metadata, then **always show a confirmation sheet**. Per the design copy — *"You confirm; nothing is filed silently."* That promise is load-bearing; a wrongly-filed score is a lost score.
 
-> **DONE** — the confirmation sheet always appears and cannot be skipped.
-> Note the unkept half of the same promise: nothing is filed silently, but once
-> filed it cannot be corrected or removed. A wrongly-filed score is currently
-> permanent, which is a worse version of the failure this paragraph guards
-> against. Open P0.
+> **DONE, both halves.** The confirmation sheet always appears and cannot be
+> skipped, and a wrongly-filed score can be corrected in the work-info sheet or
+> binned and restored from the recycle bin. The second half was recorded here as
+> an open P0 until 2026-09-01, by which time it had already shipped.
 
 ---
 
