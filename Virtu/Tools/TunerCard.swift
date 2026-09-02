@@ -23,12 +23,23 @@ struct TunerCard: View {
                 .tracking(1.5)
                 .padding(.bottom, 16)
 
-            reading
-            deviation.padding(.vertical, 18)
-            calibration
-            targetHeader.padding(.top, 16)
-            target.padding(.top, 6)
-            transport.padding(.top, 18)
+            modePicker.padding(.bottom, 18)
+
+            switch tuner.mode {
+            case .play:
+                toneReading
+                notes.padding(.top, 18)
+                octaves.padding(.top, 6)
+                calibration.padding(.top, 14)
+                playTransport.padding(.top, 18)
+            case .listen:
+                reading
+                deviation.padding(.vertical, 18)
+                calibration
+                targetHeader.padding(.top, 16)
+                target.padding(.top, 6)
+                listenTransport.padding(.top, 18)
+            }
 
             if tuner.micDenied {
                 microphoneNote.padding(.top, 16)
@@ -36,6 +47,130 @@ struct TunerCard: View {
         }
         .padding(24)
         .plateCard()
+    }
+
+    /// The two things the hardware cannot do at once, named as the two things
+    /// they are for: give me a pitch, or tell me mine. Sounding while
+    /// listening would have the tuner hear its own tone through a microphone
+    /// a hand away from the speaker and report perfect tuning.
+    private var modePicker: some View {
+        HStack(spacing: 4) {
+            ForEach(Tuner.Mode.allCases, id: \.self) { option in
+                let selected = tuner.mode == option
+                Button {
+                    tuner.mode = option
+                    Haptics.selection()
+                } label: {
+                    Text(option == .play ? "Play a note" : "Listen")
+                        .font(VFont.control)
+                        .foregroundStyle(selected ? theme.paper : theme.muted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(selected ? theme.ink : theme.wash)
+                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+            }
+        }
+    }
+
+    // MARK: - Play mode
+
+    private var toneReading: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            noteGlyphFor(pitchClass: tuner.tonePitchClass)
+            Text("\(tuner.toneOctave)")
+                .font(VFont.mono(13))
+                .foregroundStyle(theme.muted)
+            Spacer()
+            Text(String(format: "%.1f Hz", tuner.toneHz))
+                .font(VFont.mono(13))
+                .foregroundStyle(theme.muted)
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(Pitch.name(pitchClass: tuner.tonePitchClass, spelling: tuner.spelling)) "
+            + "\(tuner.toneOctave), \(Int(tuner.toneHz)) hertz")
+    }
+
+    private func noteGlyphFor(pitchClass: Int) -> some View {
+        let letters = tuner.spelling == .sharps ? Pitch.sharpLetters : Pitch.flatLetters
+        let full = Pitch.name(pitchClass: pitchClass, spelling: tuner.spelling)
+        let accidental = full.count > letters[pitchClass].count ? String(full.suffix(1)) : nil
+        return HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(letters[pitchClass])
+                .font(VFont.tunerNote)
+            if let accidental {
+                Text(accidental)
+                    .font(VFont.serif(24))
+                    .baselineOffset(9)
+                    .padding(.leading, 1)
+            }
+        }
+        .foregroundStyle(theme.ink)
+    }
+
+    /// Twelve across two rows of six — one row of twelve is unreadable at
+    /// card width, and a scroller hides half the notes behind a gesture.
+    private var notes: some View {
+        VStack(spacing: 4) {
+            ForEach([Array(0..<6), Array(6..<12)], id: \.self) { row in
+                HStack(spacing: 4) {
+                    ForEach(row, id: \.self) { pitchClass in
+                        pill(
+                            title: Pitch.name(pitchClass: pitchClass, spelling: tuner.spelling),
+                            selected: tuner.tonePitchClass == pitchClass
+                        ) { tuner.tonePitchClass = pitchClass }
+                    }
+                }
+            }
+        }
+    }
+
+    private var octaves: some View {
+        HStack(spacing: 4) {
+            ForEach(Tuner.toneOctaves, id: \.self) { octave in
+                pill(title: "\(octave)", selected: tuner.toneOctave == octave) {
+                    tuner.toneOctave = octave
+                }
+                .accessibilityLabel("Octave \(octave)")
+            }
+        }
+    }
+
+    private func pill(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            Haptics.selection()
+        } label: {
+            Text(title)
+                .font(VFont.mono(12))
+                .foregroundStyle(selected ? theme.paper : theme.muted)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(selected ? theme.ink : theme.wash)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+
+    private var playTransport: some View {
+        Button {
+            tuner.toggleSounding(.tuner)
+            Haptics.medium()
+        } label: {
+            Text(tuner.sounds(.tuner) ? "Stop" : "Play")
+                .font(VFont.control)
+                .foregroundStyle(theme.paper)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(tuner.sounds(.tuner) ? theme.accent : theme.ink)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.button))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - The reading
@@ -290,7 +425,7 @@ struct TunerCard: View {
 
     // MARK: - Transport
 
-    private var transport: some View {
+    private var listenTransport: some View {
         Button {
             tuner.toggleListening()
             Haptics.light()

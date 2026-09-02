@@ -42,13 +42,30 @@ final class Tuner {
     // Two ids, not one. The arbiter keys claims by owner, so a single id
     // means a release for either half drops both — harmless while the two are
     // mutually exclusive, and a silent bug the moment they are not.
-    /// The octaves worth offering: below C4 a fork is hard to hear over an
-    /// instrument, and above B6 it is a whistle.
-    static let forkOctaves = [4, 5, 6]
+    /// Which of the two sounded references is playing. They share one
+    /// oscillator and one audio-session claim, because only one of them can
+    /// be useful at a time.
+    enum ToneSource: String {
+        /// The tuner's own tone: any note, any octave the range offers.
+        case tuner
+        /// The fork: the orchestra's A, at whatever the reference is set to.
+        case fork
+    }
 
-    /// Equal temperament off the A in force, so the fork moves with the
-    /// calibration rather than beside it.
-    static func forkFrequency(pitchClass: Int, octave: Int, referenceA: Double) -> Double {
+    /// The octaves the tuner will sound. C2 is the cello's bottom string and
+    /// B6 is two octaves above the violin's top open string; below C2 an iPad
+    /// speaker cannot reproduce a fundamental and above B6 it is a whistle,
+    /// so offering more would be offering something that does not work.
+    static let toneOctaves = [2, 3, 4, 5, 6]
+
+    /// The fork is an A, and only an A — that is what makes it a fork rather
+    /// than a second tuner. A4 is the pitch a real one is cut to.
+    static let forkPitchClass = 9
+    static let forkOctave = 4
+
+    /// Equal temperament off the A in force, so every sounded pitch moves
+    /// with the calibration rather than beside it.
+    static func frequency(pitchClass: Int, octave: Int, referenceA: Double) -> Double {
         let midi = (octave + 1) * 12 + pitchClass
         return referenceA * pow(2, (Double(midi) - 69) / 12)
     }
@@ -63,8 +80,9 @@ final class Tuner {
     // to a property inside its own didSet re-enters the setter and recurses.
     // The metronome learned this the hard way.
     private var storedReferenceHz = 442.0
-    private var storedForkPitchClass = 9      // A
-    private var storedForkOctave = 4          // A4
+    private var storedMode = Mode.play
+    private var storedTonePitchClass = 9      // A
+    private var storedToneOctave = 4          // A4
 
     /// Which A everything is measured against. Snapped to one of the four —
     /// stored in hertz rather than as a preset index so that a future free
@@ -103,35 +121,82 @@ final class Tuner {
         didSet { defaults.set(spelling.rawValue, forKey: "tunerSpelling") }
     }
 
-    var forkPitchClass: Int {
-        get { storedForkPitchClass }
+    var tonePitchClass: Int {
+        get { storedTonePitchClass }
         set {
             let wrapped = ((newValue % 12) + 12) % 12
-            guard wrapped != storedForkPitchClass else { return }
-            storedForkPitchClass = wrapped
-            defaults.set(wrapped, forKey: "tunerForkPitchClass")
-            drone.reload()
+            guard wrapped != storedTonePitchClass else { return }
+            storedTonePitchClass = wrapped
+            defaults.set(wrapped, forKey: "tunerTonePitchClass")
+            reloadIfSoundingTheTuner()
         }
     }
 
-    var forkOctave: Int {
-        get { storedForkOctave }
+    var toneOctave: Int {
+        get { storedToneOctave }
         set {
-            let clamped = min(max(newValue, Self.forkOctaves.first!), Self.forkOctaves.last!)
-            guard clamped != storedForkOctave else { return }
-            storedForkOctave = clamped
-            defaults.set(clamped, forKey: "tunerForkOctave")
-            drone.reload()
+            let clamped = min(max(newValue, Self.toneOctaves.first!), Self.toneOctaves.last!)
+            guard clamped != storedToneOctave else { return }
+            storedToneOctave = clamped
+            defaults.set(clamped, forKey: "tunerToneOctave")
+            reloadIfSoundingTheTuner()
         }
     }
 
-    /// What the fork is about to sound.
+    /// The tuner's own tone — the note the musician set.
+    var toneHz: Double {
+        Self.frequency(pitchClass: storedTonePitchClass, octave: storedToneOctave,
+                       referenceA: storedReferenceHz)
+    }
+
+    /// The fork: always the A, at whatever the reference is.
     var forkHz: Double {
-        Self.forkFrequency(pitchClass: storedForkPitchClass, octave: storedForkOctave,
-                           referenceA: storedReferenceHz)
+        Self.frequency(pitchClass: Self.forkPitchClass, octave: Self.forkOctave,
+                       referenceA: storedReferenceHz)
+    }
+
+    /// What the oscillator is currently loaded with.
+    var soundingHz: Double { soundingSource == .fork ? forkHz : toneHz }
+
+    private func reloadIfSoundingTheTuner() {
+        guard soundingSource == .tuner else { return }
+        drone.reload()
     }
 
     private(set) var isSounding = false
+
+    /// Which reference the oscillator is loaded with. Read by both cards, so
+    /// only the one that is actually playing shows Stop.
+    private(set) var soundingSource: ToneSource = .tuner
+
+    /// Which of the tuner's two modes the card is showing. Persisted, because
+    /// a musician who tunes by ear and one who tunes by eye each want theirs
+    /// to still be there tomorrow.
+    var mode: Mode {
+        get { storedMode }
+        set {
+            guard newValue != storedMode else { return }
+            storedMode = newValue
+            defaults.set(newValue.rawValue, forKey: "tunerMode")
+            // The two modes are the two things the hardware cannot do at
+            // once, so switching is also how you stop the other one.
+            switch newValue {
+            case .play: stopListening()
+            case .listen: stopSounding()
+            }
+        }
+    }
+
+    enum Mode: String, CaseIterable {
+        /// Sound the note you set, and tune to it by ear.
+        case play
+        /// Listen, and be told what you are actually playing.
+        case listen
+    }
+
+    func sounds(_ source: ToneSource) -> Bool {
+        isSounding && soundingSource == source
+    }
     private(set) var isListening = false
 
     /// True once the microphone has actually been refused, so the card can
@@ -159,11 +224,15 @@ final class Tuner {
         if let stored = defaults.object(forKey: "tunerReferenceHz") as? Double {
             referenceHz = stored          // through the setter, which clamps
         }
-        if defaults.object(forKey: "tunerForkPitchClass") != nil {
-            forkPitchClass = defaults.integer(forKey: "tunerForkPitchClass")
+        if defaults.object(forKey: "tunerTonePitchClass") != nil {
+            tonePitchClass = defaults.integer(forKey: "tunerTonePitchClass")
         }
-        if defaults.object(forKey: "tunerForkOctave") != nil {
-            forkOctave = defaults.integer(forKey: "tunerForkOctave")
+        if defaults.object(forKey: "tunerToneOctave") != nil {
+            toneOctave = defaults.integer(forKey: "tunerToneOctave")
+        }
+        if let raw = defaults.string(forKey: "tunerMode"),
+           let value = Mode(rawValue: raw) {
+            storedMode = value
         }
         if let raw = defaults.string(forKey: "tunerSpelling"),
            let value = Pitch.Spelling(rawValue: raw) {
@@ -191,13 +260,21 @@ final class Tuner {
     /// what an orchestra actually tunes to.
     private static let partials: [Double] = [1, 0.34, 0.18, 0.08, 0.04]
 
-    func toggleSounding() {
-        isSounding ? stopSounding() : startSounding()
+    func toggleSounding(_ source: ToneSource) {
+        sounds(source) ? stopSounding() : startSounding(source)
     }
 
-    func startSounding() {
-        guard !isSounding else { return }
+    func startSounding(_ source: ToneSource) {
+        // Already playing the other reference: swap what the loop holds
+        // rather than tearing the session down and building it again.
+        if isSounding {
+            guard soundingSource != source else { return }
+            soundingSource = source
+            drone.reload()
+            return
+        }
         stopListening()
+        soundingSource = source
         guard AudioSession.shared.claim(.play, by: Self.droneClaimID) else { return }
         guard drone.start() else {
             AudioSession.shared.release(Self.droneClaimID)
@@ -230,7 +307,7 @@ final class Tuner {
     /// buffer length to something convenient.
     private func makeDroneBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
         let rate = format.sampleRate
-        let hz = forkHz
+        let hz = soundingHz
         guard rate > 0, hz > 0 else { return nil }
 
         // About a second's worth, snapped to whole cycles.
@@ -316,6 +393,7 @@ final class Tuner {
 
     private func beginListening() {
         micDenied = false
+        stopSounding()
         // The category has to be `.playAndRecord` BEFORE the input node's
         // format is asked for; under `.playback` there is no input and the
         // format comes back as nothing.
@@ -499,6 +577,11 @@ final class Tuner {
     }
 
     #if DEBUG
+    /// Where the drone's playhead is. `nil` when nothing is rendering — which
+    /// is the difference between "the button says Stop" and "a tone is coming
+    /// out of the speaker".
+    var droneElapsedSeconds: Double? { drone.elapsedSeconds }
+
     /// Test hook. The drone's correctness is entirely in the buffer — that it
     /// holds whole cycles of exactly the frequency on the button — so the
     /// buffer is the only place to look.
