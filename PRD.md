@@ -167,14 +167,28 @@ test for everything below is the same as everywhere else: it must hold up at the
 
 **Two modes, and they are the two things the hardware cannot do at once.**
 
-- **Play a note** — set any note in any octave the range offers and sound it, to tune
-  against by ear. This half needs no permission and no microphone, so it is where the
-  tuner opens.
-- **Listen** — hear the instrument and say what it is actually playing.
+- **Play a note** — sound the note you selected, to tune against by ear.
+- **Listen** — hear the instrument and show how far it is from the note you selected.
+
+**Both modes keep the same settings on screen, because the selection is the question in
+both.** In Play it is what will sound; in Listen it is what you are asking about — you
+choose the note, then listen to hear whether you are there. Hiding the settings while
+listening was tried and was wrong: it left the musician reading an answer with the
+question out of sight.
 
 They are exclusive because an iPad's microphone and its speaker are a hand apart: a tuner
 sounding a tone *and* listening hears its own tone and reports, with total confidence,
 that you are perfectly in tune. Switching mode is therefore also how you stop the other.
+
+**The match, and the one green in the product.** When what it hears is the note you
+selected, in the octave you selected, inside the in-tune window, the needle lands on the
+centre tick and both turn green (§12's `inTune`). The octave has to match too: an A an
+octave up is a perfectly in-tune wrong string, and a tuner that calls that a match is
+worse than one that says nothing.
+
+**The reading is named against the selection, not chromatically.** A D string a semitone
+flat is a flat D — not a confidently in-tune C sharp, which is exactly the reading that
+makes a musician stop turning the peg.
 
 **The tone's range.** Any of the twelve pitch classes, in octaves 2 to 6 — C2 (the
 cello's bottom string, 65Hz) to B6 (1975Hz). Below C2 an iPad speaker cannot reproduce a
@@ -231,30 +245,10 @@ jitter is smoothed enough to lag the string.
 
 #### The tuning fork
 
-**The orchestra's A, and nothing else.** Deliberately not a second tuner: a fork is one
-pitch you strike without deciding anything, and that is the whole of its value. Choosing a
-note belongs to the tuner's Play mode; this is for the moment before a rehearsal when
-someone says "give us an A".
-
-A4, at whatever the reference is calibrated to, so a baroque player's fork is a baroque
-fork. It shares the tuner's one oscillator and one audio-session claim, so sounding it
-stops whatever else was sounding.
-
-The tone is the fundamental plus four quiet partials, looped over a whole number of
-cycles so the wrap is silent and the pitch is exactly the number displayed. It **stops
-whenever the tuner starts listening, and cannot sound while the tuner listens** — an iPad's
-microphone and speaker are a hand apart, and a tuner that hears its own fork reports, with
-total confidence, that you are perfectly in tune.
-
-> **DONE** — verified on device: the fork sounds the A at the calibration, and only the
-> card actually sounding shows Stop.
->
-> **One thing worth keeping written down.** The loop's length is a whole number of
-> samples, so it cannot also hold a whole number of cycles of an arbitrary pitch — the
-> leftover phase at the wrap grows with frequency, and at B6 it reached a third of the
-> tone's own amplitude, which is a click once a second. The buffer's length is therefore
-> chosen first and the frequency derived from it, which makes the wrap bit-exact and
-> moves the pitch by under 0.02 cents.
+**Cut, 2026-09-02.** It shipped for a day as a second card carrying its own note picker,
+octave picker and calibration — which made it an exact duplicate of the tuner's Play
+mode. Two cards for one job. The tuner does it, across a wider range, so the fork is not
+a smaller tool but a redundant one.
 
 #### The metronome
 
@@ -755,6 +749,11 @@ Summary for orientation only — **the handoff is authoritative**:
 - **Type**: Newsreader (serif — titles, work names, tempo words), Archivo (sans — all controls), JetBrains Mono (figures — catalogue numbers, BPM, page numbers). All OFL, bundle them.
 - **Surfaces use borders, not shadows.** Keep it that way.
 - **Motion**: four named curves, below. No page-curl skeuomorphism.
+- **One green, and only one**: `inTune` (`#4A7A52` paper, `#7CB489` Stage) means the tuner
+  is hearing the note you asked for. It exists so that the single most-glanced reading in
+  the product can be read without reading it. Do not reach for it as a general "success"
+  colour — nothing else in Virtu succeeds or fails, and a second use would cost this one
+  its meaning.
 
 ### §12.1 — Motion and haptics
 

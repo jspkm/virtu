@@ -40,7 +40,6 @@ struct ToolsView: View {
                 ) {
                     MetronomeCard()
                     TunerCard()
-                    ForkCard()
                     TurnsCard()
                 }
                 .frame(maxWidth: 900, alignment: .leading)
