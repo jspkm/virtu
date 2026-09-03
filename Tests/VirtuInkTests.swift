@@ -102,6 +102,14 @@ final class VirtuInkTests: XCTestCase {
     /// The drone fades out before the engine stops, and the audio-session
     /// claim is released in that completion — so a test that starts a tone
     /// and returns immediately leaks the claim into whatever runs next.
+    /// Feed a steady pitch the way the microphone does — about 23 analyses a
+    /// second. The needle is deliberately smoothed (a median of five, and an
+    /// octave slip has to be confirmed before it moves), so a single frame
+    /// does not and should not move the reading.
+    private func hearSteadily(_ tuner: Tuner, _ hz: Double, frames: Int = 6) {
+        for _ in 0..<frames { tuner.hear(hz) }
+    }
+
     private func waitForFadeOut() {
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.15))
     }
@@ -2111,16 +2119,14 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertFalse(pinned.isInTune)
     }
 
-    func testPinningReadsThroughTheTuner() throws {
+    func testTheReadingIsNamedAgainstWhatYouSelected() throws {
         let tuner = Tuner(defaults: Self.scratchDefaults())
         tuner.referenceHz = 440
-        tuner.targetPitchClass = 2          // D
-        tuner.hear(146.832)
+        tuner.tonePitchClass = 2        // D
+        tuner.toneOctave = 3
+        hearSteadily(tuner, 146.832)
         XCTAssertEqual(try XCTUnwrap(tuner.reading).letter, "D")
         XCTAssertEqual(try XCTUnwrap(tuner.reading).cents, 0, accuracy: 0.5)
-
-        tuner.targetPitchClass = nil        // back to chromatic
-        XCTAssertEqual(try XCTUnwrap(tuner.reading).letter, "D")
     }
 
     func testChangingTheReferenceRereadsTheStringYouAreHolding() {
@@ -2274,8 +2280,12 @@ final class VirtuInkTests: XCTestCase {
         let tuner = Tuner(defaults: Self.scratchDefaults())
         // 146.832Hz is D3 against A 440; left at the default A 442 it is a
         // legitimately flat D, which is a fact about the reference and not
-        // about the window.
+        // about the window. The selection has to be D3 too — readings are
+        // named against what you asked for, so with A selected this reads a
+        // very sharp A2 and the test would be measuring the wrong thing.
         tuner.referenceHz = 440
+        tuner.tonePitchClass = 2
+        tuner.toneOctave = 3
 
         tuner.consume(try captureBuffer(hz: 146.832, sampleRate: rate,
                                         frames: PitchDetector.windowFrames * 2, startingAt: 0))
@@ -2884,7 +2894,7 @@ final class VirtuInkTests: XCTestCase {
         tuner.tonePitchClass = 9
         tuner.toneOctave = 4
 
-        tuner.startSounding(.tuner)
+        tuner.startSounding()
         guard tuner.isSounding else {
             throw XCTSkip("no audio output on this host — the drone path cannot be exercised")
         }
@@ -2904,66 +2914,31 @@ final class VirtuInkTests: XCTestCase {
 
     // MARK: - Two modes, one oscillator
 
-    func testTheTunerAndTheForkAreDifferentReferences() {
+
+
+    func testTheForkAndTheListenerTakeTurns() throws {
         let tuner = Tuner(defaults: Self.scratchDefaults())
-        tuner.referenceHz = 442
+        tuner.startSounding()
+        guard tuner.isSounding else { throw XCTSkip("no audio output on this host") }
+
+        // Listening must silence the fork: a microphone a hand from the
+        // speaker would hear it and report perfect tuning.
+        tuner.startListening()
+        XCTAssertFalse(tuner.isSounding, "the fork kept sounding into the microphone")
+        tuner.stopListening()
+        waitForFadeOut()
+    }
+
+    func testTheForkFollowsTheCalibration() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
         tuner.tonePitchClass = 0        // C
         tuner.toneOctave = 5
-
-        // The fork is an A whatever the tuner is set to — that is what makes
-        // it a fork rather than a second tuner.
-        XCTAssertEqual(tuner.forkHz, 442, accuracy: 0.001)
+        tuner.referenceHz = 442
         XCTAssertEqual(tuner.toneHz, 525.6, accuracy: 0.1)
-
-        // Both follow the calibration.
         tuner.referenceHz = 415
-        XCTAssertEqual(tuner.forkHz, 415, accuracy: 0.001)
         XCTAssertEqual(tuner.toneHz, 493.5, accuracy: 0.1)
     }
 
-    func testSoundingSwapsBetweenTheTwoWithoutStopping() throws {
-        let tuner = Tuner(defaults: Self.scratchDefaults())
-        tuner.tonePitchClass = 0
-        tuner.toneOctave = 5
-
-        tuner.startSounding(.tuner)
-        guard tuner.isSounding else {
-            throw XCTSkip("no audio output on this host")
-        }
-        XCTAssertTrue(tuner.sounds(.tuner))
-        XCTAssertFalse(tuner.sounds(.fork), "both cards would show Stop")
-
-        // Pressing the fork while the tuner sounds swaps what the loop holds.
-        tuner.startSounding(.fork)
-        XCTAssertTrue(tuner.sounds(.fork))
-        XCTAssertFalse(tuner.sounds(.tuner))
-        XCTAssertTrue(tuner.isSounding, "swapping the reference stopped the sound")
-
-        tuner.stopSounding()
-        XCTAssertFalse(tuner.isSounding)
-        waitForFadeOut()
-    }
-
-    func testTheModesTurnEachOtherOff() throws {
-        let tuner = Tuner(defaults: Self.scratchDefaults())
-        tuner.mode = .play
-        tuner.startSounding(.tuner)
-        guard tuner.isSounding else { throw XCTSkip("no audio output on this host") }
-
-        // Switching to Listen must silence the tone: a microphone a hand from
-        // the speaker would hear it and report perfect tuning.
-        tuner.mode = .listen
-        XCTAssertFalse(tuner.isSounding, "the tone kept sounding into the microphone")
-        waitForFadeOut()
-    }
-
-    func testTheModeSurvivesRelaunch() {
-        let defaults = Self.scratchDefaults()
-        let first = Tuner(defaults: defaults)
-        XCTAssertEqual(first.mode, .play, "the tuner should open on the half that needs no permission")
-        first.mode = .listen
-        XCTAssertEqual(Tuner(defaults: defaults).mode, .listen)
-    }
 
     func testTheToneSurvivesRelaunch() {
         let defaults = Self.scratchDefaults()
@@ -2973,6 +2948,76 @@ final class VirtuInkTests: XCTestCase {
         let relaunched = Tuner(defaults: defaults)
         XCTAssertEqual(relaunched.tonePitchClass, 3)
         XCTAssertEqual(relaunched.toneOctave, 2)
+    }
+
+
+    // MARK: - Matching the selection
+
+    func testTheGreenMeansTheSoundMatchesTheSelection() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.tonePitchClass = 2        // D
+        tuner.toneOctave = 3            // D3, 146.832Hz
+
+        XCTAssertFalse(tuner.matchesSelection, "nothing is being heard yet")
+
+        hearSteadily(tuner, 146.832)
+        XCTAssertTrue(tuner.matchesSelection, "the selected note, in tune, is not a match")
+
+        // Four cents out is still a match; seven is not.
+        hearSteadily(tuner, 146.832 * pow(2, 4.0 / 1200))
+        XCTAssertTrue(tuner.matchesSelection)
+        hearSteadily(tuner, 146.832 * pow(2, 7.0 / 1200))
+        XCTAssertFalse(tuner.matchesSelection, "seven cents out was called a match")
+    }
+
+    func testAnOctaveOutIsNotAMatch() {
+        // A perfectly in-tune wrong string. A tuner that calls this a match
+        // is worse than one that says nothing, because it stops you looking.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.tonePitchClass = 9        // A
+        tuner.toneOctave = 3            // A3, 220Hz
+
+        hearSteadily(tuner, 220)
+        XCTAssertTrue(tuner.matchesSelection)
+
+        // An octave has to be confirmed before the needle follows it — a
+        // single slipped frame must not move the reading — so this is what a
+        // player actually moving to the other string sounds like.
+        hearSteadily(tuner, 440)        // A4 — same note, wrong octave
+        XCTAssertFalse(tuner.matchesSelection, "an octave up was called a match")
+        XCTAssertEqual(tuner.reading?.octave, 4, "and the reading should say which octave")
+    }
+
+    func testAFlatStringKeepsTheNameYouSelected() throws {
+        // The reason the reading is pinned to the selection: chromatic naming
+        // calls a semitone-flat D a C sharp and reports it nearly in tune,
+        // which is exactly the moment a musician stops turning the peg.
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.tonePitchClass = 2        // D
+        tuner.toneOctave = 3
+
+        let veryFlatD = 146.832 * pow(2, -110.0 / 1200)
+        hearSteadily(tuner, veryFlatD)
+        let reading = try XCTUnwrap(tuner.reading)
+        XCTAssertEqual(reading.letter, "D", "the flat D was renamed")
+        XCTAssertEqual(reading.cents, -110, accuracy: 1)
+        XCTAssertFalse(tuner.matchesSelection)
+    }
+
+    func testChangingTheSelectionChangesWhatCountsAsAMatch() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.tonePitchClass = 9
+        tuner.toneOctave = 3
+        hearSteadily(tuner, 220)
+        XCTAssertTrue(tuner.matchesSelection)
+
+        // Same sound, different question.
+        tuner.toneOctave = 4
+        XCTAssertFalse(tuner.matchesSelection, "the selection moved and the match did not")
     }
 
 }

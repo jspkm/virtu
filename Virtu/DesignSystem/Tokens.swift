@@ -13,6 +13,10 @@ enum Tokens {
         static let line     = Color(hex: 0xE0DBD1)
         static let line2    = Color(hex: 0xCFC9BD)
         static let accent   = Color(hex: 0xB33F26)
+        /// The one green in the product: a tuner reading that matches what
+        /// you asked for. Muted rather than a signal green, so it belongs on
+        /// paper beside the terracotta rather than shouting over it.
+        static let inTune   = Color(hex: 0x4A7A52)
         static let blue     = Color(hex: 0x2B3E5E)
         static let wash     = Color(hex: 0xE9E5DC)
         static let notation = Color(hex: 0x1A1A1F)
@@ -32,6 +36,10 @@ enum Tokens {
         static let line     = Color(hex: 0x26262B)
         static let line2    = Color(hex: 0x35353B)
         static let accent   = Color(hex: 0xD9694E)
+        /// Lighter than the paper green: on a near-black page a mid green
+        /// reads as grey, and this is the one thing that must be unmistakable
+        /// from arm's length in a pit.
+        static let inTune   = Color(hex: 0x7CB489)
         static let blue     = Color(hex: 0x7C93BC)
         static let wash     = Color(hex: 0x1A1A1F)
         static let notation = Color(hex: 0xC9C5BC)
@@ -142,6 +150,7 @@ struct Theme {
     let line: Color
     let line2: Color
     let accent: Color
+    let inTune: Color
     let blue: Color
     let wash: Color
     let notation: Color
@@ -154,7 +163,7 @@ struct Theme {
         ink: Tokens.Light.ink, muted: Tokens.Light.muted,
         faint: Tokens.Light.faint, line: Tokens.Light.line,
         line2: Tokens.Light.line2, accent: Tokens.Light.accent,
-        blue: Tokens.Light.blue, wash: Tokens.Light.wash,
+        inTune: Tokens.Light.inTune, blue: Tokens.Light.blue, wash: Tokens.Light.wash,
         notation: Tokens.Light.notation, rail: Tokens.Light.rail,
         railInk: Tokens.Light.railInk, railFaint: Tokens.Light.railFaint
     )
@@ -164,7 +173,7 @@ struct Theme {
         ink: Tokens.Stage.ink, muted: Tokens.Stage.muted,
         faint: Tokens.Stage.faint, line: Tokens.Stage.line,
         line2: Tokens.Stage.line2, accent: Tokens.Stage.accent,
-        blue: Tokens.Stage.blue, wash: Tokens.Stage.wash,
+        inTune: Tokens.Stage.inTune, blue: Tokens.Stage.blue, wash: Tokens.Stage.wash,
         notation: Tokens.Stage.notation, rail: Tokens.Stage.rail,
         railInk: Tokens.Stage.railInk, railFaint: Tokens.Stage.railFaint
     )
