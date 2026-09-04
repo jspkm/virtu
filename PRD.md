@@ -186,9 +186,26 @@ centre tick and both turn green (§12's `inTune`). The octave has to match too: 
 octave up is a perfectly in-tune wrong string, and a tuner that calls that a match is
 worse than one that says nothing.
 
-**The reading is named against the selection, not chromatically.** A D string a semitone
-flat is a flat D — not a confidently in-tune C sharp, which is exactly the reading that
-makes a musician stop turning the peg.
+**The reading names what you are actually playing; the needle measures from what you
+selected.** Two questions, two answers. Play a G with A selected and the name says *G*,
+honestly, while the needle sits hard left of A and the cents read −200: you are on the
+wrong note, and this is which way home is. This reversed an earlier decision to pin the
+*name* to the selection so that a semitone-flat D read "D" rather than a nearly-in-tune
+C♯ — the worry being that "C♯, in tune" makes a musician stop turning the peg. Pinning the
+needle instead makes that safe: the name says C♯, the needle sits at −100 from D, and
+nothing is green. Nobody stops turning on that. And it fixed the complaint that the
+needle "could never hit the centre and went to the rails too easily" — it was pinning for
+any note but the selected one, with no explanation of why.
+
+**The selection is a letter and an accidental**, the way a musician says a note: C–B,
+then flat, natural or sharp. This replaced twelve chromatic chips beside a global
+sharps-or-flats toggle, which sat next to the note and read as a modifier on it — with C
+selected and ♭ lit it looked like C♭ — and had no way to say *neither*. Natural is a
+choice now. E♯ and C♭ are allowed; the arithmetic does not mind. The reading spells black
+notes the way you spelled the selection.
+
+**The calibration bar says "440 Hz", not "A 440 Hz".** The card already shows the note
+you selected; a second letter beside the reference read as a contradiction.
 
 **The tone's range.** Any of the twelve pitch classes, in octaves 2 to 6 — C2 (the
 cello's bottom string, 65Hz) to B6 (1975Hz). Below C2 an iPad speaker cannot reproduce a

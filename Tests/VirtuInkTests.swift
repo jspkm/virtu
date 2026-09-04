@@ -2943,7 +2943,7 @@ final class VirtuInkTests: XCTestCase {
     func testTheToneSurvivesRelaunch() {
         let defaults = Self.scratchDefaults()
         let first = Tuner(defaults: defaults)
-        first.tonePitchClass = 3
+        first.tonePitchClass = 3        // stored as D sharp
         first.toneOctave = 2
         let relaunched = Tuner(defaults: defaults)
         XCTAssertEqual(relaunched.tonePitchClass, 3)
@@ -2990,10 +2990,10 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertEqual(tuner.reading?.octave, 4, "and the reading should say which octave")
     }
 
-    func testAFlatStringKeepsTheNameYouSelected() throws {
-        // The reason the reading is pinned to the selection: chromatic naming
-        // calls a semitone-flat D a C sharp and reports it nearly in tune,
-        // which is exactly the moment a musician stops turning the peg.
+    func testAFlatStringNamesItselfHonestlyAndTheNeedleStillPointsHome() throws {
+        // A D a semitone flat IS a C sharp, and the reading says so. What
+        // keeps a musician turning the peg is the needle, which is measured
+        // from the selection: it sits hard left of D and refuses to go green.
         let tuner = Tuner(defaults: Self.scratchDefaults())
         tuner.referenceHz = 440
         tuner.tonePitchClass = 2        // D
@@ -3002,9 +3002,39 @@ final class VirtuInkTests: XCTestCase {
         let veryFlatD = 146.832 * pow(2, -110.0 / 1200)
         hearSteadily(tuner, veryFlatD)
         let reading = try XCTUnwrap(tuner.reading)
-        XCTAssertEqual(reading.letter, "D", "the flat D was renamed")
-        XCTAssertEqual(reading.cents, -110, accuracy: 1)
+        XCTAssertEqual(reading.letter, "C")
+        XCTAssertEqual(reading.accidental, "\u{266F}", "the note being played is a C sharp; say so")
+        XCTAssertEqual(try XCTUnwrap(tuner.deviationFromSelection), -110, accuracy: 1,
+                       "the needle lost the direction home")
         XCTAssertFalse(tuner.matchesSelection)
+    }
+
+    func testTheSelectionIsALetterAndAnAccidental() {
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.toneLetter = 0            // C
+        tuner.toneAccidental = 1        // sharp
+        XCTAssertEqual(tuner.tonePitchClass, 1)
+        XCTAssertEqual(tuner.toneName, "C\u{266F}")
+
+        tuner.toneAccidental = -1       // flat
+        XCTAssertEqual(tuner.tonePitchClass, 11, "C flat is B")
+        XCTAssertEqual(tuner.toneName, "C\u{266D}")
+        XCTAssertEqual(tuner.spelling, .flats, "the reading spells the way you did")
+
+        tuner.toneAccidental = 0        // natural: the choice a toggle could not offer
+        XCTAssertEqual(tuner.tonePitchClass, 0)
+        XCTAssertEqual(tuner.toneName, "C")
+    }
+
+    func testTheSelectionSurvivesRelaunchAsSpelled() {
+        let defaults = Self.scratchDefaults()
+        let first = Tuner(defaults: defaults)
+        first.toneLetter = 3            // F
+        first.toneAccidental = 1        // F sharp, not G flat
+        first.toneOctave = 2
+        let again = Tuner(defaults: defaults)
+        XCTAssertEqual(again.toneName, "F\u{266F}")
+        XCTAssertEqual(again.toneOctave, 2)
     }
 
     func testChangingTheSelectionChangesWhatCountsAsAMatch() {
@@ -3018,6 +3048,57 @@ final class VirtuInkTests: XCTestCase {
         // Same sound, different question.
         tuner.toneOctave = 4
         XCTAssertFalse(tuner.matchesSelection, "the selection moved and the match did not")
+    }
+
+
+    // MARK: - Needle diagnostic
+
+    func testTheNeedleTracksAGlideAcrossTheInTuneWindow() throws {
+        // A tone gliding from 40 cents flat to 40 cents sharp of the selected
+        // note, delivered the way the microphone delivers it. Every reading
+        // should sit inside the needle's ±50 range and move with the glide.
+        let rate = 48_000.0
+        let chunk = 2_048
+        let tuner = Tuner(defaults: Self.scratchDefaults())
+        tuner.referenceHz = 440
+        tuner.tonePitchClass = 9        // A
+        tuner.toneOctave = 3            // 220Hz
+
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1))
+        let totalChunks = 60            // ~2.5s
+        var phase = 0.0
+        var readings: [(cents: Double, glide: Double)] = []
+
+        for i in 0..<totalChunks {
+            let glide = -40.0 + 80.0 * Double(i) / Double(totalChunks - 1)
+            let hz = 220.0 * pow(2, glide / 1200)
+            let buffer = try XCTUnwrap(
+                AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(chunk)))
+            buffer.frameLength = AVAudioFrameCount(chunk)
+            let data = try XCTUnwrap(buffer.floatChannelData?[0])
+            let partials: [Double] = [1, 0.6, 0.4, 0.25]
+            for n in 0..<chunk {
+                var v = 0.0
+                for (k, a) in partials.enumerated() {
+                    v += a * sin(phase * Double(k + 1))
+                }
+                data[n] = Float(v / partials.reduce(0, +) * 0.4)
+                phase += 2 * .pi * hz / rate
+            }
+            tuner.consume(buffer)
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.02))
+            if let r = tuner.reading { readings.append((r.cents, glide)) }
+        }
+
+        XCTAssertGreaterThan(readings.count, 40, "the pipeline stopped reporting mid-glide")
+        for (cents, glide) in readings.dropFirst(8) {   // let the median settle
+            XCTAssertLessThan(abs(cents), 50, "needle pinned at \(cents)¢ while the glide was at \(glide)¢")
+            XCTAssertEqual(cents, glide, accuracy: 12,
+                           "needle at \(cents)¢ while the glide was at \(glide)¢ — lagging or jumping")
+        }
+        let first = readings.dropFirst(8).first!.cents
+        let last = readings.last!.cents
+        XCTAssertLessThan(first, 0); XCTAssertGreaterThan(last, 0)
     }
 
 }

@@ -68,7 +68,12 @@ final class Tuner {
     // The metronome learned this the hard way.
     private var storedReferenceHz = 442.0
     private var storedMode = Mode.play
-    private var storedTonePitchClass = 9      // A
+    /// C D E F G A B, as pitch classes.
+    static let letterPitchClasses = [0, 2, 4, 5, 7, 9, 11]
+    static let letterNames = ["C", "D", "E", "F", "G", "A", "B"]
+
+    private var storedToneLetter = 5          // A
+    private var storedToneAccidental = 0      // natural
     private var storedToneOctave = 4          // A4
 
     /// Which A everything is measured against. Snapped to one of the four —
@@ -95,20 +100,30 @@ final class Tuner {
 
     func resetReference() { referenceHz = Self.standardReferenceHz }
 
-    /// Sharps or flats, applied everywhere a note is named. A plain stored
-    /// property with a didSet is safe here only because it never writes to
-    /// itself — unlike the clamped setters above it.
-    var spelling: Pitch.Spelling = .sharps {
-        didSet { defaults.set(spelling.rawValue, forKey: "tunerSpelling") }
+    // MARK: - The selection
+
+    /// The letter, 0–6 for C–B.
+    var toneLetter: Int {
+        get { storedToneLetter }
+        set {
+            let wrapped = ((newValue % 7) + 7) % 7
+            guard wrapped != storedToneLetter else { return }
+            storedToneLetter = wrapped
+            defaults.set(wrapped, forKey: "tunerToneLetter")
+            drone.reload()
+        }
     }
 
-    var tonePitchClass: Int {
-        get { storedTonePitchClass }
+    /// −1 flat, 0 natural, +1 sharp. A note is a letter plus one of these,
+    /// which is how a musician says it — and "neither" is a real choice,
+    /// which a sharps-or-flats toggle could not offer.
+    var toneAccidental: Int {
+        get { storedToneAccidental }
         set {
-            let wrapped = ((newValue % 12) + 12) % 12
-            guard wrapped != storedTonePitchClass else { return }
-            storedTonePitchClass = wrapped
-            defaults.set(wrapped, forKey: "tunerTonePitchClass")
+            let clamped = min(max(newValue, -1), 1)
+            guard clamped != storedToneAccidental else { return }
+            storedToneAccidental = clamped
+            defaults.set(clamped, forKey: "tunerToneAccidental")
             drone.reload()
         }
     }
@@ -124,13 +139,35 @@ final class Tuner {
         }
     }
 
-    /// The tuner's own tone — the note the musician set.
-    var toneHz: Double {
-        Self.frequency(pitchClass: storedTonePitchClass, octave: storedToneOctave,
-                       referenceA: storedReferenceHz)
+    /// Derived. E sharp is F and C flat is B; the arithmetic does not mind
+    /// and neither should the tuner.
+    var tonePitchClass: Int {
+        get { ((Self.letterPitchClasses[storedToneLetter] + storedToneAccidental) % 12 + 12) % 12 }
+        set {
+            // Spelled with sharps, for callers that think in pitch classes.
+            let wrapped = ((newValue % 12) + 12) % 12
+            if let letter = Self.letterPitchClasses.firstIndex(of: wrapped) {
+                toneLetter = letter; toneAccidental = 0
+            } else if let letter = Self.letterPitchClasses.firstIndex(of: wrapped - 1) {
+                toneLetter = letter; toneAccidental = 1
+            }
+        }
     }
 
+    /// The selection, written down: "C", "F♯", "B♭".
+    var toneName: String {
+        Self.letterNames[storedToneLetter]
+            + (storedToneAccidental > 0 ? "\u{266F}" : storedToneAccidental < 0 ? "\u{266D}" : "")
+    }
 
+    /// How the reading spells black notes: the way you spelled the selection.
+    var spelling: Pitch.Spelling { storedToneAccidental < 0 ? .flats : .sharps }
+
+    /// The selected note, in hertz, off the A in force.
+    var toneHz: Double {
+        Self.frequency(pitchClass: tonePitchClass, octave: storedToneOctave,
+                       referenceA: storedReferenceHz)
+    }
 
     private(set) var isSounding = false
 
@@ -157,7 +194,7 @@ final class Tuner {
     enum Mode: String, CaseIterable {
         /// Set a note and sound it, to tune against by ear.
         case play
-        /// Listen, and be told what you are actually playing.
+        /// Listen, and be told how far you are from the note you set.
         case listen
     }
 
@@ -169,19 +206,27 @@ final class Tuner {
     /// nothing is.
     private(set) var heardHz: Double?
 
-    /// What that frequency means against the A in force. Derived rather than
-    /// stored, so tapping A 415 re-reads the string you are already holding
-    /// instead of waiting for the next bow stroke.
-    /// What is being heard, named against the note you selected.
+    /// What is being heard, named as the note it is nearest to — the note you
+    /// are actually playing, whether or not it is the one you selected.
     ///
-    /// Pinned rather than chromatic, because the selection is the question:
-    /// a D string a semitone flat is a flat D, not a confidently in-tune C
-    /// sharp, and the second reading is the one that gets a musician to stop
-    /// turning the peg.
+    /// This used to be pinned to the selection, so that a D a semitone flat
+    /// still read "D" rather than a nearly-in-tune C♯. The name is chromatic
+    /// again, and it is safe now because the NEEDLE is what is pinned: play a
+    /// flat D and the name says C♯, honestly, while the needle sits hard left
+    /// of D and refuses to go green. Nobody stops turning the peg on that.
     var reading: Pitch? {
         guard let heardHz else { return nil }
+        return Pitch(frequency: heardHz, referenceA: storedReferenceHz, spelling: spelling)
+    }
+
+    /// How far what is heard is from the note you selected, in the octave
+    /// nearest to it — which is what the needle shows. Beyond ±50 cents the
+    /// needle pins, and that is correct: you are on a different note, the
+    /// reading above says which, and the needle says which way.
+    var deviationFromSelection: Double? {
+        guard let heardHz else { return nil }
         return Pitch(frequency: heardHz, referenceA: storedReferenceHz,
-                     spelling: spelling, pinnedTo: storedTonePitchClass)
+                     spelling: spelling, pinnedTo: tonePitchClass).cents
     }
 
     /// True when what it hears IS what you asked for — the same note, in the
@@ -192,7 +237,7 @@ final class Tuner {
     /// that says nothing.
     var matchesSelection: Bool {
         guard let reading else { return false }
-        return reading.pitchClass == storedTonePitchClass
+        return reading.pitchClass == tonePitchClass
             && reading.octave == storedToneOctave
             && reading.isInTune
     }
@@ -202,8 +247,11 @@ final class Tuner {
         if let stored = defaults.object(forKey: "tunerReferenceHz") as? Double {
             referenceHz = stored          // through the setter, which clamps
         }
-        if defaults.object(forKey: "tunerTonePitchClass") != nil {
-            tonePitchClass = defaults.integer(forKey: "tunerTonePitchClass")
+        if defaults.object(forKey: "tunerToneLetter") != nil {
+            toneLetter = defaults.integer(forKey: "tunerToneLetter")
+        }
+        if defaults.object(forKey: "tunerToneAccidental") != nil {
+            toneAccidental = defaults.integer(forKey: "tunerToneAccidental")
         }
         if defaults.object(forKey: "tunerToneOctave") != nil {
             toneOctave = defaults.integer(forKey: "tunerToneOctave")
@@ -211,10 +259,6 @@ final class Tuner {
         if let raw = defaults.string(forKey: "tunerMode"),
            let value = Mode(rawValue: raw) {
             storedMode = value
-        }
-        if let raw = defaults.string(forKey: "tunerSpelling"),
-           let value = Pitch.Spelling(rawValue: raw) {
-            spelling = value
         }
         drone.fadeOutSeconds = 0.04
     }
