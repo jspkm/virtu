@@ -84,44 +84,56 @@ struct TunerCard: View {
 
     private var toneReading: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            toneGlyph
+            selectionGlyph
             Text("\(tuner.toneOctave)")
                 .font(VFont.mono(13))
                 .foregroundStyle(theme.muted)
             Spacer()
-            spellingToggle
             Text(String(format: "%.1f Hz", tuner.toneHz))
                 .font(VFont.mono(13))
                 .foregroundStyle(theme.muted)
                 .monospacedDigit()
-                .padding(.leading, 8)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(tuner.toneName) \(tuner.toneOctave), \(Int(tuner.toneHz)) hertz")
     }
 
-    private var toneGlyph: some View {
-        let letters = tuner.spelling == .sharps ? Pitch.sharpLetters : Pitch.flatLetters
-        let full = Pitch.name(pitchClass: tuner.tonePitchClass, spelling: tuner.spelling)
-        let accidental = full.count > letters[tuner.tonePitchClass].count
-            ? String(full.suffix(1)) : nil
-        return HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text(letters[tuner.tonePitchClass]).font(VFont.tunerNote)
-            if let accidental {
-                Text(accidental).font(VFont.serif(24)).baselineOffset(9).padding(.leading, 1)
+    /// The note as you spelled it. No bundled face carries U+266F/U+266D, so
+    /// the accidental comes from the system's cascade; asking for it as its
+    /// own Text is what lets it be sized and lifted against the letter.
+    private var selectionGlyph: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(Tuner.letterNames[tuner.toneLetter]).font(VFont.tunerNote)
+            if tuner.toneAccidental != 0 {
+                Text(tuner.toneAccidental > 0 ? "\u{266F}" : "\u{266D}")
+                    .font(VFont.serif(24)).baselineOffset(9).padding(.leading, 1)
             }
         }
         .foregroundStyle(theme.ink)
     }
 
+    /// Seven letters, then flat / natural / sharp. This replaced twelve
+    /// chromatic chips beside a sharps-or-flats toggle: that toggle sat next
+    /// to the note and read as a modifier on it — with C selected and ♭ lit
+    /// it looked like C♭ — and it had no way to say "neither". A letter plus
+    /// an accidental is how a musician names a note, and natural is a choice.
     private var notes: some View {
         VStack(spacing: 4) {
-            ForEach([Array(0..<6), Array(6..<12)], id: \.self) { row in
-                HStack(spacing: 4) {
-                    ForEach(row, id: \.self) { pitchClass in
-                        pill(title: Pitch.name(pitchClass: pitchClass, spelling: tuner.spelling),
-                             selected: tuner.tonePitchClass == pitchClass) {
-                            tuner.tonePitchClass = pitchClass
-                        }
+            HStack(spacing: 4) {
+                ForEach(0..<7, id: \.self) { letter in
+                    pill(title: Tuner.letterNames[letter], selected: tuner.toneLetter == letter) {
+                        tuner.toneLetter = letter
                     }
+                }
+            }
+            HStack(spacing: 4) {
+                ForEach([-1, 0, 1], id: \.self) { accidental in
+                    pill(
+                        title: accidental < 0 ? "\u{266D}" : accidental > 0 ? "\u{266F}" : "\u{266E}",
+                        selected: tuner.toneAccidental == accidental,
+                        serif: true
+                    ) { tuner.toneAccidental = accidental }
+                    .accessibilityLabel(accidental < 0 ? "Flat" : accidental > 0 ? "Sharp" : "Natural")
                 }
             }
         }
@@ -145,10 +157,10 @@ struct TunerCard: View {
             }
             Menu {
                 ForEach(Tuner.references, id: \.self) { hz in
-                    Button("A \(Self.hzLabel(hz)) Hz") { tuner.referenceHz = hz }
+                    Button("\(Self.hzLabel(hz)) Hz") { tuner.referenceHz = hz }
                 }
             } label: {
-                Text("A \(Self.hzLabel(tuner.referenceHz)) Hz")
+                Text("\(Self.hzLabel(tuner.referenceHz)) Hz")
                     .font(VFont.mono(13, weight: .medium))
                     .foregroundStyle(theme.ink)
                     .monospacedDigit()
@@ -174,27 +186,6 @@ struct TunerCard: View {
         }
     }
 
-    private var spellingToggle: some View {
-        HStack(spacing: 4) {
-            ForEach(Pitch.Spelling.allCases, id: \.self) { option in
-                let selected = tuner.spelling == option
-                Button {
-                    tuner.spelling = option; Haptics.selection()
-                } label: {
-                    Text(option == .sharps ? "\u{266F}" : "\u{266D}")
-                        .font(VFont.serif(15))
-                        .foregroundStyle(selected ? theme.paper : theme.muted)
-                        .frame(width: 30, height: 24)
-                        .background(selected ? theme.ink : theme.wash)
-                        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.smallControl))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(option == .sharps
-                    ? "Name black notes as sharps" : "Name black notes as flats")
-            }
-        }
-    }
-
     private var playTransport: some View {
         Button {
             tuner.toggleSounding(); Haptics.medium()
@@ -210,12 +201,14 @@ struct TunerCard: View {
         .buttonStyle(.plain)
     }
 
-    private func pill(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func pill(
+        title: String, selected: Bool, serif: Bool = false, action: @escaping () -> Void
+    ) -> some View {
         Button {
             action(); Haptics.selection()
         } label: {
             Text(title)
-                .font(VFont.mono(12))
+                .font(serif ? VFont.serif(16) : VFont.mono(12))
                 .foregroundStyle(selected ? theme.paper : theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
@@ -268,8 +261,8 @@ struct TunerCard: View {
 
             Spacer()
 
-            if let pitch = tuner.reading {
-                Text(Self.centsLabel(pitch.cents))
+            if let deviation = tuner.deviationFromSelection {
+                Text(Self.centsLabel(deviation))
                     .font(VFont.mono(22, weight: .medium))
                     .foregroundStyle(tuner.matchesSelection ? theme.inTune : theme.muted)
                     .monospacedDigit()
@@ -324,11 +317,11 @@ struct TunerCard: View {
                     .offset(x: width / 2 - (tuner.matchesSelection ? 2 : 1))
                     .animation(.easeOut(duration: 0.18), value: tuner.matchesSelection)
 
-                if let pitch = tuner.reading {
+                if let deviation = tuner.deviationFromSelection {
                     Capsule()
                         .fill(tuner.matchesSelection ? theme.inTune : theme.ink)
                         .frame(width: 4, height: 22)
-                        .offset(x: needleOffset(cents: pitch.cents, width: width))
+                        .offset(x: needleOffset(cents: deviation, width: width))
                         .animation(.easeOut(duration: 0.18), value: tuner.matchesSelection)
                 }
             }
