@@ -756,6 +756,15 @@ final class ReadingPageView: UIView {
         normalizeWork?.cancel()
         normalizeWork = nil
         pencilDown = false
+        // Undo history is page-scoped. The registered actions guard on page
+        // identity too, but leaving them on the stack means the first tap
+        // after a turn silently does nothing — drop them outright.
+        canvas.undoManager?.removeAllActions(withTarget: self)
+        // An area-erase rub cannot span a turn either: its `before` is the
+        // page we are leaving, and finishing it here would hand that page's
+        // ink to the undo stack under the new page's name.
+        eraseSessionBefore = nil
+        eraseSessionChanged = false
         self.partID = partID
         self.pageIndex = pageIndex
 
@@ -766,6 +775,21 @@ final class ReadingPageView: UIView {
                     layerDrawings[layer] = saved
                 }
             }
+            // The cap was 10 until 2026-08-22 and is 3 now. Ink written on
+            // layers 4–10 under those builds is still on disk and was simply
+            // never loaded again — which, to the musician, is ink that
+            // vanished. Fold it into the top layer so it is seen. Read-forward
+            // only: the old files are left alone, and the merged layer is
+            // written the next time it is marked, like any other.
+            var folded = layerDrawings[AnnotationLayers.max] ?? PKDrawing()
+            var foldedAny = false
+            for layer in (AnnotationLayers.max + 1)...AnnotationLayers.legacyMax {
+                guard let stranded = journal.load(partID: partID, pageIndex: pageIndex, layer: layer),
+                      !stranded.strokes.isEmpty else { continue }
+                folded.strokes.append(contentsOf: stranded.strokes)
+                foldedAny = true
+            }
+            if foldedAny { layerDrawings[AnnotationLayers.max] = folded }
         }
         appliedScale = 0
         applyDrawingToCanvas()
@@ -980,7 +1004,17 @@ final class ReadingPageView: UIView {
         persist(layer: target)
 
         if registerUndo {
+            // This view is REUSED across page turns — configure() re-keys the
+            // same object — and the undo manager on the responder chain
+            // outlives every turn. Registered against `self` with no page
+            // identity, an undo after turning replayed an old state of the
+            // page you LEFT onto the page you were ON, and persist() made it
+            // durable. That was how a musician's marks all vanished on
+            // 2026-09-04. The action now remembers which page it belongs to
+            // and refuses to touch any other; configure() also drops it.
+            let owner = (partID, pageIndex)
             canvas.undoManager?.registerUndo(withTarget: self) { page in
+                guard page.partID == owner.0, page.pageIndex == owner.1 else { return }
                 page.setMaster(before, registerUndo: true, layer: target)
             }
         }

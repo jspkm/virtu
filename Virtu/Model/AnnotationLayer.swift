@@ -11,6 +11,12 @@ enum AnnotationLayers {
     static let max = 3
     static let first = 1
 
+    /// What `max` was from 2026-08-20 to 2026-08-22. Ink written on layers
+    /// 4–10 under those builds is still on disk; nothing may pretend it is
+    /// not there. `configure` folds it into the top layer, and a destroyed
+    /// work takes it to the bin with everything else.
+    static let legacyMax = 10
+
     // The Right Page belongs to a SPREAD — not to the part, and not to a
     // single score page.
     //
