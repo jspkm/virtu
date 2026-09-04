@@ -2267,6 +2267,10 @@ Any surprise at any step = not done, regardless of the green suite.
   committed by our own pipeline — one stroke, one renderer, no handoff.
 
 
+> **After the 2026-09-04 loss (PRD §8.5), add to every hand protocol:** write on one page,
+> turn, two-finger tap. The new page's marks must not change. Then turn back: the first
+> page's marks must all still be there.
+>
 > **Half 2 is owed three extensions**, none of them yet written into the steps above:
 > text/import/crash coverage (Part III, B5), the Pencil-less row disappearing after a
 > first pencil stroke (Part I, Task 3), and the tuner's five hardware checks (Part VI).
@@ -2320,6 +2324,20 @@ from anywhere) and what a metronome control in the reading chrome would guarante
 rather than letting two owners write the same global flag.
 
 **Trigger:** before any control that stops a practice tool from outside the Tools screen.
+
+---
+
+## Surface the shadow: "restore this page's marks"
+
+**What:** `StrokeJournal.previous(partID:pageIndex:layer:)` returns the record a shrinking
+write replaced (PRD §8.5). Nothing in the UI reads it yet. A page that has a shadow could
+offer one control — in the layer rail, or on long-press of the page — that puts the
+previous marks back, and registers that as a normal undoable edit.
+
+**Why it matters:** the shadow turns a data-loss bug into a recoverable one only if a
+musician can reach it without a support call.
+
+**Trigger:** before the next TestFlight build reaches anyone beyond Hannah.
 
 ---
 

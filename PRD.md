@@ -598,8 +598,9 @@ compositing) but that is a design intention, not a number. "Strokes lost, ever:
 
 ### 8.4 Testing
 
-- **PARTIAL** — the in-process half is built (2026-09-01) and runs on every build: 25
-  randomised trials each stage the real crash window — ink safely on disk, then a journal
+- **PARTIAL** — the in-process half is built (2026-09-01) and runs on every build, joined
+  after the loss recorded in §8.5 by the shadow-on-shrink and page-scoped-undo tests.
+  Twenty-five randomised trials each stage the real crash window — ink safely on disk, then a journal
   entry with no matching compacted record, which is exactly what a kill between the
   journal write and the compact leaves — then replay and assert the ink came back. A
   second test asserts the inverse, that a stale journal from an older crash cannot
@@ -619,6 +620,59 @@ carriers and the nib ladder. That suite is the reason several regressions in
 this document's own features were caught before reaching hardware — but it
 tests the ink pipeline, not durability under crash, which is what §0.3
 actually promises.
+
+---
+
+### §8.5 — The 2026-09-04 loss, and what it changed
+
+The first working musician to use Virtu lost everything she had written. She could not say
+what she had done. This section records what it was, because §0.3 is the product and a
+failure of it has to be written where the next person will read it.
+
+**What happened.** The two reading-page views are reused across page turns — a turn re-keys
+the same object. Undo was registered against that object with the previous drawing
+captured but **no page identity**, and nothing cleared the undo stack on a turn. So a
+two-finger tap after turning replayed an old state of the page she had *left* onto the page
+she was *on*, and the journal — doing exactly what §8.1 asks of it — made that durable.
+Each further tap walked further back through the session onto whatever page was current;
+the first stroke of the session has an empty "before", and that tap blanks the page. A
+resting hand is a two-finger tap. Reproduced in `testUndoRegisteredOnOnePageCannotRewriteAnother`,
+which failed on screen and on disk before the fix.
+
+It is the same defect family as the 28 August orphan-canvas bug: state that survives a
+page turn without being re-keyed to the page. Two in a week is a pattern, and `configure()`
+now resets every piece of page-scoped state it knows about — undo history, the erase
+session, the lasso session, the pending normalization — rather than the ones that had
+bitten so far.
+
+**What changed.**
+
+1. **Undo is page-scoped.** A registered action remembers the page it belongs to and
+   refuses to apply to any other; a turn also drops the leaving page's history outright, so
+   the first tap on a new page cannot even reach a dead action. The cost is that turning back
+   to a page and undoing its last stroke no longer works. That is the right trade: undo is
+   for the page under your hand.
+
+2. **The journal shadows on shrink.** §8.1's write-ahead journal protects ink from the
+   *device* dying. It never protected ink from *this app* writing the wrong thing — it
+   cannot tell a blank page written by a bug from one written by an eraser, and it made both
+   durable with equal care. Now any write carrying less than the record it replaces keeps
+   that record beside it (`<key>.vink.prev`). A bug of this class can cost at most one edit,
+   and the edit is recoverable. Ordinary strokes only ever grow the record and cost nothing.
+   Not yet surfaced in the UI — a "restore this page's marks" control is the obvious next
+   step and is filed in PLAN.
+
+3. **Ink on layers past the cap is shown, not stranded.** The layer cap was ten from 20 to
+   22 August and is three since. Anything written on layers 4–10 under those builds was
+   still on disk and simply never loaded again — which to the musician is ink that vanished.
+   `configure()` folds it into the top layer. Read-forward only; nothing is rewritten.
+
+**What did not change, and should be said plainly.** Ink lives on one device. There is no
+sync (§6.0(3)) and no backup of Virtu's own, so a lost, wiped or replaced iPad loses every
+mark on it. That is a known and deliberate gap — a merge bug that eats annotations ends the
+product — but it means "never lost" today has an unstated clause: *never lost by Virtu*.
+The musician's marks from before this fix are not recoverable if the undo replay was the
+cause; if the layer cap was, the fixed build brings them back on its own.
 
 ---
 

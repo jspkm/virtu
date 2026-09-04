@@ -60,8 +60,22 @@ final class StrokeJournal {
             // 1. Write to journal first (append-only, atomic)
             self.appendJournalEntry(payload: payload, key: key)
 
+            // 1½. Shadow on shrink. Steps 1–3 protect the ink from the device
+            // dying; they never protected it from THIS APP writing the wrong
+            // thing, which is how a musician lost every mark she had made on
+            // 2026-09-04 — an undo replayed a blank page over a full one, and
+            // this code faithfully made it durable. So a write carrying less
+            // than the record it replaces keeps that record beside it. Bytes,
+            // not strokes: decoding every old record on every save is not
+            // worth it, and a smaller payload is a smaller drawing. Ordinary
+            // strokes only ever grow the record and cost nothing here.
+            let recordURL = self.recordURL(for: key)
+            if let existing = try? Data(contentsOf: recordURL), payload.count < existing.count {
+                try? existing.write(to: self.shadowURL(for: key), options: .atomic)
+            }
+
             // 2. Write compacted record
-            try? payload.write(to: self.recordURL(for: key), options: .atomic)
+            try? payload.write(to: recordURL, options: .atomic)
 
             // 3. Clear journal after successful compact write
             try? FileManager.default.removeItem(at: self.journalURL(for: key))
@@ -87,6 +101,17 @@ final class StrokeJournal {
         } else {
             try? line.write(to: journalURL, options: .atomic)
         }
+    }
+
+    /// The record a shrinking write replaced, if any. Not surfaced in the UI
+    /// yet; it exists so that a page blanked by a bug is a support call and
+    /// not a loss.
+    func previous(partID: UUID, pageIndex: Int, layer: Int) -> PKDrawing? {
+        let key = storageKey(partID: partID, pageIndex: pageIndex, layer: layer)
+        guard let data = try? Data(contentsOf: shadowURL(for: key)),
+              let record = try? JSONDecoder().decode(PageInkRecord.self, from: data)
+        else { return nil }
+        return record.drawing
     }
 
     func load(partID: UUID, pageIndex: Int, layer: Int) -> PKDrawing? {
@@ -122,11 +147,12 @@ final class StrokeJournal {
                 + [-1, -2]
             for pageIndex in slots {
                 try? fm.removeItem(at: self.legacyURL(partID: partID, pageIndex: pageIndex))
-                // Through layer 10, not 3: parts persisted under the old cap
+                // Through the OLD cap, not today's: parts persisted under it
                 // can hold files on layers the UI no longer reaches.
-                for layer in AnnotationLayers.first...10 {
+                for layer in AnnotationLayers.first...AnnotationLayers.legacyMax {
                     let key = self.storageKey(partID: partID, pageIndex: pageIndex, layer: layer)
                     try? fm.removeItem(at: self.recordURL(for: key))
+                    try? fm.removeItem(at: self.shadowURL(for: key))
                     try? fm.removeItem(at: self.journalURL(for: key))
                 }
             }
@@ -180,6 +206,10 @@ final class StrokeJournal {
 
     private func recordURL(for key: String) -> URL {
         directory.appendingPathComponent("\(key).vink")
+    }
+
+    private func shadowURL(for key: String) -> URL {
+        directory.appendingPathComponent("\(key).vink.prev")
     }
 
     private func journalURL(for key: String) -> URL {

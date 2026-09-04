@@ -3101,4 +3101,167 @@ final class VirtuInkTests: XCTestCase {
         XCTAssertLessThan(first, 0); XCTAssertGreaterThan(last, 0)
     }
 
+
+    // MARK: - Undo across a page turn (data-loss investigation, 2026-09-04)
+
+    func testUndoRegisteredOnOnePageCannotRewriteAnother() throws {
+        // The page views are reused across turns: configure() re-keys the
+        // same object to a new page. Undo is registered against that object
+        // with `before` captured but no page identity, and nothing clears the
+        // undo stack on a turn. So an undo after turning the page replays an
+        // old state of the page you LEFT onto the page you are ON — and
+        // persist() makes it durable.
+        let pdfSize = CGSize(width: 612, height: 792)
+        let partID = UUID()
+
+        // Page 1 already carries a mark of its own.
+        let pageOneMark = makeStroke(from: CGPoint(x: 300, y: 400), to: CGPoint(x: 380, y: 400))
+        StrokeJournal.shared.save(makeDrawing([pageOneMark]), partID: partID, pageIndex: 1,
+                                  layer: AnnotationLayers.first, pageSize: pdfSize)
+        waitForJournal()
+
+        // A page hosted under a view controller, so the responder chain
+        // vends a real undo manager — the one the two-finger tap uses.
+        let page = ReadingPageView(frame: CGRect(origin: .zero, size: pdfSize))
+        let vc = UIViewController()
+        vc.view.frame = CGRect(origin: .zero, size: pdfSize)
+        vc.view.addSubview(page)
+        let window = UIWindow(frame: CGRect(origin: .zero, size: pdfSize))
+        window.rootViewController = vc
+        window.makeKeyAndVisible()
+        page.setLayers(active: AnnotationLayers.first, visible: [AnnotationLayers.first])
+        page.annotationEnabled = true
+
+        // Write on page 0. This registers an undo whose `before` is empty.
+        page.configure(partID: partID, pageIndex: 0, pdfSize: pdfSize)
+        page.layoutIfNeeded()
+        page.addStrokes([makeStroke(from: CGPoint(x: 40, y: 60), to: CGPoint(x: 40, y: 300))])
+        waitForJournal()
+        let manager = try XCTUnwrap(page.canvas.undoManager, "no undo manager on the chain — the test cannot fire the gesture path")
+        XCTAssertTrue(manager.canUndo, "the write did not register an undo; this test proves nothing")
+
+        // Turn to page 1. Its own mark is there.
+        page.configure(partID: partID, pageIndex: 1, pdfSize: pdfSize)
+        page.layoutIfNeeded()
+        XCTAssertEqual(page.testActiveDrawing.strokes.count, 1, "page 1 did not load its own ink")
+
+        // Two-finger tap.
+        manager.undo()
+        waitForJournal()
+
+        XCTAssertEqual(page.testActiveDrawing.strokes.count, 1,
+                       "an undo registered on page 0 rewrote page 1 on screen")
+        let onDisk = try XCTUnwrap(StrokeJournal.shared.load(
+            partID: partID, pageIndex: 1, layer: AnnotationLayers.first))
+        XCTAssertEqual(onDisk.strokes.count, 1,
+                       "an undo registered on page 0 rewrote page 1 ON DISK — the mark is gone")
+    }
+
+
+    func testTurningThePageDropsThatPagesUndoHistory() throws {
+        // Belt to the identity guard's braces: after a turn there is nothing
+        // left to undo from the page you left, so a two-finger tap on the new
+        // page cannot even reach a dead action.
+        let pdfSize = CGSize(width: 612, height: 792)
+        let page = ReadingPageView(frame: CGRect(origin: .zero, size: pdfSize))
+        let vc = UIViewController()
+        vc.view.frame = CGRect(origin: .zero, size: pdfSize)
+        vc.view.addSubview(page)
+        let window = UIWindow(frame: CGRect(origin: .zero, size: pdfSize))
+        window.rootViewController = vc
+        window.makeKeyAndVisible()
+        page.setLayers(active: AnnotationLayers.first, visible: [AnnotationLayers.first])
+        page.annotationEnabled = true
+
+        let partID = UUID()
+        page.configure(partID: partID, pageIndex: 0, pdfSize: pdfSize)
+        page.layoutIfNeeded()
+        page.addStrokes([makeStroke(from: CGPoint(x: 40, y: 60), to: CGPoint(x: 40, y: 300))])
+        // A page turn is a separate event from the stroke. Without this the
+        // undo group opened by the stroke is still open when the turn runs,
+        // and NSUndoManager reports the empty open group as undoable.
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        let manager = try XCTUnwrap(page.canvas.undoManager)
+        XCTAssertTrue(manager.canUndo)
+
+        page.configure(partID: partID, pageIndex: 1, pdfSize: pdfSize)
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        XCTAssertFalse(manager.canUndo, "page 0's undo history followed the view to page 1")
+        waitForJournal()
+    }
+
+    func testInkOnLayersPastTheCapIsShownNotLost() throws {
+        // The cap was 10 until 2026-08-22. A mark made on layer 5 under one
+        // of those builds is still on disk; the only question is whether the
+        // musician ever sees it again.
+        let pdfSize = CGSize(width: 612, height: 792)
+        let partID = UUID()
+        let stranded = makeStroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 400, y: 100))
+        StrokeJournal.shared.save(makeDrawing([stranded]), partID: partID, pageIndex: 0,
+                                  layer: 5, pageSize: pdfSize)
+        let kept = makeStroke(from: CGPoint(x: 100, y: 300), to: CGPoint(x: 400, y: 300))
+        StrokeJournal.shared.save(makeDrawing([kept]), partID: partID, pageIndex: 0,
+                                  layer: AnnotationLayers.max, pageSize: pdfSize)
+        waitForJournal()
+
+        let page = makePageView(partID: partID)
+        page.setLayers(active: AnnotationLayers.max, visible: [1, 2, 3])
+        XCTAssertEqual(page.testActiveDrawing.strokes.count, 2,
+                       "the mark on layer 5 is on disk and not on screen — that is the ink that vanished")
+
+        // And the old file is left where it was: no rewrite pass, ever.
+        XCTAssertNotNil(StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: 5))
+    }
+
+
+    // MARK: - §0.3 against our own bugs: shadow on shrink
+
+    func testAWriteThatShrinksAPageShadowsWhatItReplaced() throws {
+        // The journal's crash protection guards against the device dying. It
+        // never guarded against the app itself writing the wrong thing — and
+        // that is exactly how a musician lost everything on 2026-09-04. So any
+        // write that carries LESS ink than the record it replaces keeps that
+        // record beside it. A bug can now cost at most one edit, and the edit
+        // is recoverable.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        let layer = AnnotationLayers.first
+        let three = (0..<3).map { i in
+            makeStroke(from: CGPoint(x: 40 + i * 20, y: 60), to: CGPoint(x: 40 + i * 20, y: 300))
+        }
+        StrokeJournal.shared.save(makeDrawing(three), partID: partID, pageIndex: 0,
+                                  layer: layer, pageSize: pageSize)
+        waitForJournal()
+        XCTAssertNil(StrokeJournal.shared.previous(partID: partID, pageIndex: 0, layer: layer),
+                     "nothing has been replaced yet")
+
+        // The kind of write this bug produced: a page blanked.
+        StrokeJournal.shared.save(makeDrawing([]), partID: partID, pageIndex: 0,
+                                  layer: layer, pageSize: pageSize)
+        waitForJournal()
+
+        XCTAssertEqual(StrokeJournal.shared.load(partID: partID, pageIndex: 0, layer: layer)?.strokes.count, 0)
+        let shadow = try XCTUnwrap(
+            StrokeJournal.shared.previous(partID: partID, pageIndex: 0, layer: layer),
+            "the blanked page left nothing behind — three strokes are gone for good")
+        XCTAssertEqual(shadow.strokes.count, 3)
+    }
+
+    func testAWriteThatGrowsAPageDoesNotChurnTheShadow() throws {
+        // Every ordinary stroke makes the record bigger. Shadowing those
+        // would double every write for no protection at all, since the new
+        // record is a superset of the old.
+        let partID = UUID()
+        let pageSize = CGSize(width: 612, height: 792)
+        let layer = AnnotationLayers.first
+        var strokes: [PKStroke] = []
+        for i in 0..<3 {
+            strokes.append(makeStroke(from: CGPoint(x: 40 + i * 20, y: 60), to: CGPoint(x: 40 + i * 20, y: 300)))
+            StrokeJournal.shared.save(makeDrawing(strokes), partID: partID, pageIndex: 0,
+                                      layer: layer, pageSize: pageSize)
+        }
+        waitForJournal()
+        XCTAssertNil(StrokeJournal.shared.previous(partID: partID, pageIndex: 0, layer: layer))
+    }
+
 }
